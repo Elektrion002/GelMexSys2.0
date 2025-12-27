@@ -1,8 +1,10 @@
 # app/models/users.py
 from app.extensions import db
 from datetime import datetime
+from flask_login import UserMixin # <--- 1. NUEVO IMPORT
+from werkzeug.security import check_password_hash # <--- 2. NUEVO IMPORT
 
-class Usuario(db.Model):
+class Usuario(UserMixin, db.Model): # <--- 3. HERENCIA NUEVA
     __tablename__ = 'usuarios'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -15,9 +17,9 @@ class Usuario(db.Model):
     estado_civil = db.Column(db.String(50))
     profesion = db.Column(db.String(100))
     curp = db.Column(db.String(18))
-    rfc = db.Column(db.String(13)) # Fiscal
+    rfc = db.Column(db.String(13))
 
-    # --- DOMICILIO (Desglosado) ---
+    # --- DOMICILIO ---
     calle = db.Column(db.String(100))
     num_exterior = db.Column(db.String(20))
     num_interior = db.Column(db.String(20))
@@ -39,17 +41,17 @@ class Usuario(db.Model):
     # --- LABORAL ---
     puesto_id = db.Column(db.Integer, db.ForeignKey('cat_puestos.id'))
     fecha_inicio_empresa = db.Column(db.Date, default=datetime.utcnow)
-    calificacion_evaluacion = db.Column(db.Integer, default=5) # 1-5 Estrellas
+    calificacion_evaluacion = db.Column(db.Integer, default=5)
     notas_generales = db.Column(db.Text)
 
     # --- SEGURIDAD ---
     email_acceso = db.Column(db.String(100), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    pin_seguridad = db.Column(db.String(6)) # Para aprobar movimientos rápidos
+    pin_seguridad = db.Column(db.String(6))
     nivel_usuario = db.Column(db.Integer, default=1)
     activo = db.Column(db.Boolean, default=True)
 
-    # --- DOCUMENTACIÓN (Rutas de archivos) ---
+    # --- DOCUMENTACIÓN ---
     foto_perfil = db.Column(db.String(255))
     img_ine_frente = db.Column(db.String(255))
     img_ine_reverso = db.Column(db.String(255))
@@ -59,6 +61,11 @@ class Usuario(db.Model):
 
     # Relaciones
     puesto = db.relationship('CatPuesto', backref='usuarios')
+
+    # --- MÉTODOS NUEVOS PARA LOGIN ---
+    def check_password(self, password):
+        """Verifica si la contraseña coincide con el hash"""
+        return check_password_hash(self.password_hash, password)
 
     def __repr__(self):
         return f'<Usuario {self.nombres} {self.apellido_paterno}>'

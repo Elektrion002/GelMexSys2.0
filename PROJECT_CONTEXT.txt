@@ -1,6 +1,6 @@
 ============================================================
  GELMEXSYS 2.0 - REPORTE DE CONTEXTO TÉCNICO (PostgreSQL)
- FECHA: 2025-12-27 15:11:04
+ FECHA: 2025-12-27 15:31:22
 ============================================================
 
 ------------------------------
@@ -12,12 +12,14 @@ ESTRUCTURA DE DIRECTORIOS:
     intrucciones git.txt
     requirements.txt
     run.py
+    seed_runner.py
     setup_db.py
     setup_structure.py
     [app/]
         extensions.py
         __init__.py
         [blueprints/]
+            api_test.py
             __init__.py
         [models/]
             catalogs.py
@@ -31,11 +33,11 @@ ESTRUCTURA DE DIRECTORIOS:
             [js/]
         [templates/]
     [db_seeds/]
-        01_catalogs_data.py
-        02_infrastructure_data.py
-        03_products_data.py
-        04_users_data.py
-        05_clients_data.py
+        data_catalogs.py
+        data_clients.py
+        data_infrastructure.py
+        data_products.py
+        data_users.py
 ------------------------------
 
 
@@ -516,6 +518,83 @@ python run.py
 3. Deberías ver ahí toda la lista: `almacenes`, `clientes`, `productos`, `usuarios`... ¡Todas las tablas vacías creadas por SQLAlchemy!
 
 
+¡Excelente iniciativa! Es el momento exacto para hacer un **Checkpoint (Commit)**. Acabamos de pasar de una "App Hola Mundo" a un **Sistema ERP con Arquitectura de Datos Enterprise conectada a PostgreSQL**.
+
+Si algo se rompe mañana, necesitamos poder volver a este punto exacto donde todo funciona (Tablas creadas + Conexión Exitosa).
+
+Aquí tienes el procedimiento para ejecutar la **OP-50 (Control de Cambios)** siguiendo tu estándar.
+
+---
+
+### OP 50: Aseguramiento de Versión (Git Commit)
+
+**Descripción:** Consolidación de la Arquitectura de Datos, Modelos ORM y conexión a motor de base de datos.
+
+**1. Verificar el Estado (Reconocimiento)**
+Primero, vamos a ver todo lo que Git detectó que cambiamos (Modelos, Config, Seeds, etc.). Ejecuta en tu terminal:
+
+```powershell
+git status
+
+```
+
+*Deberías ver en rojo (o verde si ya agregaste algo) archivos como `app/models/`, `db_seeds/`, `config.py`, `setup_db.py`, etc.*
+
+**2. Preparar el Paquete (Staging)**
+Vamos a subir todo al área de preparación.
+
+```powershell
+git add .
+
+```
+
+**3. Ejecutar el Commit (Guardado)**
+Este es el comando clave. Copia y pega este mensaje para que quede profesional y descriptivo en el historial:
+
+```powershell
+git commit -m "Feat: Implementacion Arquitectura de Datos PostgreSQL y Modelos ORM
+
+- Configuracion de conexion a PostgreSQL en config.py (GMX-DB-01).
+- Creacion de Modelos Maestros: Catalogos, Usuarios, Productos, Clientes, Infraestructura.
+- Integracion de script de sembrado de datos (seed_runner.py) y diccionarios de datos.
+- Instalacion de driver psycopg2-binary.
+- Validacion de creacion de tablas en pgAdmin 4."
+
+```
+
+---
+
+### Actualización de tu Documentación
+
+Para mantener tu **HOJA DE MÉTODO (GMX-OP-01)** actualizada con lo que acabamos de hacer, aquí tienes el bloque que debes agregar al final de tu documento de texto para cerrar el ciclo de la "Revisión 1.1":
+
+#### OP 60: Integración de Motor de Datos (Post-Deployment)
+
+**Descripción:** Vinculación del entorno de aplicación con el servidor de datos persistente.
+
+1. **Instalación de Driver:**
+```powershell
+pip install psycopg2-binary
+
+```
+
+
+2. **Configuración de Enlace:**
+Editar `config.py` para apuntar a `postgresql://postgres:***@localhost:5432/gelmex_db`.
+3. **Despliegue de Esquema:**
+Ejecutar script de diagnóstico y construcción:
+```powershell
+python setup_db.py
+
+```
+
+
+*Criterio de Aceptación: Mensaje "✅ ¡ÉXITO! TABLAS CREADAS CORRECTAMENTE." y visualización de 34 tablas en pgAdmin.*
+
+---
+
+
+
 ========================= FILE: .\intrucciones git.txt =========================
 1. Revisa qué vas a meter al horno
 powershell
@@ -552,6 +631,152 @@ app = create_app(config_name)
 if __name__ == '__main__':
     print(f"--> Arrancando GelMexSys en modo: {config_name}")
     app.run()
+
+========================= FILE: .\seed_runner.py =========================
+# seed_runner.py
+from app import create_app
+from app.extensions import db
+from werkzeug.security import generate_password_hash
+
+# --- IMPORTAR MODELOS ---
+from app.models.catalogs import *
+from app.models.users import Usuario
+from app.models.infrastructure import Almacen, UbicacionAlmacen, RutaReparto
+from app.models.products import Producto, MateriaPrima
+from app.models.clients import Cliente, PrecioEspecialCliente
+
+# --- IMPORTAR DATOS (Nombres Corregidos) ---
+from db_seeds.data_catalogs import CATALOGOS
+from db_seeds.data_infrastructure import ALMACENES, RUTAS
+from db_seeds.data_products import PRODUCTOS, MATERIAS_PRIMAS
+from db_seeds.data_users import USUARIOS
+from db_seeds.data_clients import CLIENTES
+
+app = create_app()
+
+def run_seeds():
+    with app.app_context():
+        print("🌱 INICIANDO SEMBRADO DE DATOS GELMEXSYS 2.0...")
+        
+        # 1. CATÁLOGOS
+        print("--> Sembrando Catálogos...")
+        mapa_catalogos = {
+            "cat_plantas": CatPlanta, "cat_areas": CatArea, "cat_ubicaciones": CatUbicacion,
+            "cat_unidades_medida": CatUnidadMedida, "cat_categorias_producto": CatCategoriaProducto,
+            "cat_categorias_materia_prima": CatCategoriaMateriaPrima, "cat_tipos_almacen": CatTipoAlmacen,
+            "cat_tipos_movimiento_almacen": CatTipoMovimientoAlmacen, "cat_puestos": CatPuesto,
+            "cat_tipos_vehiculo": CatTipoVehiculo, "cat_estados_fisicos": CatEstadoFisico,
+            "cat_conceptos_finanzas": CatConceptoFinanzas, "cat_tipos_incidencia": CatTipoIncidencia,
+            "cat_bancos_cajas": CatBancoCaja, "cat_tipos_descuento": CatTipoDescuento,
+            "cat_tipos_pago_solicitado": CatTipoPagoSolicitado, "cat_estados_orden_venta": CatEstadoOrdenVenta,
+            "cat_estados_plan_produccion": CatEstadoPlanProduccion, "cat_estados_orden_empaque": CatEstadoOrdenEmpaque,
+            "cat_tipos_movimiento_finanzas": CatTipoMovimientoFinanzas, "cat_estados_deuda_empresa": CatEstadoDeudaEmpresa,
+            "cat_tipos_flujo": CatTipoFlujo, "cat_origenes_flujo": CatOrigenFlujo, "cat_periodos": CatPeriodo
+        }
+
+        for tabla_key, modelo in mapa_catalogos.items():
+            datos = CATALOGOS.get(tabla_key, [])
+            for item in datos:
+                # Búsqueda flexible (por descripción o nombre)
+                criterio = {}
+                if hasattr(modelo, 'descripcion'): criterio['descripcion'] = item['descripcion']
+                elif hasattr(modelo, 'nombre'): criterio['nombre'] = item['nombre']
+                
+                if not modelo.query.filter_by(**criterio).first():
+                    db.session.add(modelo(**item))
+        db.session.commit()
+
+        # 2. INFRAESTRUCTURA
+        print("--> Sembrando Infraestructura...")
+        for r in RUTAS:
+            if not RutaReparto.query.filter_by(descripcion=r['descripcion']).first():
+                db.session.add(RutaReparto(**r))
+        db.session.commit()
+
+        for alm in ALMACENES:
+            if not Almacen.query.filter_by(descripcion=alm['descripcion']).first():
+                tipo = CatTipoAlmacen.query.filter_by(nombre=alm['tipo']).first()
+                planta = CatPlanta.query.filter_by(descripcion=alm['planta']).first()
+                # Búsqueda parcial para Área
+                area = CatArea.query.filter(CatArea.descripcion.ilike(f"%{alm['area']}%")).first()
+                
+                if tipo and planta and area:
+                    nuevo = Almacen(descripcion=alm['descripcion'], tipo_id=tipo.id, planta_id=planta.id, area_id=area.id)
+                    db.session.add(nuevo)
+                    db.session.commit()
+                    for ubi in alm['ubicaciones']:
+                        db.session.add(UbicacionAlmacen(codigo=ubi['codigo'], notas=ubi['notas'], almacen_id=nuevo.id))
+        db.session.commit()
+
+        # 3. PRODUCTOS
+        print("--> Sembrando Inventario Maestro...")
+        for p in PRODUCTOS:
+            if not Producto.query.filter_by(sku=p['sku']).first():
+                cat = CatCategoriaProducto.query.filter_by(nombre=p['categoria']).first()
+                uni = CatUnidadMedida.query.filter_by(nombre=p['unidad']).first()
+                if cat and uni:
+                    # Quitamos campos que no son columnas directas
+                    data = {k: v for k, v in p.items() if k not in ['categoria', 'unidad', 'imagen']}
+                    prod = Producto(**data)
+                    prod.categoria_id, prod.unidad_id = cat.id, uni.id
+                    prod.imagen_producto = p.get('imagen')
+                    db.session.add(prod)
+        
+        for mp in MATERIAS_PRIMAS:
+            if not MateriaPrima.query.filter_by(sku=mp['sku']).first():
+                cat = CatCategoriaMateriaPrima.query.filter_by(nombre=mp['categoria']).first()
+                uni = CatUnidadMedida.query.filter_by(nombre=mp['unidad']).first()
+                if cat and uni:
+                    data = {k: v for k, v in mp.items() if k not in ['categoria', 'unidad', 'imagen']}
+                    mat = MateriaPrima(**data)
+                    mat.categoria_id, mat.unidad_id = cat.id, uni.id
+                    mat.imagen_materia = mp.get('imagen')
+                    db.session.add(mat)
+        db.session.commit()
+
+        # 4. USUARIOS
+        print("--> Sembrando Usuarios...")
+        for u in USUARIOS:
+            if not Usuario.query.filter_by(email_acceso=u['email']).first():
+                puesto = CatPuesto.query.filter_by(nombre=u['puesto']).first()
+                data = u.copy()
+                del data['password_raw'], data['puesto'], data['email']
+                
+                user = Usuario(**data)
+                user.email_acceso = u['email']
+                user.password_hash = generate_password_hash(u['password_raw'])
+                if puesto: user.puesto_id = puesto.id
+                db.session.add(user)
+        db.session.commit()
+
+        # 5. CLIENTES
+        print("--> Sembrando Clientes...")
+        for c in CLIENTES:
+            if not Cliente.query.filter_by(nombre_negocio=c['nombre_negocio']).first():
+                ruta = RutaReparto.query.filter_by(descripcion=c['ruta_asignada']).first()
+                data = c.copy()
+                precios = data.pop('precios_especiales', [])
+                del data['ruta_asignada']
+                
+                cte = Cliente(**data)
+                if ruta: cte.ruta_id = ruta.id
+                db.session.add(cte)
+                db.session.commit()
+
+                for pe in precios:
+                    prod = Producto.query.filter_by(sku=pe['producto_sku']).first()
+                    td = CatTipoDescuento.query.filter_by(descripcion=pe['tipo_descuento']).first()
+                    if prod and td:
+                        db.session.add(PrecioEspecialCliente(cliente_id=cte.id, producto_id=prod.id, tipo_descuento_id=td.id, valor_descuento=pe['valor']))
+        db.session.commit()
+        
+        print("\n✅ ¡SEMBRADO COMPLETADO! La base de datos tiene vida.")
+
+if __name__ == "__main__":
+    try:
+        run_seeds()
+    except Exception as e:
+        print(f"❌ ERROR: {e}")
 
 ========================= FILE: .\setup_db.py =========================
 # setup_db.py
@@ -678,34 +903,83 @@ from config import config
 from app.extensions import db
 
 def create_app(config_name='default'):
-    # 1. Instanciar Flask
     app = Flask(__name__)
-
-    # 2. Cargar Configuración (Dev, Prod, etc.)
     app.config.from_object(config[config_name])
 
-    # 3. Conectar Base de Datos
     db.init_app(app)
 
-    # 4. Cargar Modelos (Contexto de Aplicación)
-    # Esto es CRÍTICO: Si no importamos los modelos aquí, SQLAlchemy no sabrá que existen
-    # y no creará las tablas.
     with app.app_context():
-        from app.models import catalogs
-        from app.models import users
-        from app.models import infrastructure
-        from app.models import products
-        from app.models import clients
+        # Importamos modelos para que SQLAlchemy sepa de ellos
+        from app.models import catalogs, users, infrastructure, products, clients
         
-        # Opcional: Crear tablas automáticamente si no existen (Solo desarrollo)
-        # En producción usaremos Migraciones (Alembic)
+        # OJO: Ya no necesitamos db.create_all() siempre, porque ya existen.
+        # Pero no estorba dejarlo por seguridad en desarrollo.
         db.create_all()
 
-    # 5. Registrar Blueprints (Rutas) - Lo haremos más adelante
-    # from app.blueprints.home import home_bp
-    # app.register_blueprint(home_bp)
-
+    # --- AQUÍ REGISTRAMOS EL NUEVO BLUEPRINT ---
+    from app.blueprints.api_test import api_bp
+    app.register_blueprint(api_bp)
+    
     return app
+
+========================= FILE: .\app\blueprints\api_test.py =========================
+# app/blueprints/api_test.py
+from flask import Blueprint, jsonify
+from app.models.users import Usuario
+from app.models.products import Producto
+from app.models.clients import Cliente
+
+# Definimos el "Mapa" de rutas para pruebas
+api_bp = Blueprint('api_test', __name__, url_prefix='/api/v1')
+
+@api_bp.route('/status', methods=['GET'])
+def check_status():
+    return jsonify({"status": "OK", "message": "GelMexSys 2.0 Backend Operativo", "db": "PostgreSQL"})
+
+@api_bp.route('/usuarios', methods=['GET'])
+def get_usuarios():
+    # Consulta real a la Base de Datos
+    users = Usuario.query.all()
+    # Convertimos los objetos de Python a lista de diccionarios (JSON)
+    data = [{
+        "id": u.id, 
+        "nombre": f"{u.nombres} {u.apellido_paterno}", 
+        "email": u.email_acceso,
+        "puesto": u.puesto.nombre if u.puesto else "Sin Asignar"
+    } for u in users]
+    return jsonify(data)
+
+@api_bp.route('/productos', methods=['GET'])
+def get_productos():
+    prods = Producto.query.all()
+    data = [{
+        "sku": p.sku,
+        "descripcion": p.descripcion,
+        "precio_venta": float(p.precio_venta_general),
+        "stock_actual": 0 # Ahorita está en 0 porque no hemos hecho entradas de almacén
+    } for p in prods]
+    return jsonify(data)
+
+@api_bp.route('/clientes', methods=['GET'])
+def get_clientes():
+    clients = Cliente.query.all()
+    data = []
+    for c in clients:
+        # Sacamos sus precios especiales
+        precios = []
+        for p_esp in c.precios_especiales:
+            precios.append({
+                "producto": p_esp.producto.descripcion,
+                "descuento_tipo": p_esp.tipo_descuento.descripcion,
+                "valor": float(p_esp.valor_descuento)
+            })
+            
+        data.append({
+            "negocio": c.nombre_negocio,
+            "encargado": c.nombres_encargado,
+            "precios_especiales": precios
+        })
+    return jsonify(data)
 
 ========================= FILE: .\app\blueprints\__init__.py =========================
 
@@ -1076,7 +1350,7 @@ class Usuario(db.Model):
 ========================= FILE: .\app\models\__init__.py =========================
 
 
-========================= FILE: .\db_seeds\01_catalogs_data.py =========================
+========================= FILE: .\db_seeds\data_catalogs.py =========================
 # db_seeds/01_catalogs_data.py
 
 CATALOGOS = {
@@ -1240,7 +1514,56 @@ CATALOGOS = {
     ]
 }
 
-========================= FILE: .\db_seeds\02_infrastructure_data.py =========================
+========================= FILE: .\db_seeds\data_clients.py =========================
+# db_seeds/data_clients.py
+
+CLIENTES = [
+    {
+        # Datos Negocio
+        "nombre_negocio": "Abarrotes Don Pepe",
+        "rfc": "XAXX010101000",
+        "tipo_negocio": "Tienda de Abarrotes",
+        "calificacion": 5,
+        "img_fachada": "uploads/clientes/donpepe_fachada.jpg",
+        
+        # Datos Encargado
+        "nombres_encargado": "Jose",
+        "apellidos_encargado": "Perez Lopez",
+        
+        # Dirección Negocio (AQUÍ TAMBIÉN CORREGIMOS)
+        "calle": "Calle Morelos",
+        "num_exterior": "45",
+        "num_interior": "",
+        "colonia": "San Isidro",
+        "codigo_postal": "38600",  # <--- CORREGIDO (Antes decía 'cp')
+        "ciudad": "Acámbaro",
+        "estado": "Guanajuato",
+        "pais": "México", # Agregué país por si acaso el modelo lo requiere, no estorba
+        
+        # Finanzas
+        "limite_credito": 5000.00,
+        "saldo_actual": 0.00,
+        
+        # Logística
+        "ruta_asignada": "Ruta 1: Acambaro",
+        
+        # Precios Especiales
+        "precios_especiales": [
+            {
+                "producto_sku": "BOL-LIM-STD",
+                "tipo_descuento": "PRECIO_FINAL",
+                "valor": 4.50
+            },
+            {
+                "producto_sku": "PAL-FRE-CRM",
+                "tipo_descuento": "PORCENTAJE",
+                "valor": 10.00
+            }
+        ]
+    }
+]
+
+========================= FILE: .\db_seeds\data_infrastructure.py =========================
 # db_seeds/02_infrastructure_data.py
 
 ALMACENES = [
@@ -1275,8 +1598,8 @@ RUTAS = [
 ]
 
 
-========================= FILE: .\db_seeds\03_products_data.py =========================
-# db_seeds/03_products_data.py
+========================= FILE: .\db_seeds\data_products.py =========================
+# db_seeds/data_products.py
 
 PRODUCTOS = [
     {
@@ -1284,29 +1607,27 @@ PRODUCTOS = [
         "descripcion": "Boli de Limón (Tamaño Estándar)",
         "categoria": "Bolis Base Agua",
         "unidad": "Pieza",
-        # Precios
-        "precio_costo": 2.50,
-        "precio_venta": 6.00,
-        # Inventario
-        "stock_min": 100,
-        "stock_max": 2000,
+        # CORRECCIÓN DE NOMBRES PARA COINCIDIR CON BD
+        "precio_costo_actual": 2.50,      # Antes: precio_costo
+        "precio_venta_general": 6.00,     # Antes: precio_venta
+        "stock_minimo": 100,              # Antes: stock_min
+        "stock_maximo": 2000,             # Antes: stock_max
         "stock_ideal": 1000,
-        # Físico
-        "peso_gr": 150,
+        "peso_gramos": 150,               # Antes: peso_gr
         "caducidad_dias": 30,
-        "imagen": "uploads/productos/bol_limon.jpg" 
+        "imagen": "uploads/productos/bol_limon.jpg" # El runner maneja 'imagen' manualmente, este déjalo así
     },
     {
         "sku": "PAL-FRE-CRM",
         "descripcion": "Paleta de Fresa con Crema",
         "categoria": "Paletas Base Crema",
         "unidad": "Pieza",
-        "precio_costo": 4.00,
-        "precio_venta": 12.00,
-        "stock_min": 50,
-        "stock_max": 1000,
+        "precio_costo_actual": 4.00,
+        "precio_venta_general": 12.00,
+        "stock_minimo": 50,
+        "stock_maximo": 1000,
         "stock_ideal": 500,
-        "peso_gr": 120,
+        "peso_gramos": 120,
         "caducidad_dias": 45,
         "imagen": "uploads/productos/pal_fresa.jpg"
     }
@@ -1316,103 +1637,65 @@ MATERIAS_PRIMAS = [
     {
         "sku": "AZU-BUL-50",
         "descripcion": "Bulto de Azúcar Estándar 50kg",
-        "categoria": "Azúcares y Endulzantes", # <--- CORREGIDO: Debe coincidir con archivo 01
+        "categoria": "Azúcares y Endulzantes",
         "unidad": "Kilogramo", 
-        "precio_costo": 22.50,
-        "precio_venta": 28.00, 
-        "stock_min": 100,
-        "stock_max": 1000,
+        # CORRECCIÓN: Materia Prima usa 'precio_costo_promedio'
+        "precio_costo_promedio": 22.50,   # Antes: precio_costo
+        "precio_venta_general": 28.00,
+        "stock_minimo": 100,
+        "stock_maximo": 1000,
         "stock_ideal": 500,
-        "peso_gr": 1000,
+        "peso_gramos": 1000,
         "caducidad_dias": 365,
         "imagen": "uploads/materias/azucar.jpg"
     }
 ]
 
-========================= FILE: .\db_seeds\04_users_data.py =========================
-# db_seeds/04_users_data.py
+========================= FILE: .\db_seeds\data_users.py =========================
+# db_seeds/data_users.py
 
 USUARIOS = [
     {
-        # Login
+        # --- LOGIN ---
         "email": "admin@gelmex.com",
         "password_raw": "Admin2025",
-        "pin": "123456",
-        # Identidad
+        
+        # --- SEGURIDAD ---
+        "pin_seguridad": "123456",
+        "nivel_usuario": 5,
+        "activo": True,
+
+        # --- IDENTIDAD ---
         "nombres": "Mario Eduardo",
         "apellido_paterno": "Martinez",
         "apellido_materno": "Juarez",
         "puesto": "Super Administrador",
-        "nivel": 5,
-        "rfc": "MAJU900101XXX", # Dato real o ficticio válido
+        "rfc": "MAJU900101XXX",
         "curp": "MAJU900101HGT...",
-        # Laboral
-        "fecha_inicio": "2024-01-01",
-        "calificacion": 5,
-        # Contacto
+        
+        # --- LABORAL ---
+        "fecha_inicio_empresa": "2024-01-01",
+        "calificacion_evaluacion": 5,
+        
+        # --- CONTACTO ---
         "telefono_celular": "78610300599",
         "telefono_casa": "4171234567",
-        # Dirección
+        
+        # --- DIRECCIÓN (AQUÍ ESTABA EL ERROR) ---
         "calle": "Av. Hidalgo",
         "num_exterior": "123",
         "num_interior": "A",
         "colonia": "Centro",
-        "cp": "38600",
+        "codigo_postal": "38600",   # <--- CORREGIDO (Antes decía 'cp')
         "ciudad": "Acámbaro",
         "estado": "Guanajuato",
         "pais": "México",
-        # Emergencia
-        "contacto_emergencia": "Maria Reyna Figueroa",
-        "telefono_emergencia": "4179999999",
-        # Archivos (Placeholders)
+        
+        # --- EMERGENCIA ---
+        "contacto_emergencia_nombre": "Maria Reyna Figueroa",
+        "contacto_emergencia_telefono": "4179999999",
+        
+        # --- ARCHIVOS ---
         "foto_perfil": "uploads/usuarios/admin_profile.jpg"
-    }
-]
-
-========================= FILE: .\db_seeds\05_clients_data.py =========================
-# db_seeds/05_clients_data.py
-
-CLIENTES = [
-    {
-        # Datos Negocio
-        "nombre_negocio": "Abarrotes Don Pepe",
-        "rfc": "XAXX010101000", # RFC Genérico o Real
-        "tipo_negocio": "Tienda de Abarrotes",
-        "calificacion": 5,
-        "img_fachada": "uploads/clientes/donpepe_fachada.jpg",
-        
-        # Datos Encargado
-        "nombres_encargado": "Jose",
-        "apellidos_encargado": "Perez Lopez",
-        
-        # Dirección Negocio
-        "calle": "Calle Morelos",
-        "num_exterior": "45",
-        "num_interior": "",
-        "colonia": "San Isidro",
-        "cp": "38600",
-        "ciudad": "Acámbaro",
-        "estado": "Guanajuato",
-        
-        # Finanzas
-        "limite_credito": 5000.00,
-        "saldo_actual": 0.00, # Inicia en cero
-        
-        # Logística
-        "ruta_asignada": "Ruta 1: Acambaro", # Debe coincidir con archivo de infraestructura
-        
-        # Precios Especiales (Lista de diccionarios)
-        "precios_especiales": [
-            {
-                "producto_sku": "BOL-LIM-STD",
-                "tipo_descuento": "PRECIO_FINAL", # Usa el string del catálogo
-                "valor": 4.50 # Precio normal 6.00, a él se lo damos a 4.50
-            },
-            {
-                "producto_sku": "PAL-FRE-CRM",
-                "tipo_descuento": "PORCENTAJE",
-                "valor": 10.00 # 10% de descuento
-            }
-        ]
     }
 ]
