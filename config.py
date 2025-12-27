@@ -7,9 +7,10 @@ class Config:
 
 class DevelopmentConfig(Config):
     DEBUG = True
-    # Base de datos SQLite local (se crea sola en la carpeta instance)
+    # Conexión a PostgreSQL Local
+    # Formato: postgresql://usuario:password@localhost:puerto/nombre_db
     SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or \
-        'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance', 'gelmex_dev.db')
+        'postgresql://postgres:admin12345@localhost:5432/gelmex_db'
 
 class ProductionConfig(Config):
     DEBUG = False

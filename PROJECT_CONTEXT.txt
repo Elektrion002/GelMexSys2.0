@@ -1,33 +1,310 @@
 ============================================================
- GELMEXSYS 2.0 - REPORTE DE CONTEXTO TÉCNICO
- FECHA DE GENERACIÓN: 2025-12-27 11:10:50
+ GELMEXSYS 2.0 - REPORTE DE CONTEXTO TÉCNICO (PostgreSQL)
+ FECHA: 2025-12-27 15:11:04
 ============================================================
 
 ------------------------------
 ESTRUCTURA DE DIRECTORIOS:
 [./]
+    ARQUITECTURA_DATOS.md
     config.py
-    generate_context.py
     HOJA_DE_METODO_INICIAL.md
-    PROJECT_CONTEXT.txt
+    intrucciones git.txt
     requirements.txt
     run.py
+    setup_db.py
     setup_structure.py
     [app/]
+        extensions.py
         __init__.py
         [blueprints/]
             __init__.py
         [models/]
+            catalogs.py
+            clients.py
+            infrastructure.py
+            products.py
+            users.py
             __init__.py
         [static/]
             [css/]
             [js/]
         [templates/]
+    [db_seeds/]
+        01_catalogs_data.py
+        02_infrastructure_data.py
+        03_products_data.py
+        04_users_data.py
+        05_clients_data.py
 ------------------------------
 
 
-========================= FILE: .\config.py =========================
+========================= FILE: .\ARQUITECTURA_DATOS.md =========================
+# ARQUITECTURA DE BASE DE DATOS - GELMEXSYS 2.0 (PostgreSQL)
 
+**Motor:** PostgreSQL 15+
+**ORM:** SQLAlchemy
+**Estrategia:** Relacional Normalizada (3NF)
+
+---
+
+## 1. DICCIONARIO DE DATOS Y RELACIONES
+
+### A. MÓDULO DE CATÁLOGOS SATÉLITE (Dinámicos)
+*El cliente exigió "No Hardcoding". Estas tablas permiten al admin crear nuevos tipos sin llamar al programador.*
+
+1.  **`cat_plantas`**
+    * `id` (PK), `descripcion`, `notas`.
+2.  **`cat_areas`**
+    * `id` (PK), `descripcion`, `notas`.
+3.  **`cat_unidades_medida`**
+    * `id` (PK), `nombre` (Litro, Pieza), `abreviatura` (Lt, Pza).
+4.  **`cat_categorias_producto`**
+    * `id` (PK), `nombre` (Bolis Leche, Paletas Agua), `descripcion`.
+5.  **`cat_categorias_materia_prima`**
+    * `id` (PK), `nombre` (Lácteos, Saborizantes), `descripcion`.
+6.  **`cat_tipos_almacen`**
+    * `id` (PK), `nombre` (Cámara Fría, Seco, Conservador).
+7.  **`cat_puestos`**
+    * `id` (PK), `nombre` (Vendedor, Heladero, Repartidor), `nivel_acceso` (1-5).
+8.  **`cat_tipos_vehiculo`**
+    * `id` (PK), `nombre` (Sedan, Pickup, Refrigerada).
+9.  **`cat_modelos_vehiculo`**
+    * `id` (PK), `marca`, `modelo`, `anio`.
+10. **`cat_modelos_activo`** (Para refrigeradores/congeladores)
+    * `id` (PK), `marca`, `modelo`, `capacidad_litros`.
+11. **`cat_estados_fisicos`**
+    * `id` (PK), `descripcion` (Bueno, Malo, Óptimo, Nuevo, En Taller).
+
+---
+
+### B. MÓDULO DE RECURSOS HUMANOS (Usuarios)
+
+**Tabla: `usuarios`**
+*Contiene la ficha completa del empleado.*
+* `id` (PK)
+* **Datos Personales:**
+    * `nombres`, `apellido_paterno`, `apellido_materno`.
+    * `fecha_nacimiento`, `estado_civil`, `profesion`.
+    * `domicilio_calle`, `domicilio_num_ext`, `domicilio_num_int`, `domicilio_colonia`, `domicilio_cp`, `domicilio_ciudad`, `domicilio_estado`, `domicilio_pais`.
+    * `telefono_casa`, `telefono_celular`.
+* **Datos Laborales:**
+    * `puesto_id` (FK -> `cat_puestos`).
+    * `fecha_inicio_empresa`.
+    * `calificacion_evaluacion` (1-5 Estrellas).
+    * `notas_generales`.
+* **Seguridad y Acceso:**
+    * `email` (Login), `password_hash`, `pin_seguridad` (6 dígitos).
+    * `nivel_usuario` (Heredado de puesto o sobreescrito).
+* **Emergencia:**
+    * `contacto_emergencia_nombre`, `contacto_emergencia_telefono`.
+* **Documentación (Rutas de Archivos en `uploads/usuarios/`):**
+    * `foto_perfil` (Uso interno).
+    * `img_ine_frente`, `img_ine_reverso`.
+    * `img_licencia_frente`, `img_licencia_reverso`, `fecha_validez_licencia`.
+
+---
+
+### C. MÓDULO DE PRODUCTOS Y MATERIA PRIMA
+
+**Tabla: `productos`**
+* `id` (PK), `sku` (Único).
+* `descripcion`.
+* `categoria_id` (FK -> `cat_categorias_producto`).
+* `unidad_id` (FK -> `cat_unidades_medida`).
+* **Costos y Precios:**
+    * `precio_costo_actual`.
+    * `precio_venta_general` (Base).
+* **Físico:**
+    * `peso_gramos`, `caducidad_dias`.
+    * `imagen_producto` (300x300 jpg, ruta).
+
+**Tabla: `materia_prima`**
+* `id` (PK), `sku`, `descripcion`.
+* `categoria_id` (FK -> `cat_categorias_materia_prima`).
+* `unidad_id` (FK -> `cat_unidades_medida`).
+* `precio_costo_promedio`.
+* `precio_venta_general` (Base).
+* `peso_gramos`, `caducidad_dias`.
+* `imagen_materia` (300x300 jpg, ruta).
+
+---
+
+### D. MÓDULO DE INFRAESTRUCTURA E INVENTARIOS
+
+**Tabla: `almacenes`**
+* `id` (PK), `descripcion`.
+* `tipo_id` (FK -> `cat_tipos_almacen`).
+* `planta_id` (FK -> `cat_plantas`).
+* `area_id` (FK -> `cat_areas`).
+* `imagen_almacen` (300x300 jpg).
+
+**Tabla: `ubicaciones_almacen`**
+* `id` (PK), `codigo` (Ej: CFPA001B004).
+* `almacen_id` (FK -> `almacenes`).
+* `notas`.
+
+**Tabla: `inventario_lotes` (El corazón del stock)**
+* `id` (PK).
+* **Qué es:**
+    * `producto_id` (FK, Nullable).
+    * `materia_prima_id` (FK, Nullable).
+* **Dónde está:**
+    * `ubicacion_id` (FK -> `ubicaciones_almacen`).
+* **Cuánto hay:**
+    * `cantidad_actual`.
+    * `fecha_produccion` (Lote).
+    * `fecha_ingreso_almacen`.
+    * `stock_minimo`.
+    * `stock_maximo`.
+    * `stock_ideal`.
+* **Semáforos (Definidos por producto, pero guardados aquí para snapshot o referenciados):**
+    * (Lógica: Se compara `cantidad_actual` vs `Producto.stock_minimo` o `cantidad_actual` vs `Producto.stock_maximo`).
+
+---
+
+### E. MÓDULO DE LOGÍSTICA Y ACTIVOS
+
+**Tabla: `vehiculos`**
+* `id` (PK), `placas`.
+* `serie_vehiculo`.
+* `tipo_id` (FK -> `cat_tipos_vehiculo`).
+* `modelo_id` (FK -> `cat_modelos_vehiculo`).
+* `estado_llantas_id` (FK -> `cat_estados_fisicos`).
+* `estado_general_id` (FK -> `cat_estados_fisicos`).
+* `kilometraje_ultimo_servicio`.
+* `asignado` (Boolean).
+* **Fechas Críticas:**
+    * `fecha_ultimo_servicio`, `fecha_proximo_servicio`.
+    * `fecha_vencimiento_seguro`, `fecha_vencimiento_verificacion`.
+* **Evidencia (600x400 jpg):**
+    * `img_vehiculo`, `img_motor`, `img_odometro`.
+
+**Tabla: `activos_frio` (Congeladores)**
+* `id` (PK), `serie`, `descripcion`.
+* `modelo_id` (FK -> `cat_modelos_activo`).
+* `estado_id` (FK -> `cat_estados_fisicos`).
+* `asignado` (Boolean).
+* `img_activo` (300x300 jpg).
+* `fecha_ultimo_mtto`, `fecha_proximo_mtto`.
+
+**Tabla: `rutas_reparto`**
+* `id` (PK), `descripcion`.
+* `img_mapa` (600x400 jpg).
+* `notas`.
+
+---
+
+### F. MÓDULO DE VENTAS Y CLIENTES (Complejidad Alta)
+
+**Tabla: `clientes`**
+* `id` (PK).
+* **Negocio:**
+    * `nombre_negocio`, `tipo_negocio`.
+    * `img_fachada` (300x300 jpg).
+    * `calificacion` (1-5).
+* **Encargado:**
+    * `nombres_encargado`, `apellido_p_encargado`, `apellido_m_encargado`.
+    * `img_ine_frente`, `img_ine_reverso`.
+    * `domicilio_completo` (Desglosado igual que usuarios).
+* **Financiero:**
+    * `Vendedor_habitual_id` (FK -> `usuarios`, Nullable).
+    * `limite_credito` (Cuánto le fía GelMex).
+    * `saldo_actual` (Deuda actual).
+* **Logística:**
+    * `ruta_id` (FK -> `rutas_reparto`).
+    * `repartidor_habitual_id` (FK -> `usuarios`, Nullable).
+
+**Tabla: `asignacion_activos_cliente`**
+* `cliente_id` (FK).
+* `activo_frio_id` (FK).
+* `fecha_asignacion`.
+
+**Tabla: `precios_especiales_cliente` (Regla de Negocio Crítica)**
+* *Esta tabla permite que cada cliente tenga un precio diferente.*
+* `id` (PK).
+* `cliente_id` (FK).
+* `producto_id` (FK).
+* `tipo_descuento`: ('PORCENTAJE', 'MONTO_FIJO', 'PRECIO_FINAL').
+* `valor_descuento`: (Ej. 10, 5.00, 15.50).
+* *Lógica:* Al vender, el sistema busca aquí primero. Si no encuentra, usa `Producto.precio_venta_general`.
+
+---
+
+## 2. LÓGICA DE PROCEDIMIENTOS Y VISTAS
+
+### A. Vistas (Views) para Reportes Rápidos
+Estas vistas se crearán en la BD para facilitar el trabajo de los Dashboards.
+
+1.  **`view_inventario_global`**:
+    * Suma el stock de todas las ubicaciones agrupado por SKU.
+    * Muestra: SKU, Descripción, Total Plantas, Total Rutas, Total General.
+
+2.  **`view_estado_credito`**:
+    * Lista clientes con `saldo_actual > 0`.
+    * Calcula `credito_disponible` = `limite_credito` - `saldo_actual`.
+    * Alerta si `saldo_actual` >= `limite_credito`.
+
+### B. Lógica de Transacciones (Procedimientos "Lógicos")
+No usaremos Stored Procedures de SQL (PL/pgSQL) para la lógica de negocio, usaremos **Servicios en Python** (capa intermedia) para mantener el control de versiones, pero la lógica será transaccional (Atomicity).
+
+1.  **Procedimiento `CrearPedido`:**
+    * Input: Cliente, Lista de Items.
+    * Validación 1: ¿El cliente tiene crédito suficiente? (Si es venta a crédito).
+    * Cálculo: Iterar items -> Buscar si existe `precios_especiales_cliente` -> Calcular Subtotal.
+    * Output: Orden en estado "BORRADOR" o "CONFIRMADO".
+
+2.  **Procedimiento `ConfirmarProduccion` (Maestro Heladero):**
+    * Input: Orden de Producción, Cantidad Real Producida.
+    * Acción:
+        * Restar Materia Prima (según receta - *Futuro*).
+        * Sumar Stock a "Ubicación Temporal Producción".
+        * Crear registro en `inventario_lotes`.
+
+3.  **Procedimiento `CierreRuta` (Finanzas):**
+    * Input: ID Ruta, Efectivo Entregado, Notas de Crédito Firmadas.
+    * Acción:
+        * Actualizar `saldo_actual` de cada cliente (Resta abonos, suma nuevos pedidos a crédito).
+        * Conciliar Stock del camión (Lo que salió vs lo que volvió vs lo vendido).
+
+---
+
+## 3. ESTRATEGIA DE SEMILLAS (DB SEEDS)
+
+Para el archivo `db_seeds.py`, seguiremos este orden estricto de llenado para evitar errores de Llaves Foráneas (FK):
+
+1.  **Nivel 0 (Catálogos Duros):** Unidades de medida, Tipos de Almacén, Estados Físicos.
+2.  **Nivel 1 (Infraestructura):** Plantas, Áreas, Rutas base.
+3.  **Nivel 2 (Categorías):** Categorías de Productos y Materia Prima, Puestos.
+4.  **Nivel 3 (Recursos):** Productos Base, Almacenes físicos, Vehículos demo.
+5.  **Nivel 4 (Usuarios):** Crear al "Super Admin" (Dios) y un Vendedor demo.
+
+========================= FILE: .\config.py =========================
+import os
+
+class Config:
+    # Llave de seguridad (luego la cambiamos por una real en producción)
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'clave-super-secreta-desarrollo'
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+class DevelopmentConfig(Config):
+    DEBUG = True
+    # Conexión a PostgreSQL Local
+    # Formato: postgresql://usuario:password@localhost:puerto/nombre_db
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or \
+        'postgresql://postgres:admin12345@localhost:5432/gelmex_db'
+
+class ProductionConfig(Config):
+    DEBUG = False
+    # Aquí iría la conexión a PostgreSQL real
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+
+# Diccionario para elegir fácil
+config = {
+    'development': DevelopmentConfig,
+    'production': ProductionConfig,
+    'default': DevelopmentConfig
+}
 
 ========================= FILE: .\HOJA_DE_METODO_INICIAL.md =========================
 # HOJA DE MÉTODO: DESPLIEGUE DE ENTORNO (GMX-OP-01)
@@ -144,6 +421,118 @@ GelMexSys2.0/
 └── requirements.txt           # BOM Certificado
 
 
+# GUÍA TÉCNICA: DESPLIEGUE DE MOTOR DE BASE DE DATOS (GMX-DB-01)
+
+### PASO 1: Descarga e Instalación
+
+1. Ve al sitio oficial: [https://www.postgresql.org/download/windows/](https://www.postgresql.org/download/windows/)
+2. Dale clic en **"Download the installer"**.
+3. Elige la versión **16.x** (es la más estable ahorita) para Windows x86-64.
+4. Ejecuta el instalador.
+
+**Durante la instalación (OJO AQUÍ):**
+
+* **Componentes:** Asegúrate de que estén marcados:
+* [x] PostgreSQL Server
+* [x] pgAdmin 4 (Este es el panel visual para administrar, indispensable).
+* [x] Command Line Tools
+
+
+* **Directorio:** Déjalo por defecto.
+* **Contraseña (CRÍTICO):** Te va a pedir una contraseña para el "Superusuario (postgres)".
+* ⚠️ **Escríbela:** Ponle `admin` o `123456` por ahora para desarrollo local. **No la olvides**, porque sin ella no podemos conectar Python.
+
+
+* **Puerto:** Déjalo en `5432` (Estándar).
+* **Locale:** Déjalo por defecto (Default locale).
+
+Dale "Siguiente" a todo hasta que termine.
+
+---
+
+### PASO 2: Crear la Base de Datos "gelmex_db"
+
+Ya instalado, no vamos a usar consola negra, vamos a usar lo visual.
+
+1. Presiona la tecla `Windows` y busca **pgAdmin 4**. Ábrelo (es el icono del elefante).
+2. Te va a pedir la contraseña que acabas de crear. Pónsela.
+3. A la izquierda verás `Servers` -> `PostgreSQL 16`. Dale doble clic para conectar.
+4. Dale **clic derecho** sobre "Databases" -> **Create** -> **Database...**
+5. En el nombre ponle: **`gelmex_db`** (Todo minúsculas).
+6. Dale **Save**.
+
+¡Listo! Ya tienes el contenedor vacío esperando los datos.
+
+---
+
+### PASO 3: Conectar Flask a PostgreSQL
+
+Ahora hay que decirle a tu código: "Oye, deja de usar SQLite y conéctate al Postgres que acabamos de instalar".
+
+1. Abre tu archivo **`config.py`** en VS Code.
+2. Busca la clase `DevelopmentConfig`.
+3. Modifica la línea `SQLALCHEMY_DATABASE_URI`.
+
+Debe quedar así (cambia `TU_CONTRASEÑA` por la que pusiste en el instalador):
+
+```python
+class DevelopmentConfig(Config):
+    DEBUG = True
+    # Conexión a PostgreSQL Local
+    # Formato: postgresql://usuario:password@localhost:puerto/nombre_db
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or \
+        'postgresql://postgres:TU_CONTRASEÑA@localhost:5432/gelmex_db'
+
+```
+
+*Nota: Si tu contraseña es `admin`, la línea queda: `'postgresql://postgres:admin@localhost:5432/gelmex_db'*`
+
+---
+
+### PASO 4: Instalar el Driver
+
+Para que Python hable con Postgres, necesita un traductor. Ejecuta esto en tu terminal (con el `(venv)` activo):
+
+```powershell
+pip install psycopg2-binary
+
+```
+
+---
+
+### PASO 5: Generar las Tablas (La Prueba de Fuego)
+
+Ahora sí, ya con el motor instalado, la base creada y el código conectado, vamos a crear las tablas.
+
+Ejecuta tu archivo de arranque:
+
+```powershell
+python run.py
+
+```
+
+1. Si dice `Running on http://127.0.0.1:5000`, **EXITAZO**.
+2. Para confirmar, ve a **pgAdmin 4**, ve a `gelmex_db` -> `Schemas` -> `public` -> `Tables`. Dale clic derecho y "Refresh".
+3. Deberías ver ahí toda la lista: `almacenes`, `clientes`, `productos`, `usuarios`... ¡Todas las tablas vacías creadas por SQLAlchemy!
+
+
+========================= FILE: .\intrucciones git.txt =========================
+1. Revisa qué vas a meter al horno
+powershell
+git status
+*Deberías ver en rojo (o verde si ya le diste add) archivos como `HOJA_DE_METODO_INICIAL.md`, `generate_context.py` y `requirements.txt`.*
+
+2. Prepara todo el paquete
+powershell
+git add .
+
+3. Sella el compromiso (Commit)
+Este mensaje describe que arreglamos el relajo del entorno y las herramientas:
+powershell
+git commit -m "Fix: Corrección de entorno venv y actualización de herramientas de contexto"
+
+Y listo, wey. Con eso ya quedó guardado este avance.
+
 ========================= FILE: .\requirements.txt =========================
 Flask==3.0.0
 python-dotenv==1.0.0
@@ -151,7 +540,72 @@ SQLAlchemy>=2.0.16
 Flask-SQLAlchemy>=3.1.1
 
 ========================= FILE: .\run.py =========================
+import os
+from app import create_app
 
+# Leemos en qué modo estamos (por defecto Desarrollo)
+config_name = os.getenv('FLASK_CONFIG') or 'default'
+
+# Creamos la app
+app = create_app(config_name)
+
+if __name__ == '__main__':
+    print(f"--> Arrancando GelMexSys en modo: {config_name}")
+    app.run()
+
+========================= FILE: .\setup_db.py =========================
+# setup_db.py
+import sys
+import os
+
+# Agregamos el directorio actual al path para evitar errores de módulos
+sys.path.append(os.getcwd())
+
+from app import create_app
+from app.extensions import db
+
+def init_database():
+    print("--> Inicializando aplicación Flask...")
+    # 1. Instanciamos la app AQUÍ ADENTRO para evitar el error de variable
+    app = create_app()
+
+    with app.app_context():
+        print("🔧 INICIANDO CONSTRUCCIÓN DE BASE DE DATOS...")
+        print(f"--> Destino: {app.config['SQLALCHEMY_DATABASE_URI']}")
+        
+        try:
+            # 2. Importar Modelos (Esto fuerza a SQLAlchemy a reconocer las tablas)
+            print("--> Leyendo planos (Modelos)...")
+            # Importamos dentro del contexto para asegurar que db esté listo
+            from app.models import catalogs
+            from app.models import users
+            from app.models import infrastructure
+            from app.models import products
+            from app.models import clients
+            print("    [OK] Modelos cargados en memoria.")
+
+            # 3. Crear Tablas
+            print("--> Ejecutando CREATE TABLE en PostgreSQL...")
+            db.create_all()
+            
+            print("-" * 40)
+            print("✅ ¡ÉXITO! TABLAS CREADAS CORRECTAMENTE.")
+            print("-" * 40)
+            print("Instrucciones:")
+            print("1. Ve a pgAdmin 4.")
+            print("2. Dale clic derecho a 'Tables' -> Refresh.")
+            print("3. Si ves la lista de tablas, ejecuta 'python seed_runner.py' para llenar los datos.")
+            
+        except Exception as e:
+            print("\n❌ ERROR CRÍTICO AL CONECTAR CON LA BD:")
+            print(f"{e}")
+            print("\nPOSIBLES CAUSAS:")
+            print("1. La contraseña en config.py está mal.")
+            print("2. El servidor de PostgreSQL no está corriendo.")
+            print("3. La base de datos 'gelmex_db' no existe (Créala en pgAdmin).")
+
+if __name__ == "__main__":
+    init_database()
 
 ========================= FILE: .\setup_structure.py =========================
 import os
@@ -210,11 +664,755 @@ def create_structure():
 if __name__ == "__main__":
     create_structure()
 
-========================= FILE: .\app\__init__.py =========================
+========================= FILE: .\app\extensions.py =========================
+# app/extensions.py
+from flask_sqlalchemy import SQLAlchemy
 
+# Inicializamos el objeto db sin la app todavía (Lazy Loading)
+db = SQLAlchemy()
+
+========================= FILE: .\app\__init__.py =========================
+# app/__init__.py
+from flask import Flask
+from config import config
+from app.extensions import db
+
+def create_app(config_name='default'):
+    # 1. Instanciar Flask
+    app = Flask(__name__)
+
+    # 2. Cargar Configuración (Dev, Prod, etc.)
+    app.config.from_object(config[config_name])
+
+    # 3. Conectar Base de Datos
+    db.init_app(app)
+
+    # 4. Cargar Modelos (Contexto de Aplicación)
+    # Esto es CRÍTICO: Si no importamos los modelos aquí, SQLAlchemy no sabrá que existen
+    # y no creará las tablas.
+    with app.app_context():
+        from app.models import catalogs
+        from app.models import users
+        from app.models import infrastructure
+        from app.models import products
+        from app.models import clients
+        
+        # Opcional: Crear tablas automáticamente si no existen (Solo desarrollo)
+        # En producción usaremos Migraciones (Alembic)
+        db.create_all()
+
+    # 5. Registrar Blueprints (Rutas) - Lo haremos más adelante
+    # from app.blueprints.home import home_bp
+    # app.register_blueprint(home_bp)
+
+    return app
 
 ========================= FILE: .\app\blueprints\__init__.py =========================
 
 
+========================= FILE: .\app\models\catalogs.py =========================
+# app/models/catalogs.py
+from app.extensions import db
+
+# --- CLASES BASE PARA REUTILIZAR CÓDIGO ---
+class CatalogoBase(db.Model):
+    """Clase abstracta para catálogos simples (id, descripcion/nombre)"""
+    __abstract__ = True
+    id = db.Column(db.Integer, primary_key=True)
+    activo = db.Column(db.Boolean, default=True)
+
+# --- INFRAESTRUCTURA ---
+class CatPlanta(CatalogoBase):
+    __tablename__ = 'cat_plantas'
+    descripcion = db.Column(db.String(100), nullable=False)
+    notas = db.Column(db.String(255))
+
+class CatArea(CatalogoBase):
+    __tablename__ = 'cat_areas'
+    descripcion = db.Column(db.String(100), nullable=False)
+    notas = db.Column(db.String(255))
+
+class CatUbicacion(CatalogoBase):
+    __tablename__ = 'cat_ubicaciones'
+    descripcion = db.Column(db.String(100), nullable=False) # Pasillo A, Nivel 1, etc.
+
+class CatTipoAlmacen(CatalogoBase):
+    __tablename__ = 'cat_tipos_almacen'
+    nombre = db.Column(db.String(50), nullable=False)
+
+class CatTipoMovimientoAlmacen(CatalogoBase):
+    __tablename__ = 'cat_tipos_movimiento_almacen'
+    descripcion = db.Column(db.String(50), nullable=False, unique=True)
+
+# --- PRODUCTOS ---
+class CatUnidadMedida(CatalogoBase):
+    __tablename__ = 'cat_unidades_medida'
+    nombre = db.Column(db.String(50), nullable=False)
+    abreviatura = db.Column(db.String(10), nullable=False)
+
+class CatCategoriaProducto(CatalogoBase):
+    __tablename__ = 'cat_categorias_producto'
+    nombre = db.Column(db.String(100), nullable=False)
+    descripcion = db.Column(db.String(255))
+
+class CatCategoriaMateriaPrima(CatalogoBase):
+    __tablename__ = 'cat_categorias_materia_prima'
+    nombre = db.Column(db.String(100), nullable=False)
+    descripcion = db.Column(db.String(255))
+
+# --- RH Y OPERACIÓN ---
+class CatPuesto(CatalogoBase):
+    __tablename__ = 'cat_puestos'
+    nombre = db.Column(db.String(50), nullable=False)
+    nivel_acceso = db.Column(db.Integer, default=1) # 1-5
+
+class CatTipoVehiculo(CatalogoBase):
+    __tablename__ = 'cat_tipos_vehiculo'
+    nombre = db.Column(db.String(50), nullable=False)
+
+class CatModeloVehiculo(CatalogoBase):
+    __tablename__ = 'cat_modelos_vehiculo'
+    marca = db.Column(db.String(50), nullable=False)
+    modelo = db.Column(db.String(50), nullable=False)
+    anio = db.Column(db.Integer)
+
+class CatModeloActivo(CatalogoBase):
+    __tablename__ = 'cat_modelos_activo'
+    marca = db.Column(db.String(50), nullable=False)
+    modelo = db.Column(db.String(50), nullable=False)
+    capacidad_litros = db.Column(db.Float)
+
+class CatEstadoFisico(CatalogoBase):
+    __tablename__ = 'cat_estados_fisicos'
+    descripcion = db.Column(db.String(50), nullable=False)
+
+class CatTipoIncidencia(CatalogoBase):
+    __tablename__ = 'cat_tipos_incidencia'
+    descripcion = db.Column(db.String(100), nullable=False)
+
+# --- FINANZAS Y CONTROL ---
+class CatBancoCaja(CatalogoBase):
+    __tablename__ = 'cat_bancos_cajas'
+    nombre = db.Column(db.String(100), nullable=False)
+
+class CatConceptoFinanzas(CatalogoBase):
+    __tablename__ = 'cat_conceptos_finanzas'
+    tipo_flujo = db.Column(db.String(20), nullable=False) # INGRESO, EGRESO, DEUDA
+    descripcion = db.Column(db.String(100), nullable=False)
+
+class CatTipoDescuento(CatalogoBase):
+    __tablename__ = 'cat_tipos_descuento'
+    descripcion = db.Column(db.String(50), nullable=False) # PORCENTAJE, PRECIO_FINAL
+
+class CatTipoPagoSolicitado(CatalogoBase):
+    __tablename__ = 'cat_tipos_pago_solicitado'
+    descripcion = db.Column(db.String(50), nullable=False) # CONTADO, CREDITO
+
+class CatEstadoOrdenVenta(CatalogoBase):
+    __tablename__ = 'cat_estados_orden_venta'
+    descripcion = db.Column(db.String(50), nullable=False) # BORRADOR, CONFIRMADO...
+
+class CatEstadoPlanProduccion(CatalogoBase):
+    __tablename__ = 'cat_estados_plan_produccion'
+    descripcion = db.Column(db.String(50), nullable=False) # PLANIFICADO, EN_PROCESO...
+
+class CatEstadoOrdenEmpaque(CatalogoBase):
+    __tablename__ = 'cat_estados_orden_empaque'
+    descripcion = db.Column(db.String(50), nullable=False)
+
+class CatTipoMovimientoFinanzas(CatalogoBase):
+    __tablename__ = 'cat_tipos_movimiento_finanzas'
+    descripcion = db.Column(db.String(50), nullable=False) # CARGO_VENTA...
+
+class CatEstadoDeudaEmpresa(CatalogoBase):
+    __tablename__ = 'cat_estados_deuda_empresa'
+    descripcion = db.Column(db.String(50), nullable=False) # PENDIENTE...
+
+class CatTipoFlujo(CatalogoBase):
+    __tablename__ = 'cat_tipos_flujo'
+    descripcion = db.Column(db.String(50), nullable=False) # ENTRADA, SALIDA
+
+class CatOrigenFlujo(CatalogoBase):
+    __tablename__ = 'cat_origenes_flujo'
+    descripcion = db.Column(db.String(50), nullable=False) # CAPITAL, VENTAS...
+
+class CatPeriodo(CatalogoBase):
+    __tablename__ = 'cat_periodos'
+    descripcion = db.Column(db.String(50), nullable=False) # MENSUAL, ANUAL
+
+========================= FILE: .\app\models\clients.py =========================
+# app/models/clients.py
+from app.extensions import db
+
+class Cliente(db.Model):
+    __tablename__ = 'clientes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # --- NEGOCIO ---
+    nombre_negocio = db.Column(db.String(150), nullable=False)
+    rfc = db.Column(db.String(13)) # Fiscal
+    tipo_negocio = db.Column(db.String(100)) # Abarrotes, Papelería...
+    img_fachada = db.Column(db.String(255))
+    calificacion = db.Column(db.Integer, default=5)
+
+    # --- ENCARGADO ---
+    nombres_encargado = db.Column(db.String(100))
+    apellidos_encargado = db.Column(db.String(100))
+    img_ine_frente = db.Column(db.String(255))
+    img_ine_reverso = db.Column(db.String(255))
+
+    # --- DOMICILIO NEGOCIO ---
+    calle = db.Column(db.String(100))
+    num_exterior = db.Column(db.String(20))
+    num_interior = db.Column(db.String(20))
+    colonia = db.Column(db.String(100))
+    ciudad = db.Column(db.String(100))
+    codigo_postal = db.Column(db.String(10))
+    estado = db.Column(db.String(100))
+    pais = db.Column(db.String(100), default="México")
+
+    # --- FINANCIERO ---
+    limite_credito = db.Column(db.Numeric(12, 2), default=0.00)
+    saldo_actual = db.Column(db.Numeric(12, 2), default=0.00) # Se actualiza vía Ledger
+    
+    # --- LOGÍSTICA ---
+    ruta_id = db.Column(db.Integer, db.ForeignKey('rutas_reparto.id'))
+    repartidor_habitual_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
+    vendedor_habitual_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
+
+    # Relaciones
+    ruta = db.relationship('RutaReparto', backref='clientes')
+    # Usamos string en foreign_keys para evitar import circular con Usuario si fuera necesario
+    repartidor = db.relationship('Usuario', foreign_keys=[repartidor_habitual_id])
+    vendedor = db.relationship('Usuario', foreign_keys=[vendedor_habitual_id])
+
+class PrecioEspecialCliente(db.Model):
+    __tablename__ = 'precios_especiales_cliente'
+
+    id = db.Column(db.Integer, primary_key=True)
+    
+    cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'))
+    producto_id = db.Column(db.Integer, db.ForeignKey('productos.id'))
+    
+    # FK a tu catálogo nuevo de tipos de descuento
+    tipo_descuento_id = db.Column(db.Integer, db.ForeignKey('cat_tipos_descuento.id'))
+    
+    valor_descuento = db.Column(db.Numeric(10, 2), nullable=False) # 10%, $5.00, etc.
+
+    cliente = db.relationship('Cliente', backref='precios_especiales')
+    producto = db.relationship('Producto')
+    tipo_descuento = db.relationship('CatTipoDescuento')
+
+========================= FILE: .\app\models\infrastructure.py =========================
+# app/models/infrastructure.py
+from app.extensions import db
+
+class Almacen(db.Model):
+    __tablename__ = 'almacenes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    descripcion = db.Column(db.String(100), nullable=False)
+    imagen_almacen = db.Column(db.String(255))
+    
+    # FKs
+    tipo_id = db.Column(db.Integer, db.ForeignKey('cat_tipos_almacen.id'))
+    planta_id = db.Column(db.Integer, db.ForeignKey('cat_plantas.id'))
+    area_id = db.Column(db.Integer, db.ForeignKey('cat_areas.id'))
+
+    # Relaciones
+    tipo = db.relationship('CatTipoAlmacen')
+    planta = db.relationship('CatPlanta')
+    area = db.relationship('CatArea')
+
+class UbicacionAlmacen(db.Model):
+    __tablename__ = 'ubicaciones_almacen'
+
+    id = db.Column(db.Integer, primary_key=True)
+    codigo = db.Column(db.String(50), unique=True, nullable=False) # Ej: CFPA001B004
+    notas = db.Column(db.String(255))
+    
+    almacen_id = db.Column(db.Integer, db.ForeignKey('almacenes.id'))
+    
+    # Vinculación opcional con catálogo visual (Pasillo, Nivel)
+    cat_ubicacion_id = db.Column(db.Integer, db.ForeignKey('cat_ubicaciones.id'), nullable=True)
+
+    almacen = db.relationship('Almacen', backref='ubicaciones')
+
+class RutaReparto(db.Model):
+    __tablename__ = 'rutas_reparto'
+
+    id = db.Column(db.Integer, primary_key=True)
+    descripcion = db.Column(db.String(100), nullable=False)
+    img_mapa = db.Column(db.String(255))
+    notas = db.Column(db.Text)
+
+========================= FILE: .\app\models\products.py =========================
+# app/models/products.py
+from app.extensions import db
+
+class Producto(db.Model):
+    __tablename__ = 'productos'
+
+    id = db.Column(db.Integer, primary_key=True)
+    sku = db.Column(db.String(50), unique=True, nullable=False)
+    descripcion = db.Column(db.String(200), nullable=False)
+    
+    # Clasificación
+    categoria_id = db.Column(db.Integer, db.ForeignKey('cat_categorias_producto.id'))
+    unidad_id = db.Column(db.Integer, db.ForeignKey('cat_unidades_medida.id'))
+
+    # Dinero
+    precio_costo_actual = db.Column(db.Numeric(10, 2), default=0.00)
+    precio_venta_general = db.Column(db.Numeric(10, 2), default=0.00) # Base
+
+    # Físico
+    peso_gramos = db.Column(db.Float, default=0.0)
+    caducidad_dias = db.Column(db.Integer, default=0)
+    imagen_producto = db.Column(db.String(255))
+
+    # Semáforos de Inventario
+    stock_minimo = db.Column(db.Float, default=0.0)
+    stock_maximo = db.Column(db.Float, default=0.0)
+    stock_ideal = db.Column(db.Float, default=0.0)
+
+    # Relaciones
+    categoria = db.relationship('CatCategoriaProducto')
+    unidad = db.relationship('CatUnidadMedida')
+
+class MateriaPrima(db.Model):
+    __tablename__ = 'materia_prima'
+
+    id = db.Column(db.Integer, primary_key=True)
+    sku = db.Column(db.String(50), unique=True, nullable=False)
+    descripcion = db.Column(db.String(200), nullable=False)
+    
+    categoria_id = db.Column(db.Integer, db.ForeignKey('cat_categorias_materia_prima.id'))
+    unidad_id = db.Column(db.Integer, db.ForeignKey('cat_unidades_medida.id'))
+
+    # Dinero
+    precio_costo_promedio = db.Column(db.Numeric(10, 2), default=0.00)
+    precio_venta_general = db.Column(db.Numeric(10, 2), default=0.00) # Requerimiento tuyo
+
+    # Físico
+    peso_gramos = db.Column(db.Float, default=0.0)
+    caducidad_dias = db.Column(db.Integer, default=0)
+    imagen_materia = db.Column(db.String(255))
+    
+    # Inventario Ideal (Opcional, pero bueno tenerlo)
+    stock_minimo = db.Column(db.Float, default=0.0)
+    stock_maximo = db.Column(db.Float, default=0.0)
+    stock_ideal = db.Column(db.Float, default=0.0)
+
+    categoria = db.relationship('CatCategoriaMateriaPrima')
+    unidad = db.relationship('CatUnidadMedida')
+
+========================= FILE: .\app\models\users.py =========================
+# app/models/users.py
+from app.extensions import db
+from datetime import datetime
+
+class Usuario(db.Model):
+    __tablename__ = 'usuarios'
+
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # --- IDENTIDAD ---
+    nombres = db.Column(db.String(100), nullable=False)
+    apellido_paterno = db.Column(db.String(100), nullable=False)
+    apellido_materno = db.Column(db.String(100))
+    fecha_nacimiento = db.Column(db.Date)
+    estado_civil = db.Column(db.String(50))
+    profesion = db.Column(db.String(100))
+    curp = db.Column(db.String(18))
+    rfc = db.Column(db.String(13)) # Fiscal
+
+    # --- DOMICILIO (Desglosado) ---
+    calle = db.Column(db.String(100))
+    num_exterior = db.Column(db.String(20))
+    num_interior = db.Column(db.String(20))
+    colonia = db.Column(db.String(100))
+    ciudad = db.Column(db.String(100))
+    codigo_postal = db.Column(db.String(10))
+    estado = db.Column(db.String(100))
+    pais = db.Column(db.String(100), default="México")
+
+    # --- CONTACTO ---
+    telefono_casa = db.Column(db.String(20))
+    telefono_celular = db.Column(db.String(20))
+    email_personal = db.Column(db.String(100))
+    
+    # Emergencia
+    contacto_emergencia_nombre = db.Column(db.String(150))
+    contacto_emergencia_telefono = db.Column(db.String(20))
+
+    # --- LABORAL ---
+    puesto_id = db.Column(db.Integer, db.ForeignKey('cat_puestos.id'))
+    fecha_inicio_empresa = db.Column(db.Date, default=datetime.utcnow)
+    calificacion_evaluacion = db.Column(db.Integer, default=5) # 1-5 Estrellas
+    notas_generales = db.Column(db.Text)
+
+    # --- SEGURIDAD ---
+    email_acceso = db.Column(db.String(100), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    pin_seguridad = db.Column(db.String(6)) # Para aprobar movimientos rápidos
+    nivel_usuario = db.Column(db.Integer, default=1)
+    activo = db.Column(db.Boolean, default=True)
+
+    # --- DOCUMENTACIÓN (Rutas de archivos) ---
+    foto_perfil = db.Column(db.String(255))
+    img_ine_frente = db.Column(db.String(255))
+    img_ine_reverso = db.Column(db.String(255))
+    img_licencia_frente = db.Column(db.String(255))
+    img_licencia_reverso = db.Column(db.String(255))
+    fecha_validez_licencia = db.Column(db.Date)
+
+    # Relaciones
+    puesto = db.relationship('CatPuesto', backref='usuarios')
+
+    def __repr__(self):
+        return f'<Usuario {self.nombres} {self.apellido_paterno}>'
+
 ========================= FILE: .\app\models\__init__.py =========================
 
+
+========================= FILE: .\db_seeds\01_catalogs_data.py =========================
+# db_seeds/01_catalogs_data.py
+
+CATALOGOS = {
+    # --- INFRAESTRUCTURA ---
+    "cat_plantas": [
+        {"descripcion": "Planta Matriz Hgo", "notas": "Producción Principal"},        
+    ],
+    "cat_areas": [
+        {"descripcion": "Producción", "notas": "Zona Congelacion"},        
+        {"descripcion": "Logística y Carga", "notas": "Andenes"},
+        {"descripcion": "Administración", "notas": "Oficinas"}
+    ],
+    "cat_ubicaciones": [ # NUEVO: Faltaba este
+        {"descripcion": "Pasillo A"},
+        {"descripcion": "Pasillo B"},
+        {"descripcion": "Nivel 1 (Piso)"},
+        {"descripcion": "Nivel 2 (Rack)"},
+        {"descripcion": "Zona de Carga"}
+    ],
+
+    # --- PRODUCTOS ---
+    "cat_unidades_medida": [
+        {"nombre": "Pieza", "abreviatura": "Pza"},
+        {"nombre": "Litro", "abreviatura": "Lt"},
+        {"nombre": "Kilogramo", "abreviatura": "Kg"},
+        {"nombre": "Caja", "abreviatura": "Cja"},
+        {"nombre": "Gramo", "abreviatura": "gr"}
+    ],
+    "cat_categorias_producto": [
+        {"nombre": "Bolis Base Leche", "descripcion": "Base láctea congelada"},
+        {"nombre": "Bolis Base Agua", "descripcion": "Base Agua congelada"},
+        {"nombre": "Paletas Base Crema", "descripcion": "Paleta Base láctea"},
+        {"nombre": "Paletas Base Agua", "descripcion": "Paleta Base Agua"},
+        {"nombre": "Helado Base Leche", "descripcion": "Litros de helado Base leche"}, 
+        {"nombre": "Helado Base Agua", "descripcion": "Litros de helado Base Agua"}
+    ],
+    "cat_categorias_materia_prima": [
+        {"nombre": "Lácteos", "descripcion": "Leche, Crema, Suero"},
+        {"nombre": "Azúcares y Endulzantes", "descripcion": ""}, # OJO: Este es el nombre correcto
+        {"nombre": "Saborizantes y Esencias", "descripcion": ""},
+        {"nombre": "Empaque Primario", "descripcion": "Bolsitas, Palitos"},
+        {"nombre": "Empaque Secundario", "descripcion": "Cajas cartón, Cinta"}
+    ],
+
+    # --- ALMACÉN ---
+    "cat_tipos_almacen": [
+        {"nombre": "Cámara Fría (Congelación)"},
+        {"nombre": "Almacén Seco"},
+        {"nombre": "Cámara Refrigerada (Conservación)"},
+        {"nombre": "Almacén de Refacciones"}
+    ],
+    "cat_tipos_movimiento_almacen": [ # NUEVO: Requerido por Kárdex
+        {"descripcion": "ENTRADA_PRODUCCION"},
+        {"descripcion": "REUBICACION_INTERNA"},
+        {"descripcion": "SALIDA_EMPAQUE"},
+        {"descripcion": "AJUSTE_INVENTARIO"},
+        {"descripcion": "BAJA_MERMA"}
+    ],
+
+    # --- RH Y OPERACIÓN ---
+    "cat_puestos": [
+        {"nombre": "Super Administrador", "nivel_acceso": 5},
+        {"nombre": "Gerente de Planta", "nivel_acceso": 4},
+        {"nombre": "Finanzas / Contador", "nivel_acceso": 4},
+        {"nombre": "Programador Producción", "nivel_acceso": 3},
+        {"nombre": "Almacenista", "nivel_acceso": 3},
+        {"nombre": "Vendedor / Preventista", "nivel_acceso": 2},
+        {"nombre": "Maestro Heladero", "nivel_acceso": 2},
+        {"nombre": "Repartidor / Chofer", "nivel_acceso": 1}
+    ],
+    "cat_tipos_vehiculo": [
+        {"nombre": "Unidad Refrigerada (Termo)"},
+        {"nombre": "Motocicleta"},
+        {"nombre": "Automóvil Sedán"}
+    ],
+    "cat_estados_fisicos": [
+        {"descripcion": "Nuevo"},
+        {"descripcion": "Bueno / Operativo"},
+        {"descripcion": "Regular / Requiere Atención"},
+        {"descripcion": "Malo / En Reparación"},
+        {"descripcion": "Baja Definitiva"}
+    ],
+
+    # --- FINANZAS Y CONTROL ---
+    "cat_conceptos_finanzas": [
+        {"tipo_flujo": "INGRESO", "descripcion": "Venta Contado Ruta"},
+        {"tipo_flujo": "INGRESO", "descripcion": "Cobranza Crédito (Abono)"},
+        {"tipo_flujo": "INGRESO", "descripcion": "Aportación de Capital"},
+        {"tipo_flujo": "EGRESO", "descripcion": "Pago a Proveedor MP"},
+        {"tipo_flujo": "EGRESO", "descripcion": "Pago Nómina"},
+        {"tipo_flujo": "EGRESO", "descripcion": "Pago Servicios (Luz/Agua)"},
+        {"tipo_flujo": "EGRESO", "descripcion": "Mantenimiento Vehicular"},
+        {"tipo_flujo": "DEUDA", "descripcion": "Compra Crédito MP"}
+    ],
+    "cat_tipos_incidencia": [
+        {"descripcion": "Producto Derretido"},
+        {"descripcion": "Producto Dañado/Aplastado"},
+        {"descripcion": "Robo / Extravío"},
+        {"descripcion": "Consumo Interno Autorizado"},
+        {"descripcion": "Merma de Producción"},
+        {"descripcion": "Error de Conteo"}
+    ],
+    "cat_bancos_cajas": [
+        {"nombre": "Caja Chica Planta"},
+        {"nombre": "Caja Fuerte Principal"},
+        {"nombre": "Cuenta Fiscal BBVA"},
+        {"nombre": "Cuenta Nómina Santander"}
+    ],
+    
+    # --- NUEVOS AGREGADOS DE ARQUITECTURA MAESTRA ---
+    "cat_tipos_descuento": [
+        {"descripcion": "PORCENTAJE"},
+        {"descripcion": "MONTO_FIJO"},
+        {"descripcion": "PRECIO_FINAL"}
+    ],
+    "cat_tipos_pago_solicitado": [
+        {"descripcion": "CONTADO"},
+        {"descripcion": "CREDITO"}
+    ],
+    "cat_estados_orden_venta": [
+        {"descripcion": "BORRADOR"},
+        {"descripcion": "CONFIRMADO"},
+        {"descripcion": "EN_PRODUCCION"},
+        {"descripcion": "EMPACADO"},
+        {"descripcion": "EN_RUTA"},
+        {"descripcion": "ENTREGADO"},
+        {"descripcion": "CANCELADO"}
+    ],
+    "cat_estados_plan_produccion": [
+        {"descripcion": "PLANIFICADO"},
+        {"descripcion": "EN_PROCESO"},
+        {"descripcion": "CERRADO"}
+    ],
+    "cat_estados_orden_empaque": [
+        {"descripcion": "EN_PROCESO"},
+        {"descripcion": "LISTO_PARA_RUTA"}
+    ],
+    "cat_tipos_movimiento_finanzas": [
+        {"descripcion": "CARGO_VENTA"},
+        {"descripcion": "ABONO_EFECTIVO"},
+        {"descripcion": "ABONO_TRANSFERENCIA"},
+        {"descripcion": "NOTA_CREDITO"}
+    ],
+    "cat_estados_deuda_empresa": [
+        {"descripcion": "PENDIENTE"},
+        {"descripcion": "PAGADO"},
+        {"descripcion": "VENCIDO"}
+    ],
+    "cat_tipos_flujo": [
+        {"descripcion": "ENTRADA"},
+        {"descripcion": "SALIDA"}
+    ],
+    "cat_origenes_flujo": [
+        {"descripcion": "CAPITAL"},
+        {"descripcion": "VENTAS"},
+        {"descripcion": "PRESTAMO"}
+    ],
+    "cat_periodos": [
+        {"descripcion": "MENSUAL"},
+        {"descripcion": "ANUAL"}
+    ]
+}
+
+========================= FILE: .\db_seeds\02_infrastructure_data.py =========================
+# db_seeds/02_infrastructure_data.py
+
+ALMACENES = [
+    {
+        "descripcion": "Cámara Fría Principal (Producto Terminado)",
+        "tipo": "Cámara Fría (Congelación)",
+        "planta": "Planta Matriz Hgo",
+        "area": "Logística y Carga",
+        "ubicaciones": [
+            # Generaremos códigos automáticos o manuales
+            {"codigo": "CF1-PAS1-NV1", "notas": "Pasillo 1 Nivel 1"},
+            {"codigo": "CF1-PAS1-NV2", "notas": "Pasillo 1 Nivel 2"},
+            {"codigo": "CF1-PISO", "notas": "Almacenaje a piso"}
+        ]
+    },
+    {
+        "descripcion": "Almacén Materia Prima Seca",
+        "tipo": "Almacén Seco",
+        "planta": "Planta Matriz Hgo",
+        "area": "Producción Helados",
+        "ubicaciones": [
+            {"codigo": "SEC-ANAQUEL-A", "notas": "Sacos Azúcar"},
+            {"codigo": "SEC-ANAQUEL-B", "notas": "Saborizantes"}
+        ]
+    }
+]
+
+RUTAS = [
+    {"descripcion": "Ruta 1: Acambaro", "notas": "Lunes, Miércoles, Viernes"},
+    {"descripcion": "Ruta 2: Queretaro", "notas": "Martes y Jueves"},
+    {"descripcion": "Ruta 3: Zinapecuaro", "notas": "Sábados"}
+]
+
+
+========================= FILE: .\db_seeds\03_products_data.py =========================
+# db_seeds/03_products_data.py
+
+PRODUCTOS = [
+    {
+        "sku": "BOL-LIM-STD",
+        "descripcion": "Boli de Limón (Tamaño Estándar)",
+        "categoria": "Bolis Base Agua",
+        "unidad": "Pieza",
+        # Precios
+        "precio_costo": 2.50,
+        "precio_venta": 6.00,
+        # Inventario
+        "stock_min": 100,
+        "stock_max": 2000,
+        "stock_ideal": 1000,
+        # Físico
+        "peso_gr": 150,
+        "caducidad_dias": 30,
+        "imagen": "uploads/productos/bol_limon.jpg" 
+    },
+    {
+        "sku": "PAL-FRE-CRM",
+        "descripcion": "Paleta de Fresa con Crema",
+        "categoria": "Paletas Base Crema",
+        "unidad": "Pieza",
+        "precio_costo": 4.00,
+        "precio_venta": 12.00,
+        "stock_min": 50,
+        "stock_max": 1000,
+        "stock_ideal": 500,
+        "peso_gr": 120,
+        "caducidad_dias": 45,
+        "imagen": "uploads/productos/pal_fresa.jpg"
+    }
+]
+
+MATERIAS_PRIMAS = [
+    {
+        "sku": "AZU-BUL-50",
+        "descripcion": "Bulto de Azúcar Estándar 50kg",
+        "categoria": "Azúcares y Endulzantes", # <--- CORREGIDO: Debe coincidir con archivo 01
+        "unidad": "Kilogramo", 
+        "precio_costo": 22.50,
+        "precio_venta": 28.00, 
+        "stock_min": 100,
+        "stock_max": 1000,
+        "stock_ideal": 500,
+        "peso_gr": 1000,
+        "caducidad_dias": 365,
+        "imagen": "uploads/materias/azucar.jpg"
+    }
+]
+
+========================= FILE: .\db_seeds\04_users_data.py =========================
+# db_seeds/04_users_data.py
+
+USUARIOS = [
+    {
+        # Login
+        "email": "admin@gelmex.com",
+        "password_raw": "Admin2025",
+        "pin": "123456",
+        # Identidad
+        "nombres": "Mario Eduardo",
+        "apellido_paterno": "Martinez",
+        "apellido_materno": "Juarez",
+        "puesto": "Super Administrador",
+        "nivel": 5,
+        "rfc": "MAJU900101XXX", # Dato real o ficticio válido
+        "curp": "MAJU900101HGT...",
+        # Laboral
+        "fecha_inicio": "2024-01-01",
+        "calificacion": 5,
+        # Contacto
+        "telefono_celular": "78610300599",
+        "telefono_casa": "4171234567",
+        # Dirección
+        "calle": "Av. Hidalgo",
+        "num_exterior": "123",
+        "num_interior": "A",
+        "colonia": "Centro",
+        "cp": "38600",
+        "ciudad": "Acámbaro",
+        "estado": "Guanajuato",
+        "pais": "México",
+        # Emergencia
+        "contacto_emergencia": "Maria Reyna Figueroa",
+        "telefono_emergencia": "4179999999",
+        # Archivos (Placeholders)
+        "foto_perfil": "uploads/usuarios/admin_profile.jpg"
+    }
+]
+
+========================= FILE: .\db_seeds\05_clients_data.py =========================
+# db_seeds/05_clients_data.py
+
+CLIENTES = [
+    {
+        # Datos Negocio
+        "nombre_negocio": "Abarrotes Don Pepe",
+        "rfc": "XAXX010101000", # RFC Genérico o Real
+        "tipo_negocio": "Tienda de Abarrotes",
+        "calificacion": 5,
+        "img_fachada": "uploads/clientes/donpepe_fachada.jpg",
+        
+        # Datos Encargado
+        "nombres_encargado": "Jose",
+        "apellidos_encargado": "Perez Lopez",
+        
+        # Dirección Negocio
+        "calle": "Calle Morelos",
+        "num_exterior": "45",
+        "num_interior": "",
+        "colonia": "San Isidro",
+        "cp": "38600",
+        "ciudad": "Acámbaro",
+        "estado": "Guanajuato",
+        
+        # Finanzas
+        "limite_credito": 5000.00,
+        "saldo_actual": 0.00, # Inicia en cero
+        
+        # Logística
+        "ruta_asignada": "Ruta 1: Acambaro", # Debe coincidir con archivo de infraestructura
+        
+        # Precios Especiales (Lista de diccionarios)
+        "precios_especiales": [
+            {
+                "producto_sku": "BOL-LIM-STD",
+                "tipo_descuento": "PRECIO_FINAL", # Usa el string del catálogo
+                "valor": 4.50 # Precio normal 6.00, a él se lo damos a 4.50
+            },
+            {
+                "producto_sku": "PAL-FRE-CRM",
+                "tipo_descuento": "PORCENTAJE",
+                "valor": 10.00 # 10% de descuento
+            }
+        ]
+    }
+]

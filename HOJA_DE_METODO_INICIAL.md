@@ -110,3 +110,98 @@ GelMexSys2.0/
 ├── instance/                  # BD Local
 ├── run.py                     # Entry Point
 └── requirements.txt           # BOM Certificado
+
+
+# GUÍA TÉCNICA: DESPLIEGUE DE MOTOR DE BASE DE DATOS (GMX-DB-01)
+
+### PASO 1: Descarga e Instalación
+
+1. Ve al sitio oficial: [https://www.postgresql.org/download/windows/](https://www.postgresql.org/download/windows/)
+2. Dale clic en **"Download the installer"**.
+3. Elige la versión **16.x** (es la más estable ahorita) para Windows x86-64.
+4. Ejecuta el instalador.
+
+**Durante la instalación (OJO AQUÍ):**
+
+* **Componentes:** Asegúrate de que estén marcados:
+* [x] PostgreSQL Server
+* [x] pgAdmin 4 (Este es el panel visual para administrar, indispensable).
+* [x] Command Line Tools
+
+
+* **Directorio:** Déjalo por defecto.
+* **Contraseña (CRÍTICO):** Te va a pedir una contraseña para el "Superusuario (postgres)".
+* ⚠️ **Escríbela:** Ponle `admin` o `123456` por ahora para desarrollo local. **No la olvides**, porque sin ella no podemos conectar Python.
+
+
+* **Puerto:** Déjalo en `5432` (Estándar).
+* **Locale:** Déjalo por defecto (Default locale).
+
+Dale "Siguiente" a todo hasta que termine.
+
+---
+
+### PASO 2: Crear la Base de Datos "gelmex_db"
+
+Ya instalado, no vamos a usar consola negra, vamos a usar lo visual.
+
+1. Presiona la tecla `Windows` y busca **pgAdmin 4**. Ábrelo (es el icono del elefante).
+2. Te va a pedir la contraseña que acabas de crear. Pónsela.
+3. A la izquierda verás `Servers` -> `PostgreSQL 16`. Dale doble clic para conectar.
+4. Dale **clic derecho** sobre "Databases" -> **Create** -> **Database...**
+5. En el nombre ponle: **`gelmex_db`** (Todo minúsculas).
+6. Dale **Save**.
+
+¡Listo! Ya tienes el contenedor vacío esperando los datos.
+
+---
+
+### PASO 3: Conectar Flask a PostgreSQL
+
+Ahora hay que decirle a tu código: "Oye, deja de usar SQLite y conéctate al Postgres que acabamos de instalar".
+
+1. Abre tu archivo **`config.py`** en VS Code.
+2. Busca la clase `DevelopmentConfig`.
+3. Modifica la línea `SQLALCHEMY_DATABASE_URI`.
+
+Debe quedar así (cambia `TU_CONTRASEÑA` por la que pusiste en el instalador):
+
+```python
+class DevelopmentConfig(Config):
+    DEBUG = True
+    # Conexión a PostgreSQL Local
+    # Formato: postgresql://usuario:password@localhost:puerto/nombre_db
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or \
+        'postgresql://postgres:TU_CONTRASEÑA@localhost:5432/gelmex_db'
+
+```
+
+*Nota: Si tu contraseña es `admin`, la línea queda: `'postgresql://postgres:admin@localhost:5432/gelmex_db'*`
+
+---
+
+### PASO 4: Instalar el Driver
+
+Para que Python hable con Postgres, necesita un traductor. Ejecuta esto en tu terminal (con el `(venv)` activo):
+
+```powershell
+pip install psycopg2-binary
+
+```
+
+---
+
+### PASO 5: Generar las Tablas (La Prueba de Fuego)
+
+Ahora sí, ya con el motor instalado, la base creada y el código conectado, vamos a crear las tablas.
+
+Ejecuta tu archivo de arranque:
+
+```powershell
+python run.py
+
+```
+
+1. Si dice `Running on http://127.0.0.1:5000`, **EXITAZO**.
+2. Para confirmar, ve a **pgAdmin 4**, ve a `gelmex_db` -> `Schemas` -> `public` -> `Tables`. Dale clic derecho y "Refresh".
+3. Deberías ver ahí toda la lista: `almacenes`, `clientes`, `productos`, `usuarios`... ¡Todas las tablas vacías creadas por SQLAlchemy!

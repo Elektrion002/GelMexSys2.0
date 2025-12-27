@@ -1,19 +1,34 @@
+# app/__init__.py
 from flask import Flask
 from config import config
+from app.extensions import db
 
 def create_app(config_name='default'):
-    # Creamos la instancia de Flask
+    # 1. Instanciar Flask
     app = Flask(__name__)
 
-    # Cargamos la configuración (Dev o Prod)
+    # 2. Cargar Configuración (Dev, Prod, etc.)
     app.config.from_object(config[config_name])
 
-    # Aquí luego conectaremos la Base de Datos y los Blueprints (Módulos)
-    # Por ahora, solo queremos que arranque.
-    
-    # Ruta de prueba rápida para ver si jala
-    @app.route('/')
-    def index():
-        return "<h1>🍦 GelMexSys 2.0</h1><p>Sistema Operativo y Listo.</p>"
+    # 3. Conectar Base de Datos
+    db.init_app(app)
+
+    # 4. Cargar Modelos (Contexto de Aplicación)
+    # Esto es CRÍTICO: Si no importamos los modelos aquí, SQLAlchemy no sabrá que existen
+    # y no creará las tablas.
+    with app.app_context():
+        from app.models import catalogs
+        from app.models import users
+        from app.models import infrastructure
+        from app.models import products
+        from app.models import clients
+        
+        # Opcional: Crear tablas automáticamente si no existen (Solo desarrollo)
+        # En producción usaremos Migraciones (Alembic)
+        db.create_all()
+
+    # 5. Registrar Blueprints (Rutas) - Lo haremos más adelante
+    # from app.blueprints.home import home_bp
+    # app.register_blueprint(home_bp)
 
     return app
