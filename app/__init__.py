@@ -37,5 +37,8 @@ def create_app(config_name='default'):
 
     from app.blueprints.auth import auth_bp
     app.register_blueprint(auth_bp)
+
+    from app.blueprints.inventory import inventory_bp
+    app.register_blueprint(inventory_bp)
     
     return app
