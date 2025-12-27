@@ -205,3 +205,80 @@ python run.py
 1. Si dice `Running on http://127.0.0.1:5000`, **EXITAZO**.
 2. Para confirmar, ve a **pgAdmin 4**, ve a `gelmex_db` -> `Schemas` -> `public` -> `Tables`. Dale clic derecho y "Refresh".
 3. Deberías ver ahí toda la lista: `almacenes`, `clientes`, `productos`, `usuarios`... ¡Todas las tablas vacías creadas por SQLAlchemy!
+
+
+¡Excelente iniciativa! Es el momento exacto para hacer un **Checkpoint (Commit)**. Acabamos de pasar de una "App Hola Mundo" a un **Sistema ERP con Arquitectura de Datos Enterprise conectada a PostgreSQL**.
+
+Si algo se rompe mañana, necesitamos poder volver a este punto exacto donde todo funciona (Tablas creadas + Conexión Exitosa).
+
+Aquí tienes el procedimiento para ejecutar la **OP-50 (Control de Cambios)** siguiendo tu estándar.
+
+---
+
+### OP 50: Aseguramiento de Versión (Git Commit)
+
+**Descripción:** Consolidación de la Arquitectura de Datos, Modelos ORM y conexión a motor de base de datos.
+
+**1. Verificar el Estado (Reconocimiento)**
+Primero, vamos a ver todo lo que Git detectó que cambiamos (Modelos, Config, Seeds, etc.). Ejecuta en tu terminal:
+
+```powershell
+git status
+
+```
+
+*Deberías ver en rojo (o verde si ya agregaste algo) archivos como `app/models/`, `db_seeds/`, `config.py`, `setup_db.py`, etc.*
+
+**2. Preparar el Paquete (Staging)**
+Vamos a subir todo al área de preparación.
+
+```powershell
+git add .
+
+```
+
+**3. Ejecutar el Commit (Guardado)**
+Este es el comando clave. Copia y pega este mensaje para que quede profesional y descriptivo en el historial:
+
+```powershell
+git commit -m "Feat: Implementacion Arquitectura de Datos PostgreSQL y Modelos ORM
+
+- Configuracion de conexion a PostgreSQL en config.py (GMX-DB-01).
+- Creacion de Modelos Maestros: Catalogos, Usuarios, Productos, Clientes, Infraestructura.
+- Integracion de script de sembrado de datos (seed_runner.py) y diccionarios de datos.
+- Instalacion de driver psycopg2-binary.
+- Validacion de creacion de tablas en pgAdmin 4."
+
+```
+
+---
+
+### Actualización de tu Documentación
+
+Para mantener tu **HOJA DE MÉTODO (GMX-OP-01)** actualizada con lo que acabamos de hacer, aquí tienes el bloque que debes agregar al final de tu documento de texto para cerrar el ciclo de la "Revisión 1.1":
+
+#### OP 60: Integración de Motor de Datos (Post-Deployment)
+
+**Descripción:** Vinculación del entorno de aplicación con el servidor de datos persistente.
+
+1. **Instalación de Driver:**
+```powershell
+pip install psycopg2-binary
+
+```
+
+
+2. **Configuración de Enlace:**
+Editar `config.py` para apuntar a `postgresql://postgres:***@localhost:5432/gelmex_db`.
+3. **Despliegue de Esquema:**
+Ejecutar script de diagnóstico y construcción:
+```powershell
+python setup_db.py
+
+```
+
+
+*Criterio de Aceptación: Mensaje "✅ ¡ÉXITO! TABLAS CREADAS CORRECTAMENTE." y visualización de 34 tablas en pgAdmin.*
+
+---
+
