@@ -60,7 +60,7 @@
 <div class="container-fluid pb-5">
     <div class="card card-erp mb-3 border-0 shadow-sm" style="z-index: 1001;">
         <div class="card-body p-4">
-            <div class="row g-3 align-items-end">
+            <div class="row g-3">
                 <div class="col-12 col-md-5 position-relative" id="wrapperCliente">
                     <label class="small fw-bold text-muted mb-1 text-uppercase">1. Buscar Cliente</label>
                     <input type="text" class="form-control form-control-lg border-primary shadow-sm" 
@@ -88,15 +88,25 @@
                     </div>
                 </div>
                 
-                <div class="col-12 col-md-3">
-                    <label class="small fw-bold text-muted mb-1 text-uppercase">2. Método de Pago</label>
-                    <select id="metodoPago" class="form-select form-select-lg border-primary fw-bold" onchange="renderCarrito()">
-                        <option value="Credito" selected>CRÉDITO</option>
-                        <option value="Contado">CONTADO (EFECTIVO)</option>
-                    </select>
+                <div class="col-12 col-md-4">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="small fw-bold text-muted mb-1 text-uppercase">2. Método de Pago</label>
+                            <select id="metodoPago" class="form-select form-select-lg border-primary fw-bold" onchange="renderCarrito()">
+                                <option value="Credito" selected>CRÉDITO</option>
+                                <option value="Contado">CONTADO (EFECTIVO)</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-floating">
+                                <input type="text" id="inputNotas" class="form-control" placeholder="Nota">
+                                <label for="inputNotas" class="text-muted small"><i class="fa-solid fa-pen-nib me-1"></i>Motivo / Condiciones (Mín. 15 letras)</label>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="col-12 col-md-4 text-end border-md-start">
+                <div class="col-12 col-md-3 text-end border-md-start d-flex flex-column justify-content-center">
                     <label class="small fw-bold text-muted d-block text-uppercase">Total de esta Nota</label>
                     <div class="total-display" id="granTotal">$0.00</div>
                 </div>
@@ -231,7 +241,6 @@
             const r = await fetch(`/ventas/api/cliente/${id}`);
             const d = await r.json();
             
-            // Lógica de Finanzas: Mostramos todo el desglose
             creditoDisponible = d.disponible;
             document.getElementById('resumenCliente').classList.remove('d-none');
             document.getElementById('valLimite').innerText = `$${d.limite_credito.toFixed(2)}`;
@@ -311,17 +320,34 @@
 
     async function enviarPedido() {
         const metodo = document.getElementById('metodoPago').value;
-        if(!confirm(`¿Enviar pedido a PRODUCCIÓN?`)) return;
+        const notas = document.getElementById('inputNotas').value.trim();
+
+        // --- VALIDACIÓN DE 15 CARACTERES (El Candado) ---
+        if (notas.length < 15) {
+            alert(`⚠️ ¡Ey! Explica la venta.\n\nEscribe al menos 15 letras en el campo de Notas.\n(Actualmente tienes ${notas.length}).\n\nEjemplo: "Paga al recibir en tienda"`);
+            document.getElementById('inputNotas').focus();
+            return;
+        }
+        // ------------------------------------------------
+
+        if(!confirm(`¿Confirmar este pedido?`)) return;
         
-        const payload = { cliente_id: clienteId, fecha_entrega: "{{ date_now }}", metodo_pago: metodo, total: totalGlobal, items: carrito };
+        const payload = { 
+            cliente_id: clienteId, 
+            fecha_entrega: "{{ date_now }}", 
+            metodo_pago: metodo, 
+            total: totalGlobal, 
+            notas: notas, 
+            items: carrito 
+        };
 
         try {
             const r = await fetch('/ventas/crear-pedido', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             const d = await r.json();
             if(d.status === 'success') {
-                alert("Éxito: " + d.message);
+                alert("✅ " + d.message);
                 window.location.reload();
-            } else { alert("Error: " + d.message); }
+            } else { alert("❌ Error: " + d.message); }
         } catch (e) { alert("Error de conexión"); }
     }
 

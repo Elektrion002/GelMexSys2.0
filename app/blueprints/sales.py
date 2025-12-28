@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 from app.extensions import db
-from sqlalchemy import func # <--- NECESARIO PARA SUMAR
+from sqlalchemy import func
 
 # Modelos
 from app.models.clients import Cliente
@@ -32,17 +32,16 @@ def preventa():
                            catalogo=catalogo_js,
                            date_now=datetime.now().strftime('%Y-%m-%d'))
 
-# --- 2. API INTELIGENTE (AQUÍ ESTÁ LA MAGIA DEL CRÉDITO) ---
+# --- 2. API INTELIGENTE (CRÉDITO VIRTUAL) ---
 @sales_bp.route('/api/cliente/<int:id>')
 @login_required
 def api_cliente(id):
     c = Cliente.query.get_or_404(id)
     
-    # A. Deuda "Dura" (Lo que ya se entregó y no ha pagado)
+    # A. Deuda Contable
     deuda_contable = float(c.saldo_actual)
 
-    # B. Deuda "Virtual" (Pedidos en vuelo: Confirmados o En Ruta, pero no entregados)
-    # Buscamos todas las ventas activas de este cliente que aún no se cobran
+    # B. Deuda Virtual (Pedidos vivos)
     ventas_en_curso = db.session.query(func.sum(OrdenVenta.total_venta))\
         .filter(OrdenVenta.cliente_id == id)\
         .filter(OrdenVenta.estado.in_(['CONFIRMADA', 'EN_RUTA', 'EN_PRODUCCION', 'EMPACADO']))\
@@ -50,27 +49,21 @@ def api_cliente(id):
     
     ventas_en_curso = float(ventas_en_curso)
 
-    # C. Cálculo Real
+    # C. Cálculo
     deuda_total_real = deuda_contable + ventas_en_curso
     limite = float(c.limite_credito)
     disponible_real = limite - deuda_total_real
 
-    # Precios especiales
     precios = {p.producto_id: float(p.valor_descuento) for p in c.precios_especiales}
     
     return jsonify({
         "limite_credito": limite,
-        "saldo_actual": deuda_total_real, # Le mandamos la suma total para asustar a Don Pepe
+        "saldo_actual": deuda_total_real,
         "disponible": disponible_real,
-        "precios_especiales": precios,
-        # Dato extra por si quieres depurar después:
-        "desglose_deuda": {
-            "contable": deuda_contable,
-            "en_pedidos": ventas_en_curso
-        }
+        "precios_especiales": precios
     })
 
-# --- 3. EL "OÍDO" QUE RECIBE EL PEDIDO ---
+# --- 3. CREAR PEDIDO (CON REGLA DE 15 CARACTERES) ---
 @sales_bp.route('/crear-pedido', methods=['POST'])
 @login_required
 def crear_pedido():
@@ -80,12 +73,19 @@ def crear_pedido():
         return jsonify({"status": "error", "message": "El pedido está vacío"}), 400
 
     try:
-        # VALIDACIÓN FINAL DE CRÉDITO (DOBLE SEGURIDAD)
+        # 1. VALIDACIÓN DE NOTA OBLIGATORIA (CULTURA FINANCIERA)
+        notas = data.get('notas', '').strip()
+        if len(notas) < 15:
+            return jsonify({
+                "status": "error", 
+                "message": "⚠️ Escribe una nota detallada (mínimo 15 letras). Explica condiciones de pago o entrega."
+            }), 400
+
+        # 2. VALIDACIÓN DE CRÉDITO
         if data['metodo_pago'] == 'Credito':
             cliente = Cliente.query.get(int(data['cliente_id']))
             total_pedido = float(data['total'])
             
-            # Recalculamos rápido para que no nos hagan trampa
             ventas_en_curso = db.session.query(func.sum(OrdenVenta.total_venta))\
                 .filter(OrdenVenta.cliente_id == cliente.id)\
                 .filter(OrdenVenta.estado.in_(['CONFIRMADA', 'EN_RUTA', 'EN_PRODUCCION', 'EMPACADO']))\
@@ -96,10 +96,10 @@ def crear_pedido():
             if (deuda_total + total_pedido) > float(cliente.limite_credito):
                 return jsonify({
                     "status": "error", 
-                    "message": f"⛔ CRÉDITO INSUFICIENTE. Disponible real: ${float(cliente.limite_credito) - deuda_total:.2f}"
+                    "message": f"⛔ CRÉDITO INSUFICIENTE. Disp: ${float(cliente.limite_credito) - deuda_total:.2f}"
                 }), 400
 
-        # --- CREACIÓN DEL PEDIDO ---
+        # --- GUARDAR VENTA ---
         folio_gen = f"PV-{datetime.now().strftime('%y%m%d%H%M%S')}"
 
         nueva_orden = OrdenVenta(
@@ -109,7 +109,8 @@ def crear_pedido():
             fecha_promesa_entrega = datetime.strptime(data['fecha_entrega'], '%Y-%m-%d'),
             metodo_pago_esperado = data['metodo_pago'],
             total_venta = 0, 
-            estado = 'CONFIRMADA' # Nace confirmada para que descuente crédito y aparezca en producción
+            estado = 'CONFIRMADA',
+            notas_vendedor = notas # Ya validada
         )
         
         db.session.add(nueva_orden)
@@ -135,7 +136,7 @@ def crear_pedido():
         
         return jsonify({
             "status": "success", 
-            "message": f"Pedido {folio_gen} guardado! Crédito actualizado.", 
+            "message": f"Pedido {folio_gen} guardado correctamente.", 
             "folio": folio_gen
         })
 
