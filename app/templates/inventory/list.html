@@ -9,7 +9,9 @@
     <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
         <h5 class="m-0 text-primary"><i class="fa-solid fa-boxes-stacked"></i> Listado General</h5>
         <button class="btn btn-primary btn-sm">
-            <i class="fa-solid fa-plus"></i> Nuevo Producto
+            <a href="{{ url_for('inventory.create') }}" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-plus"></i> Nuevo Producto
+            </a>
         </button>
     </div>
     

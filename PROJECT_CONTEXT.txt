@@ -1,12 +1,13 @@
 ============================================================
  GELMEXSYS 2.0 - REPORTE DE CONTEXTO TÉCNICO (PostgreSQL)
- FECHA: 2025-12-27 15:31:22
+ FECHA: 2025-12-28 10:01:57
 ============================================================
 
 ------------------------------
 ESTRUCTURA DE DIRECTORIOS:
 [./]
     ARQUITECTURA_DATOS.md
+    audit_system.py
     config.py
     HOJA_DE_METODO_INICIAL.md
     intrucciones git.txt
@@ -17,21 +18,41 @@ ESTRUCTURA DE DIRECTORIOS:
     setup_structure.py
     [app/]
         extensions.py
+        forms.py
         __init__.py
         [blueprints/]
             api_test.py
-            __init__.py
+            auth.py
+            home.py
+            inventory.py
+            production.py
+            sales.py
         [models/]
             catalogs.py
             clients.py
             infrastructure.py
+            orders.py
             products.py
+            stock.py
             users.py
             __init__.py
         [static/]
             [css/]
+                main.css
             [js/]
         [templates/]
+            base.html
+            [auth/]
+                login.html
+            [home/]
+                index.html
+            [inventory/]
+                form.html
+                list.html
+            [production/]
+                needs_board.html
+            [sales/]
+                console.html
     [db_seeds/]
         data_catalogs.py
         data_clients.py
@@ -119,7 +140,7 @@ ESTRUCTURA DE DIRECTORIOS:
     * `precio_venta_general` (Base).
 * **Físico:**
     * `peso_gramos`, `caducidad_dias`.
-    * `imagen_producto` (300x300 jpg, ruta).
+    * `imagen_producto` (300x300 jpg, path).
 
 **Tabla: `materia_prima`**
 * `id` (PK), `sku`, `descripcion`.
@@ -128,7 +149,7 @@ ESTRUCTURA DE DIRECTORIOS:
 * `precio_costo_promedio`.
 * `precio_venta_general` (Base).
 * `peso_gramos`, `caducidad_dias`.
-* `imagen_materia` (300x300 jpg, ruta).
+* `imagen_materia` (300x300 jpg, path).
 
 ---
 
@@ -280,6 +301,143 @@ Para el archivo `db_seeds.py`, seguiremos este orden estricto de llenado para ev
 3.  **Nivel 2 (Categorías):** Categorías de Productos y Materia Prima, Puestos.
 4.  **Nivel 3 (Recursos):** Productos Base, Almacenes físicos, Vehículos demo.
 5.  **Nivel 4 (Usuarios):** Crear al "Super Admin" (Dios) y un Vendedor demo.
+
+========================= FILE: .\audit_system.py =========================
+import os
+from app import create_app
+from app.extensions import db
+from sqlalchemy import text, inspect
+
+# Configuración de colores para la consola
+class Colors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+
+def audit_database():
+    app = create_app()
+    with app.app_context():
+        print(f"\n{Colors.HEADER}{'='*60}")
+        print(f" AUDITORÍA TÉCNICA GELMEXSYS - ESTADO REAL DEL SISTEMA")
+        print(f"{'='*60}{Colors.ENDC}\n")
+
+        inspector = inspect(db.engine)
+
+        # ---------------------------------------------------------
+        # 1. INSPECCIÓN DE ESTRUCTURA (LA VERDAD DE POSTGRES)
+        # ---------------------------------------------------------
+        print(f"{Colors.BOLD}1. INSPECCIÓN DE ESTRUCTURA (Columnas Reales){Colors.ENDC}")
+        
+        tablas_criticas = ['productos', 'inventario_productos', 'ordenes_venta', 'orden_venta_detalles']
+        
+        col_maps = {}
+        for tabla in tablas_criticas:
+            if inspector.has_table(tabla):
+                cols = [c['name'] for c in inspector.get_columns(tabla)]
+                col_maps[tabla] = cols
+                print(f"   [OK] Tabla '{tabla}' detectada. Columnas clave:")
+                # Filtramos solo las columnas que nos importan para el cálculo
+                claves = [c for c in cols if 'stock' in c or 'cantidad' in c or 'estado' in c]
+                print(f"        -> {claves}")
+            else:
+                print(f"{Colors.FAIL}   [ERROR] La tabla '{tabla}' NO EXISTE en la BD.{Colors.ENDC}")
+
+        # ---------------------------------------------------------
+        # 2. ANÁLISIS DE DATOS (CONTENIDO)
+        # ---------------------------------------------------------
+        print(f"\n{Colors.BOLD}2. ANÁLISIS DE DATOS (¿Qué hay adentro?){Colors.ENDC}")
+        
+        # A. Revisión de Inventario
+        print("   --- INVENTARIO ---")
+        try:
+            # Intentamos leer con el nombre que vimos en tu consola anterior
+            sql_inv = text("SELECT COUNT(*), SUM(cantidad_actual) FROM inventario_productos")
+            res_inv = db.session.execute(sql_inv).fetchone()
+            print(f"   Registros en Inventario: {res_inv[0]}")
+            print(f"   Suma Total Stock Físico: {res_inv[1] if res_inv[1] else 0}")
+        except Exception as e:
+            print(f"{Colors.FAIL}   Error leyendo inventario: {e}{Colors.ENDC}")
+
+        # B. Revisión de Preventas (El origen del problema)
+        print("\n   --- PREVENTAS (ORDENES) ---")
+        try:
+            sql_orders = text("SELECT estado, COUNT(*) FROM ordenes_venta GROUP BY estado")
+            res_orders = db.session.execute(sql_orders).fetchall()
+            if not res_orders:
+                print(f"{Colors.WARNING}   ⚠️ NO HAY ÓRDENES DE VENTA REGISTRADAS.{Colors.ENDC}")
+            for row in res_orders:
+                print(f"   Estado '{row[0]}': {row[1]} órdenes")
+        except Exception as e:
+            print(f"{Colors.FAIL}   Error leyendo órdenes: {e}{Colors.ENDC}")
+
+        # ---------------------------------------------------------
+        # 3. SIMULACIÓN DEL CÁLCULO MCP (PRUEBA DE LÓGICA)
+        # ---------------------------------------------------------
+        print(f"\n{Colors.BOLD}3. SIMULACIÓN DE CÁLCULO (Production Logic){Colors.ENDC}")
+        print("   Vamos a tomar el primer producto que encontremos y calcular su necesidad manualmente:")
+        
+        try:
+            # Tomamos un producto al azar
+            sql_prod = text("SELECT id, descripcion, stock_ideal, stock_minimo FROM productos LIMIT 1")
+            prod = db.session.execute(sql_prod).fetchone()
+            
+            if prod:
+                pid, desc, ideal, minimo = prod
+                print(f"   Producto Analizado: {Colors.OKBLUE}{desc}{Colors.ENDC} (ID: {pid})")
+                print(f"   > Stock Ideal (Meta): {ideal}")
+                print(f"   > Stock Mínimo (Referencia): {minimo}")
+
+                # Calculamos Demanda (CONFIRMADA)
+                sql_demanda = text("""
+                    SELECT COALESCE(SUM(d.cantidad_pedida), 0) 
+                    FROM orden_venta_detalles d 
+                    JOIN ordenes_venta o ON d.orden_id = o.id 
+                    WHERE d.producto_id = :pid AND o.estado = 'CONFIRMADA'
+                """)
+                demanda = db.session.execute(sql_demanda, {"pid": pid}).scalar()
+                print(f"   > Demanda (Pedidos Nuevos): {demanda}")
+
+                # Calculamos WIP (EN PRODUCCION)
+                sql_wip = text("""
+                    SELECT COALESCE(SUM(d.cantidad_pedida), 0) 
+                    FROM orden_venta_detalles d 
+                    JOIN ordenes_venta o ON d.orden_id = o.id 
+                    WHERE d.producto_id = :pid AND o.estado = 'PRODUCCION'
+                """)
+                wip = db.session.execute(sql_wip, {"pid": pid}).scalar()
+                print(f"   > WIP (Ya en cocina): {wip}")
+
+                # Calculamos Existencia Real
+                sql_existencia = text("SELECT COALESCE(SUM(cantidad_actual), 0) FROM inventario_productos WHERE producto_id = :pid")
+                existencia = db.session.execute(sql_existencia, {"pid": pid}).scalar()
+                print(f"   > Existencia Real (DB): {existencia}")
+
+                # --- EL DIAGNÓSTICO ---
+                print(f"\n   {Colors.BOLD}--- RESULTADO DEL CÁLCULO ---{Colors.ENDC}")
+                
+                # FÓRMULA: (Demanda + Ideal) - (Existencia + WIP)
+                necesidad = (demanda + ideal) - (existencia + wip)
+                final = max(0, necesidad)
+                
+                print(f"   Fórmula: ({demanda} + {ideal}) - ({existencia} + {wip}) = {necesidad}")
+                print(f"   {Colors.OKGREEN}A FABRICAR SUGERIDO: {final}{Colors.ENDC}")
+                
+                if final == 0 and demanda > 0:
+                    print(f"   {Colors.OKBLUE}DIAGNÓSTICO: El sistema detecta que la demanda ya está cubierta.{Colors.ENDC}")
+                elif final > 0:
+                    print(f"   {Colors.WARNING}DIAGNÓSTICO: Falta producto para llegar al ideal.{Colors.ENDC}")
+            else:
+                print("   No hay productos en la base de datos.")
+
+        except Exception as e:
+            print(f"{Colors.FAIL}Error en la simulación: {str(e)}{Colors.ENDC}")
+
+if __name__ == "__main__":
+    audit_database()
 
 ========================= FILE: .\config.py =========================
 import os
@@ -619,18 +777,19 @@ SQLAlchemy>=2.0.16
 Flask-SQLAlchemy>=3.1.1
 
 ========================= FILE: .\run.py =========================
+# run.py
 import os
 from app import create_app
 
-# Leemos en qué modo estamos (por defecto Desarrollo)
 config_name = os.getenv('FLASK_CONFIG') or 'default'
-
-# Creamos la app
 app = create_app(config_name)
 
 if __name__ == '__main__':
     print(f"--> Arrancando GelMexSys en modo: {config_name}")
-    app.run()
+    print("--> ACCESO EXTERNO HABILITADO: Usa tu IP para entrar desde el cel.")
+    
+    # AGREGAMOS host='0.0.0.0'
+    app.run(host='0.0.0.0', port=5000)
 
 ========================= FILE: .\seed_runner.py =========================
 # seed_runner.py
@@ -896,11 +1055,38 @@ from flask_sqlalchemy import SQLAlchemy
 # Inicializamos el objeto db sin la app todavía (Lazy Loading)
 db = SQLAlchemy()
 
+========================= FILE: .\app\forms.py =========================
+# app/forms.py
+from flask_wtf import FlaskForm
+from wtforms import StringField, DecimalField, SelectField, FileField, SubmitField, IntegerField
+from wtforms.validators import DataRequired, NumberRange, Length
+from flask_wtf.file import FileAllowed
+
+class ProductoForm(FlaskForm):
+    sku = StringField('SKU / Código', validators=[DataRequired(), Length(max=50)])
+    descripcion = StringField('Nombre del Producto', validators=[DataRequired(), Length(max=200)])
+    
+    # Los SelectField (Combos) se llenan dinámicamente en el controlador
+    categoria_id = SelectField('Categoría', coerce=int, validators=[DataRequired()])
+    unidad_id = SelectField('Unidad de Medida', coerce=int, validators=[DataRequired()])
+    
+    precio_costo = DecimalField('Costo Producción ($)', places=2, validators=[NumberRange(min=0)])
+    precio_venta = DecimalField('Precio Venta ($)', places=2, validators=[DataRequired(), NumberRange(min=0)])
+    
+    stock_minimo = IntegerField('Stock Mínimo (Alerta)', validators=[NumberRange(min=0)], default=10)
+    
+    imagen = FileField('Foto del Producto', validators=[
+        FileAllowed(['jpg', 'png', 'jpeg'], 'Solo imágenes JPG o PNG')
+    ])
+    
+    submit = SubmitField('Guardar Producto')
+
 ========================= FILE: .\app\__init__.py =========================
 # app/__init__.py
 from flask import Flask
 from config import config
 from app.extensions import db
+from flask_login import LoginManager # <--- 1. Importar
 
 def create_app(config_name='default'):
     app = Flask(__name__)
@@ -908,17 +1094,43 @@ def create_app(config_name='default'):
 
     db.init_app(app)
 
+    # --- CONFIGURACIÓN DE LOGIN (NUEVO) ---
+    login_manager = LoginManager()
+    login_manager.login_view = 'auth.login' # A dónde ir si no estás logueado
+    login_manager.login_message = "Debes iniciar sesión para acceder a este sistema."
+    login_manager.login_message_category = "warning"
+    login_manager.init_app(app)
+
+    # Función para cargar usuario desde la Cookie
+    from app.models.users import Usuario
+    @login_manager.user_loader
+    def load_user(user_id):
+        return Usuario.query.get(int(user_id))
+    # --------------------------------------
+
     with app.app_context():
-        # Importamos modelos para que SQLAlchemy sepa de ellos
-        from app.models import catalogs, users, infrastructure, products, clients
-        
-        # OJO: Ya no necesitamos db.create_all() siempre, porque ya existen.
-        # Pero no estorba dejarlo por seguridad en desarrollo.
+        from app.models import catalogs, users, infrastructure, products, clients, stock, orders 
         db.create_all()
 
-    # --- AQUÍ REGISTRAMOS EL NUEVO BLUEPRINT ---
+    # --- REGISTRO DE BLUEPRINTS ---
     from app.blueprints.api_test import api_bp
     app.register_blueprint(api_bp)
+
+    from app.blueprints.home import home_bp
+    app.register_blueprint(home_bp)
+
+    from app.blueprints.auth import auth_bp
+    app.register_blueprint(auth_bp)
+
+    from app.blueprints.inventory import inventory_bp
+    app.register_blueprint(inventory_bp)
+
+    from app.blueprints.sales import sales_bp
+    app.register_blueprint(sales_bp)
+
+    from app.blueprints.production import production_bp
+    app.register_blueprint(production_bp)
+ 
     
     return app
 
@@ -981,8 +1193,312 @@ def get_clientes():
         })
     return jsonify(data)
 
-========================= FILE: .\app\blueprints\__init__.py =========================
+========================= FILE: .\app\blueprints\auth.py =========================
+# app/blueprints/auth.py
+from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask_login import login_user, logout_user, login_required, current_user
+from app.models.users import Usuario
 
+auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
+
+@auth_bp.route('/login', methods=['GET', 'POST'])
+def login():
+    # Si ya está logueado, lo mandamos directo al dashboard
+    if current_user.is_authenticated:
+        return redirect(url_for('home.dashboard'))
+
+    if request.method == 'POST':
+        email_form = request.form.get('email')
+        password_form = request.form.get('password')
+        
+        # 1. Buscar usuario en DB
+        usuario = Usuario.query.filter_by(email_acceso=email_form).first()
+        
+        # 2. Validar que exista y que la contraseña sea correcta
+        if usuario and usuario.check_password(password_form):
+            login_user(usuario) # Crear la sesión (Cookie)
+            flash(f'¡Bienvenido de nuevo, {usuario.nombres}!', 'success')
+            
+            # Redirigir a donde quería ir o al dashboard
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for('home.dashboard'))
+        else:
+            flash('Correo o contraseña incorrectos. Intenta de nuevo.', 'danger')
+        
+    return render_template('auth/login.html')
+
+@auth_bp.route('/logout')
+@login_required # Solo si estás logueado puedes salir
+def logout():
+    logout_user()
+    flash('Has cerrado sesión correctamente.', 'info')
+    return redirect(url_for('auth.login'))
+
+========================= FILE: .\app\blueprints\home.py =========================
+# app/blueprints/home.py
+from flask import Blueprint, render_template
+from flask_login import login_required, current_user # <--- 1. IMPORTAR ESTO
+
+home_bp = Blueprint('home', __name__)
+
+@home_bp.route('/')
+@home_bp.route('/dashboard')
+@login_required # <--- 2. ESTE ES EL CANDADO (Si no hay login, no pasa)
+def dashboard():
+    # Pasamos el usuario actual a la plantilla (aunque Flask-Login ya lo hace globalmente)
+    return render_template('home/index.html', user=current_user)
+
+========================= FILE: .\app\blueprints\inventory.py =========================
+# app/blueprints/inventory.py
+import os
+from flask import Blueprint, render_template, redirect, url_for, flash, current_app
+from flask_login import login_required
+from werkzeug.utils import secure_filename
+from app.extensions import db
+from app.models.products import Producto
+from app.models.catalogs import CatCategoriaProducto, CatUnidadMedida
+from app.forms import ProductoForm # <--- Importamos el formulario nuevo
+
+inventory_bp = Blueprint('inventory', __name__, url_prefix='/inventario')
+
+@inventory_bp.route('/')
+@inventory_bp.route('/lista')
+@login_required
+def index():
+    productos = Producto.query.all()
+    return render_template('inventory/list.html', productos=productos)
+
+# --- NUEVA RUTA: CREAR PRODUCTO ---
+@inventory_bp.route('/nuevo', methods=['GET', 'POST'])
+@login_required
+def create():
+    form = ProductoForm()
+    
+    # 1. Cargar los combos (Selects) con datos de la BD
+    form.categoria_id.choices = [(c.id, c.nombre) for c in CatCategoriaProducto.query.all()]
+    form.unidad_id.choices = [(u.id, u.nombre) for u in CatUnidadMedida.query.all()]
+
+    if form.validate_on_submit():
+        # 2. Lógica para guardar
+        sku = form.sku.data.upper() # Siempre mayúsculas
+        
+        # Validar que no exista el SKU
+        if Producto.query.filter_by(sku=sku).first():
+            flash(f'Error: El SKU {sku} ya existe.', 'danger')
+            return render_template('inventory/form.html', form=form, title="Nuevo Producto")
+
+        # Manejo de Imagen
+        filename = None
+        if form.imagen.data:
+            file = form.imagen.data
+            filename = secure_filename(sku + "_" + file.filename)
+            # Guardar en app/static/uploads/productos
+            upload_path = os.path.join(current_app.root_path, 'static/uploads/productos')
+            os.makedirs(upload_path, exist_ok=True)
+            file.save(os.path.join(upload_path, filename))
+            # Guardamos la ruta relativa para la BD
+            filename = f"uploads/productos/{filename}"
+
+        # Crear Objeto
+        nuevo_prod = Producto(
+            sku=sku,
+            descripcion=form.descripcion.data,
+            categoria_id=form.categoria_id.data,
+            unidad_id=form.unidad_id.data,
+            precio_costo_actual=form.precio_costo.data,
+            precio_venta_general=form.precio_venta.data,
+            stock_minimo=form.stock_minimo.data,
+            imagen_producto=filename
+        )
+
+        db.session.add(nuevo_prod)
+        db.session.commit()
+        
+        flash(f'Producto "{nuevo_prod.descripcion}" creado exitosamente.', 'success')
+        return redirect(url_for('inventory.index'))
+
+    return render_template('inventory/form.html', form=form, title="Nuevo Producto")
+
+========================= FILE: .\app\blueprints\production.py =========================
+from flask import Blueprint, render_template, request, jsonify
+from flask_login import login_required
+from app.extensions import db
+from datetime import datetime
+from app.models.products import Producto
+from app.models.orders import OrdenVenta, OrdenVentaDetalle
+from sqlalchemy import text # Para no pelear con modelos
+
+production_bp = Blueprint('production', __name__, url_prefix='/produccion')
+
+@production_bp.route('/tablero-necesidades')
+@login_required
+def tablero_necesidades():
+    db.session.expire_all() 
+    productos = Producto.query.all()
+    analisis = []
+
+    for p in productos:
+        # Demanda Nueva (Ventas que apenas entraron)
+        demanda = db.session.query(db.func.sum(OrdenVentaDetalle.cantidad_pedida))\
+            .join(OrdenVenta, OrdenVentaDetalle.orden_id == OrdenVenta.id)\
+            .filter(OrdenVentaDetalle.producto_id == p.id)\
+            .filter(OrdenVenta.estado == 'CONFIRMADA').scalar() or 0
+
+        # WIP: Ventas que ya mandaste a fabricar (PRODUCCION)
+        en_proceso = db.session.query(db.func.sum(OrdenVentaDetalle.cantidad_pedida))\
+            .join(OrdenVenta, OrdenVentaDetalle.orden_id == OrdenVenta.id)\
+            .filter(OrdenVentaDetalle.producto_id == p.id)\
+            .filter(OrdenVenta.estado == 'PRODUCCION').scalar() or 0
+
+        # EXISTENCIA REAL (SQL Puro - usando 'cantidad_actual' de tu DB)
+        sql_stock = text("SELECT SUM(cantidad_actual) FROM inventario_productos WHERE producto_id = :pid")
+        fisico_total = db.session.execute(sql_stock, {"pid": p.id}).scalar() or 0
+
+        meta_optima = p.stock_ideal if p.stock_ideal is not None else 0
+        
+        # CÁLCULO DEFINITIVO: (Venta + Meta) - (Fisico + Ya batiéndose)
+        necesidad_final = (demanda + meta_optima) - (fisico_total + en_proceso)
+        final = max(0, necesidad_final)
+
+        color = "success"
+        if fisico_total < demanda: color = "danger"
+        elif final > 0: color = "warning"
+
+        # IMPORTANTE: El nombre debe ser "en_proceso" para que el HTML lo vea
+        analisis.append({
+            "id": p.id,
+            "sku": p.sku,
+            "descripcion": p.descripcion,
+            "demanda": demanda,
+            "en_proceso": en_proceso, # <-- ANTES DECÍA "batiendo", POR ESO TRONABA
+            "stock_actual": fisico_total,
+            "stock_ideal": meta_optima,
+            "producir": final,
+            "semaforo": color
+        })
+
+    return render_template('production/needs_board.html', 
+                           analisis=analisis, 
+                           now=datetime.now().strftime('%H:%M'))
+
+@production_bp.route('/guardar-orden', methods=['POST'])
+@login_required
+def guardar_orden():
+    try:
+        db.session.query(OrdenVenta).filter(
+            OrdenVenta.estado == 'CONFIRMADA'
+        ).update({"estado": "PRODUCCION"}, synchronize_session='fetch')
+        db.session.commit()
+        return jsonify({"status": "success", "message": "Tablero actualizado."})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)})
+
+========================= FILE: .\app\blueprints\sales.py =========================
+from flask import Blueprint, render_template, request, jsonify
+from flask_login import login_required, current_user
+from app.extensions import db
+from app.models.clients import Cliente
+from app.models.products import Producto
+from app.models.orders import OrdenVenta, OrdenVentaDetalle
+from datetime import datetime
+
+sales_bp = Blueprint('sales', __name__, url_prefix='/ventas')
+
+# --- 1. RUTA PARA CARGAR LA CONSOLA (LO QUE YA TENÍAS) ---
+@sales_bp.route('/preventa')
+@login_required
+def preventa():
+    clientes = Cliente.query.all()
+    productos_db = Producto.query.all()
+    
+    catalogo_js = []
+    for p in productos_db:
+        catalogo_js.append({
+            "id": p.id,
+            "sku": p.sku,
+            "nombre": p.descripcion,
+            "precio": float(p.precio_venta_general)
+        })
+        
+    return render_template('sales/console.html', 
+                           clientes=clientes, 
+                           catalogo=catalogo_js,
+                           date_now=datetime.now().strftime('%Y-%m-%d'))
+
+# --- 2. API PARA PRECIOS ESPECIALES Y CRÉDITO ---
+@sales_bp.route('/api/cliente/<int:id>')
+@login_required
+def api_cliente(id):
+    c = Cliente.query.get_or_404(id)
+    # Diccionario de precios especiales {id_producto: precio_especial}
+    precios = {p.producto_id: float(p.valor_descuento) for p in c.precios_especiales}
+    return jsonify({
+        "limite_credito": float(c.limite_credito),
+        "saldo_actual": float(c.saldo_actual),
+        "disponible": float(c.limite_credito - c.saldo_actual),
+        "precios_especiales": precios
+    })
+
+# --- 3. EL "OÍDO" QUE RECIBE EL PEDIDO DEL CELULAR ---
+@sales_bp.route('/crear-pedido', methods=['POST'])
+@login_required
+def crear_pedido():
+    data = request.json
+    
+    if not data or not data.get('items'):
+        return jsonify({"status": "error", "message": "El pedido está vacío"}), 400
+
+    try:
+        # Generar Folio: PV + AñoMesDiaHoraMinutoSegundo
+        folio_gen = f"PV-{datetime.now().strftime('%y%m%d%H%M%S')}"
+
+        # A. Crear la Cabecera
+        nueva_orden = OrdenVenta(
+            folio = folio_gen,
+            cliente_id = int(data['cliente_id']),
+            vendedor_id = current_user.id,
+            fecha_promesa_entrega = datetime.strptime(data['fecha_entrega'], '%Y-%m-%d'),
+            metodo_pago_esperado = data['metodo_pago'],
+            total_venta = 0, # Se actualiza abajo
+            estado = 'CONFIRMADA'
+        )
+        
+        db.session.add(nueva_orden)
+        db.session.flush() 
+
+        total_calculado = 0
+        
+        # B. Crear los Renglones (Items)
+        # El JS manda 'items' como un objeto donde la llave es el ID del producto
+        for prod_id, info in data['items'].items():
+            subtotal = float(info['cant']) * float(info['precio'])
+            total_calculado += subtotal
+            
+            detalle = OrdenVentaDetalle(
+                orden_id = nueva_orden.id,
+                producto_id = int(prod_id),
+                cantidad_pedida = float(info['cant']),
+                precio_unitario = float(info['precio']),
+                subtotal = subtotal
+            )
+            db.session.add(detalle)
+
+        # C. Actualizar total final
+        nueva_orden.total_venta = total_calculado
+        
+        db.session.commit()
+        
+        return jsonify({
+            "status": "success", 
+            "message": f"Pedido {folio_gen} guardado!", 
+            "folio": folio_gen
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error en crear_pedido: {str(e)}") # Esto sale en tu consola negra
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 ========================= FILE: .\app\models\catalogs.py =========================
 # app/models/catalogs.py
@@ -1221,6 +1737,56 @@ class RutaReparto(db.Model):
     img_mapa = db.Column(db.String(255))
     notas = db.Column(db.Text)
 
+========================= FILE: .\app\models\orders.py =========================
+# app/models/orders.py
+from app.extensions import db
+from datetime import datetime
+
+class OrdenVenta(db.Model):
+    __tablename__ = 'ordenes_venta'
+
+    id = db.Column(db.Integer, primary_key=True)
+    folio = db.Column(db.String(20), unique=True, nullable=False)
+    
+    # Actores
+    cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), nullable=False)
+    vendedor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    
+    # Fechas
+    fecha_registro = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_promesa_entrega = db.Column(db.Date, nullable=False)
+    
+    # Estados: BORRADOR, CONFIRMADA, EN_EMPAQUE, EN_RUTA, ENTREGADA, CANCELADA
+    estado = db.Column(db.String(25), default='BORRADOR')
+    
+    # Condiciones
+    metodo_pago_esperado = db.Column(db.String(20)) # CREDITO / CONTADO
+    total_venta = db.Column(db.Float, default=0.0)
+    notas_vendedor = db.Column(db.Text)
+
+    # Relaciones
+    items = db.relationship('OrdenVentaDetalle', backref='orden', cascade="all, delete-orphan")
+    cliente = db.relationship('Cliente', backref='historial_pedidos')
+    vendedor = db.relationship('Usuario', backref='preventas_realizadas')
+
+class OrdenVentaDetalle(db.Model):
+    __tablename__ = 'orden_venta_detalles'
+
+    id = db.Column(db.Integer, primary_key=True)
+    orden_id = db.Column(db.Integer, db.ForeignKey('ordenes_venta.id'), nullable=False)
+    producto_id = db.Column(db.Integer, db.ForeignKey('productos.id'), nullable=False)
+    
+    # Cantidades para trazabilidad total
+    cantidad_pedida = db.Column(db.Float, nullable=False)
+    cantidad_surtida = db.Column(db.Float, default=0.0)
+    cantidad_entregada = db.Column(db.Float, default=0.0)
+    
+    # Costos en el momento de la venta
+    precio_unitario = db.Column(db.Float, nullable=False)
+    subtotal = db.Column(db.Float, nullable=False)
+    
+    producto = db.relationship('Producto')
+
 ========================= FILE: .\app\models\products.py =========================
 # app/models/products.py
 from app.extensions import db
@@ -1281,12 +1847,74 @@ class MateriaPrima(db.Model):
     categoria = db.relationship('CatCategoriaMateriaPrima')
     unidad = db.relationship('CatUnidadMedida')
 
+========================= FILE: .\app\models\stock.py =========================
+# app/models/stock.py
+from app.extensions import db
+from datetime import datetime
+
+class InventarioProducto(db.Model):
+    __tablename__ = 'inventario_productos'
+
+    id = db.Column(db.Integer, primary_key=True)
+    producto_id = db.Column(db.Integer, db.ForeignKey('productos.id'), nullable=True)
+    materia_prima_id = db.Column(db.Integer, db.ForeignKey('materia_prima.id'), nullable=True)
+    ubicacion_id = db.Column(db.Integer, db.ForeignKey('ubicaciones_almacen.id'), nullable=False)
+
+    # --- CANTIDADES DINÁMICAS ---
+    cantidad_fisica = db.Column(db.Float, default=0.0)    # Lo que hay en el estante
+    cantidad_reservada = db.Column(db.Float, default=0.0)  # Apartado para órdenes en proceso
+    
+    # Propiedad calculada para saber qué puede vender el preventista
+    @property
+    def cantidad_disponible(self):
+        return self.cantidad_fisica - self.cantidad_reservada
+
+    # --- TRAZABILIDAD ---
+    fecha_produccion = db.Column(db.Date, nullable=True) 
+    fecha_ingreso_almacen = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # --- SEMÁFOROS POR UBICACIÓN ---
+    stock_minimo = db.Column(db.Float, default=0.0)
+    stock_maximo = db.Column(db.Float, default=0.0)
+    stock_ideal = db.Column(db.Float, default=0.0)
+
+    # Relaciones
+    producto = db.relationship('Producto', backref='existencias')
+    ubicacion = db.relationship('UbicacionAlmacen', backref='productos_almacenados')
+
+class MovimientoTemporal(db.Model):
+    """Guarda las reservas mientras el almacenista está empacando"""
+    __tablename__ = 'movimientos_temporales'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    orden_venta_id = db.Column(db.Integer, nullable=False) # Relación a la orden
+    producto_id = db.Column(db.Integer, db.ForeignKey('productos.id'))
+    ubicacion_origen_id = db.Column(db.Integer, db.ForeignKey('ubicaciones_almacen.id'))
+    cantidad = db.Column(db.Float, nullable=False)
+    estado = db.Column(db.String(20), default='RESERVADO') # RESERVADO, CONFIRMADO, MERMA
+
+class HistorialMovimiento(db.Model):
+    """Kárdex Profesional para auditoría de cada pieza"""
+    __tablename__ = 'historial_movimientos'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    producto_id = db.Column(db.Integer, db.ForeignKey('productos.id'))
+    ubicacion_id = db.Column(db.Integer, db.ForeignKey('ubicaciones_almacen.id'))
+    tipo_movimiento = db.Column(db.String(50)) # ENTRADA_PRODUCCION, MERMA, AJUSTE, SALIDA_VENTA
+    cantidad = db.Column(db.Float, nullable=False)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    fecha = db.Column(db.DateTime, default=datetime.utcnow)
+    referencia = db.Column(db.String(100)) # ID de Orden o Lote
+    notas = db.Column(db.Text)    
+
 ========================= FILE: .\app\models\users.py =========================
 # app/models/users.py
 from app.extensions import db
 from datetime import datetime
+from flask_login import UserMixin # <--- 1. NUEVO IMPORT
+from werkzeug.security import check_password_hash # <--- 2. NUEVO IMPORT
 
-class Usuario(db.Model):
+class Usuario(UserMixin, db.Model): # <--- 3. HERENCIA NUEVA
     __tablename__ = 'usuarios'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -1299,9 +1927,9 @@ class Usuario(db.Model):
     estado_civil = db.Column(db.String(50))
     profesion = db.Column(db.String(100))
     curp = db.Column(db.String(18))
-    rfc = db.Column(db.String(13)) # Fiscal
+    rfc = db.Column(db.String(13))
 
-    # --- DOMICILIO (Desglosado) ---
+    # --- DOMICILIO ---
     calle = db.Column(db.String(100))
     num_exterior = db.Column(db.String(20))
     num_interior = db.Column(db.String(20))
@@ -1323,17 +1951,17 @@ class Usuario(db.Model):
     # --- LABORAL ---
     puesto_id = db.Column(db.Integer, db.ForeignKey('cat_puestos.id'))
     fecha_inicio_empresa = db.Column(db.Date, default=datetime.utcnow)
-    calificacion_evaluacion = db.Column(db.Integer, default=5) # 1-5 Estrellas
+    calificacion_evaluacion = db.Column(db.Integer, default=5)
     notas_generales = db.Column(db.Text)
 
     # --- SEGURIDAD ---
     email_acceso = db.Column(db.String(100), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    pin_seguridad = db.Column(db.String(6)) # Para aprobar movimientos rápidos
+    pin_seguridad = db.Column(db.String(6))
     nivel_usuario = db.Column(db.Integer, default=1)
     activo = db.Column(db.Boolean, default=True)
 
-    # --- DOCUMENTACIÓN (Rutas de archivos) ---
+    # --- DOCUMENTACIÓN ---
     foto_perfil = db.Column(db.String(255))
     img_ine_frente = db.Column(db.String(255))
     img_ine_reverso = db.Column(db.String(255))
@@ -1344,11 +1972,1017 @@ class Usuario(db.Model):
     # Relaciones
     puesto = db.relationship('CatPuesto', backref='usuarios')
 
+    # --- MÉTODOS NUEVOS PARA LOGIN ---
+    def check_password(self, password):
+        """Verifica si la contraseña coincide con el hash"""
+        return check_password_hash(self.password_hash, password)
+
     def __repr__(self):
         return f'<Usuario {self.nombres} {self.apellido_paterno}>'
 
 ========================= FILE: .\app\models\__init__.py =========================
 
+
+========================= FILE: .\app\static\css\main.css =========================
+/* app/static/css/main.css */
+
+:root {
+    --gelmex-primary: #0d47a1; /* Azul Industrial Fuerte */
+    --gelmex-secondary: #1565c0; /* Azul Medio */
+    --gelmex-accent: #ffca28; /* Amarillo Preventivo (Botones/Alertas) */
+    --gelmex-dark: #263238; /* Gris Oscuro (Sidebar) */
+    --gelmex-light: #f8f9fa; /* Fondo General */
+    --sidebar-width: 250px;
+}
+
+body {
+    background-color: var(--gelmex-light);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- SIDEBAR --- */
+.sidebar {
+    width: var(--sidebar-width);
+    background-color: var(--gelmex-dark);
+    color: white;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    padding-top: 1rem;
+    transition: all 0.3s;
+    z-index: 1000;
+}
+
+.sidebar-header {
+    padding: 1rem;
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 1rem;
+}
+
+.sidebar .nav-link {
+    color: rgba(255,255,255,0.8);
+    padding: 0.8rem 1.5rem;
+    border-left: 4px solid transparent;
+}
+
+.sidebar .nav-link:hover, .sidebar .nav-link.active {
+    color: white;
+    background-color: rgba(255,255,255,0.05);
+    border-left-color: var(--gelmex-accent);
+}
+
+.sidebar .nav-link i {
+    margin-right: 10px;
+    width: 20px;
+    text-align: center;
+}
+
+/* Submenús en Sidebar (Para Producción) */
+.nav-group-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
+    padding: 1rem 1.5rem 0.5rem;
+    letter-spacing: 1px;
+}
+
+.sub-menu {
+    padding-left: 2rem;
+    background-color: rgba(0,0,0,0.1);
+}
+
+/* --- CONTENIDO PRINCIPAL --- */
+.main-content {
+    margin-left: var(--sidebar-width);
+    padding: 20px;
+    width: calc(100% - var(--sidebar-width));
+    transition: all 0.3s;
+}
+
+/* --- NAVBAR SUPERIOR --- */
+.top-navbar {
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    padding: 0.5rem 1rem;
+    margin-bottom: 2rem;
+    border-radius: 8px;
+}
+
+/* --- RESPONSIVO (Móvil) --- */
+@media (max-width: 768px) {
+    .sidebar {
+        margin-left: calc(var(--sidebar-width) * -1);
+    }
+    .sidebar.active {
+        margin-left: 0;
+    }
+    .main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
+/* --- CARDS & WIDGETS --- */
+.card-erp {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+    transition: transform 0.2s;
+}
+.card-erp:hover {
+    transform: translateY(-2px);
+}
+
+========================= FILE: .\app\templates\base.html =========================
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GelMexSys 2.0 | {% block title %}Dashboard{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        /* Estilo Dark para el Submenú de Producción */
+        .sidebar .nav-link {
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+        
+        .sidebar .nav-link:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 4px solid #ffc107; /* Amarillo industrial */
+        }
+
+        .submenu-dark {
+            background: rgba(0, 0, 0, 0.2) !important; /* Fondo sutilmente más oscuro */
+            margin: 0 10px;
+            border-radius: 8px;
+            padding: 8px 0;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .submenu-dark .nav-link {
+            font-size: 0.85rem !important;
+            padding: 8px 20px !important;
+            color: rgba(255, 255, 255, 0.7) !important;
+            border-left: none !important;
+        }
+
+        .submenu-dark .nav-link:hover {
+            color: #fff !important;
+            background: transparent !important;
+            padding-left: 25px !important; /* Efecto de desplazamiento */
+        }
+
+        .submenu-dark .nav-link.active-sub {
+            color: #ffc107 !important;
+            font-weight: bold;
+        }
+
+        /* Ajuste de flecha de colapso */
+        .nav-link[data-bs-toggle="collapse"].collapsed i.fa-chevron-down {
+            transform: rotate(-90deg);
+        }
+        .nav-link i.fa-chevron-down {
+            transition: transform 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h4><i class="fa-solid fa-snowflake"></i> GelMexSys</h4>
+            <small class="text-warning">v2.0 Enterprise</small>
+        </div>
+
+        <div class="nav flex-column mt-3">
+            <a href="{{ url_for('home.dashboard') }}" class="nav-link py-3">
+                <i class="fa-solid fa-gauge-high me-2"></i> Dashboard
+            </a>
+
+            <div class="nav-group-label mt-2">OPERACIÓN</div>
+            
+            <a href="{{ url_for('sales.preventa') }}" class="nav-link py-3">
+                <i class="fa-solid fa-cash-register me-2"></i> Ventas y Pedidos
+            </a>
+            
+            <a href="{{ url_for('inventory.index') }}" class="nav-link py-3">
+                <i class="fa-solid fa-boxes-stacked me-2"></i> Almacén e Inv.
+            </a>
+
+            <a class="nav-link py-3 d-flex justify-content-between align-items-center" 
+               data-bs-toggle="collapse" href="#collapseProduccion" role="button" aria-expanded="true">
+                <span><i class="fa-solid fa-industry me-2"></i> Producción</span>
+                <i class="fa-solid fa-chevron-down small"></i>
+            </a>
+            <div class="collapse show" id="collapseProduccion">
+                <div class="submenu-dark shadow-inner">
+                    <a class="nav-link py-2" href="{{ url_for('production.tablero_necesidades') }}">
+                        <i class="fa-solid fa-chart-line me-2"></i> Tablero de Demanda
+                    </a>
+                    <a class="nav-link py-2" href="#">
+                        <i class="fa-solid fa-clipboard-check me-2"></i> Órdenes Maestro
+                    </a>
+                </div>
+            </div>
+
+            <a href="#" class="nav-link py-3"><i class="fa-solid fa-truck-fast me-2"></i> Logística y Rutas</a>
+
+            <div class="nav-group-label mt-2">ADMINISTRACIÓN</div>
+            <a href="#" class="nav-link py-3"><i class="fa-solid fa-sack-dollar me-2"></i> Finanzas</a>
+            <a href="#" class="nav-link py-3"><i class="fa-solid fa-users-gear me-2"></i> Configuración</a>
+        </div>
+    </nav>
+
+    <div class="main-content">
+        <nav class="navbar top-navbar d-flex justify-content-between px-4 shadow-sm">
+            <button class="btn btn-outline-secondary d-md-none" id="sidebarToggle"><i class="fa-solid fa-bars"></i></button>
+            <h5 class="m-0 text-secondary fw-bold">{% block page_header %}Sistema de Control{% endblock %}</h5>
+            
+            <div class="d-flex align-items-center gap-3">
+                <div class="dropdown">
+                    <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle text-dark" data-bs-toggle="dropdown">
+                        <img src="https://ui-avatars.com/api/?name={{ current_user.nombres }}&background=0d47a1&color=fff" class="rounded-circle me-2" width="32" alt="User">
+                        <strong class="d-none d-md-block">{{ current_user.nombres }}</strong>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                        <li><a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}"><i class="fa-solid fa-right-from-bracket me-2"></i>Cerrar Sesión</a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <div class="p-4">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('sidebarToggle').onclick = () => document.querySelector('.sidebar').classList.toggle('active');
+    </script>
+</body>
+</html>
+
+========================= FILE: .\app\templates\auth\login.html =========================
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GelMexSys 2.0 | Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-card {
+            background: white;
+            border-radius: 15px;
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        .brand-logo {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #0d47a1;
+            font-weight: bold;
+            font-size: 1.8rem;
+        }
+        .btn-login {
+            background-color: #0d47a1;
+            border: none;
+            padding: 0.8rem;
+            font-weight: 600;
+        }
+        .btn-login:hover {
+            background-color: #002171;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <div class="brand-logo">
+            <i class="fa-solid fa-snowflake"></i> GelMexSys
+        </div>
+        
+        <form method="POST">
+            <div class="mb-3">
+                <label for="email" class="form-label text-muted">Correo Institucional</label>
+                <input type="email" class="form-control form-control-lg" id="email" name="email" placeholder="usuario@gelmex.com" required>
+            </div>
+            <div class="mb-4">
+                <label for="password" class="form-label text-muted">Contraseña</label>
+                <input type="password" class="form-control form-control-lg" id="password" name="password" placeholder="••••••••" required>
+            </div>
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary btn-lg btn-login">Iniciar Sesión</button>
+            </div>
+        </form>
+        
+        <div class="text-center mt-4">
+            <small class="text-muted">¿Olvidaste tu acceso? Contacta a TI.</small>
+        </div>
+    </div>
+
+</body>
+</html>
+
+========================= FILE: .\app\templates\home\index.html =========================
+{% extends 'base.html' %}
+
+{% block title %}Inicio{% endblock %}
+
+{% block page_header %}Resumen General{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-md-3">
+        <div class="card card-erp p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-muted mb-1">Ventas del Día</h6>
+                    <h3>$0.00</h3>
+                </div>
+                <div class="fs-1 text-primary opacity-25">
+                    <i class="fa-solid fa-money-bill-wave"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card card-erp p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-muted mb-1">Pedidos Activos</h6>
+                    <h3>5</h3>
+                </div>
+                <div class="fs-1 text-warning opacity-25">
+                    <i class="fa-solid fa-list-check"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+========================= FILE: .\app\templates\inventory\form.html =========================
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+{% block page_header %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card card-erp">
+            <div class="card-body p-4">
+                <form method="POST" enctype="multipart/form-data">
+                    {{ form.hidden_tag() }}
+
+                    <h5 class="mb-4 text-muted border-bottom pb-2">Datos Generales</h5>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">SKU (Código)</label>
+                            {{ form.sku(class="form-control", placeholder="Ej: PAL-LIM-AGU") }}
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold">Descripción</label>
+                            {{ form.descripcion(class="form-control", placeholder="Ej: Paleta de Limón Base Agua") }}
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Categoría</label>
+                            {{ form.categoria_id(class="form-select") }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Unidad de Medida</label>
+                            {{ form.unidad_id(class="form-select") }}
+                        </div>
+                    </div>
+
+                    <h5 class="mb-3 mt-4 text-muted border-bottom pb-2">Precios y Control</h5>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label text-success fw-bold">Precio Venta ($)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                {{ form.precio_venta(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label text-muted">Costo Producción ($)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                {{ form.precio_costo(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label text-warning fw-bold">Stock Mínimo</label>
+                            {{ form.stock_minimo(class="form-control") }}
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Imagen del Producto</label>
+                        {{ form.imagen(class="form-control") }}
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{{ url_for('inventory.index') }}" class="btn btn-outline-secondary">Cancelar</a>
+                        {{ form.submit(class="btn btn-primary px-4") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+========================= FILE: .\app\templates\inventory\list.html =========================
+{% extends 'base.html' %}
+
+{% block title %}Inventario Maestro{% endblock %}
+
+{% block page_header %}Catálogo de Productos y Existencias{% endblock %}
+
+{% block content %}
+<div class="card card-erp">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+        <h5 class="m-0 text-primary"><i class="fa-solid fa-boxes-stacked"></i> Listado General</h5>
+        <button class="btn btn-primary btn-sm">
+            <a href="{{ url_for('inventory.create') }}" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-plus"></i> Nuevo Producto
+            </a>
+        </button>
+    </div>
+    
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Producto</th>
+                        <th>SKU</th>
+                        <th>Categoría</th>
+                        <th class="text-end">Costo</th>
+                        <th class="text-end">Precio Venta</th>
+                        <th class="text-center">Stock</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in productos %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-light rounded d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                    <i class="fa-solid fa-ice-cream text-secondary"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark">{{ p.descripcion }}</div>
+                                    <small class="text-muted">{{ p.unidad.nombre }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="badge bg-light text-dark border">{{ p.sku }}</span></td>
+                        <td>{{ p.categoria.nombre }}</td>
+                        <td class="text-end text-muted">${{ "{:,.2f}".format(p.precio_costo_actual) }}</td>
+                        <td class="text-end fw-bold text-success">${{ "{:,.2f}".format(p.precio_venta_general) }}</td>
+                        
+                        <td class="text-center">
+                            {% if p.stock_minimo > 0 %}
+                                <span class="badge bg-warning text-dark">Bajo Stock</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Sin Movimientos</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-outline-secondary" title="Editar"><i class="fa-solid fa-pencil"></i></button>
+                            <button class="btn btn-sm btn-outline-info" title="Kardex"><i class="fa-solid fa-list-ol"></i></button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            <i class="fa-solid fa-box-open fa-2x mb-2"></i><br>
+                            No hay productos registrados en el sistema.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer bg-white text-muted">
+        <small>Mostrando {{ productos|length }} registros</small>
+    </div>
+</div>
+{% endblock %}
+
+========================= FILE: .\app\templates\production\needs_board.html =========================
+{% extends 'base.html' %}
+
+{% block title %}Tablero de Necesidades | GelMexSys{% endblock %}
+{% block page_header %}Programación de Producción{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
+            <h5 class="mb-0 fw-bold"><i class="fa-solid fa-microchip me-2"></i>ANALIZADOR DE DEMANDA VS ÓPTIMOS</h5>
+            <span class="badge bg-secondary">Corte: {{ now }}</span>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="tablaProduccion">
+                <thead class="table-light small text-uppercase text-secondary">
+                    <tr>
+                        <th class="ps-3">Producto</th>
+                        <th class="text-center">Vendido (Hoy)</th>
+                        <th class="text-center">Existencia / En Proceso</th>
+                        <th class="text-center d-none d-lg-table-cell">Meta Óptima</th>
+                        <th class="text-center bg-warning text-dark" style="width: 160px;">A FABRICAR</th>
+                        <th class="text-center">Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in analisis %}
+                    <tr data-id="{{ item.id }}" data-sku="{{ item.sku }}">
+                        <td class="ps-3">
+                            <strong class="d-block text-dark">{{ item.descripcion }}</strong>
+                            <small class="text-muted">{{ item.sku }}</small>
+                        </td>
+                        <td class="text-center fw-bold text-primary">{{ item.demanda }}</td>
+                        
+                        <td class="text-center">
+                            <div class="fw-bold fs-5">{{ item.stock_actual }}</div>
+                            {% if item.en_proceso > 0 %}
+                                <div class="badge bg-info-subtle text-info border border-info-subtle">
+                                    <i class="fa-solid fa-fire-burner me-1"></i> {{ item.en_proceso }} batiendo
+                                </div>
+                            {% endif %}
+                        </td>
+
+                        <td class="text-center text-muted d-none d-lg-table-cell">{{ item.stock_ideal }}</td>
+                        
+                        <td class="text-center bg-light">
+                            <input type="number" 
+                                   class="form-control fw-bold text-center border-warning input-producir" 
+                                   value="{{ item.producir }}" 
+                                   step="1" min="0"
+                                   id="input-{{ item.id }}">
+                        </td>
+
+                        <td class="text-center">
+                            <span class="badge rounded-pill bg-{{ item.semaforo }} py-2 px-3 shadow-sm">
+                                {% if item.semaforo == 'danger' %} 
+                                    <i class="fa-solid fa-circle-exclamation me-1"></i> CRÍTICO
+                                {% elif item.semaforo == 'warning' %} 
+                                    <i class="fa-solid fa-clock-rotate-left me-1"></i> RECUPERAR
+                                {% else %} 
+                                    <i class="fa-solid fa-circle-check me-1"></i> SURTIDO
+                                {% endif %}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card-footer p-4 bg-white border-top text-end">
+            <button class="btn btn-warning btn-lg fw-bold shadow-lg py-3 px-5" id="btnEnviarOrden" onclick="enviarAlMaestro()">
+                <i class="fa-solid fa-hat-chef me-2"></i> ENVIAR ORDEN AL MAESTRO HELADERO
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .input-producir:focus {
+        background-color: #fffde7;
+        border-color: #fbc02d;
+        box-shadow: 0 0 8px rgba(251, 192, 45, 0.4);
+    }
+    .bg-info-subtle { background-color: #e0f7fa !important; }
+    .text-info { color: #00838f !important; }
+</style>
+
+<script>
+async function enviarAlMaestro() {
+    const btn = document.getElementById('btnEnviarOrden');
+    const filas = document.querySelectorAll('#tablaProduccion tbody tr');
+    let itemsProduccion = [];
+
+    filas.forEach(fila => {
+        const id = fila.dataset.id;
+        const cantidad = fila.querySelector('input').value;
+        const descripcion = fila.querySelector('strong').innerText;
+
+        if (parseFloat(cantidad) > 0) {
+            itemsProduccion.push({
+                producto_id: id,
+                descripcion: descripcion,
+                cantidad: parseFloat(cantidad)
+            });
+        }
+    });
+
+    if (itemsProduccion.length === 0) {
+        alert("⚠️ Carnal, no pusiste nada para fabricar. El almacén sigue igual.");
+        return;
+    }
+
+    if(!confirm(`¿Confirmas enviar esta carga al Maestro Heladero? Se congelará la demanda actual.`)) {
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-gear fa-spin me-2"></i>NOTIFICANDO FÁBRICA...';
+
+    try {
+        const response = await fetch("{{ url_for('production.guardar_orden') }}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: itemsProduccion })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            alert("✅ ¡A toda madre! " + result.message);
+            window.location.reload(); // Aquí el tablero ya saldrá restado
+        } else {
+            alert("❌ Chale, algo falló: " + result.message);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-hat-chef me-2"></i> ENVIAR ORDEN AL MAESTRO HELADERO';
+        }
+    } catch (error) {
+        console.error("Error:", error);
+        alert("❌ Error de red. Checa si el servidor sigue vivo.");
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-hat-chef me-2"></i> ENVIAR ORDEN AL MAESTRO HELADERO';
+    }
+}
+</script>
+{% endblock %}
+
+========================= FILE: .\app\templates\sales\console.html =========================
+{% extends 'base.html' %}
+
+{% block title %}Venta en Campo | GelMexSys{% endblock %}
+
+{% block content %}
+<style>
+    /* 1. RESET Y CAPAS */
+    .card, .card-body, .row, [class^="col-"] {
+        overflow: visible !important;
+        position: relative;
+    }
+
+    /* 2. BUSCADORES FLOTANTES */
+    .lista-sugerencias {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 100000 !important;
+        background: #ffffff;
+        border: 2px solid #0d47a1;
+        max-height: 250px;
+        overflow-y: auto;
+        display: none;
+        box-shadow: 0 12px 35px rgba(0,0,0,0.4);
+        border-radius: 0 0 12px 12px;
+        margin-top: 2px;
+    }
+
+    .item-sugerencia {
+        padding: 14px 18px;
+        cursor: pointer;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: white !important;
+        color: #333 !important;
+    }
+
+    .item-sugerencia:hover {
+        background-color: #e3f2fd !important;
+    }
+
+    /* 3. DISEÑO DE TOTALES Y ALINEACIÓN */
+    .total-display { 
+        font-size: 2.3rem; 
+        font-weight: 900; 
+        color: #0d47a1; 
+    }
+    
+    .label-finanzas {
+        font-size: 0.85rem;
+        font-weight: bold;
+    }
+
+    .espaciador-footer { height: 130px; }
+</style>
+
+<div class="container-fluid pb-5">
+    <div class="card card-erp mb-3 border-0 shadow-sm" style="z-index: 1001;">
+        <div class="card-body p-4">
+            <div class="row g-3 align-items-end">
+                <div class="col-12 col-md-5 position-relative" id="wrapperCliente">
+                    <label class="small fw-bold text-muted mb-1 text-uppercase">1. Buscar Cliente</label>
+                    <input type="text" class="form-control form-control-lg border-primary shadow-sm" 
+                           id="inputBusquedaCliente" placeholder="Nombre o negocio..." autocomplete="off">
+                    <div id="listaSugerenciasCliente" class="lista-sugerencias"></div>
+                    
+                    <div id="resumenCliente" class="mt-2 d-none">
+                        <div class="badge bg-primary d-block text-start p-2 mb-1">
+                            Venta a: <span id="labelCliente"></span>
+                        </div>
+                        <div class="row g-1 text-center">
+                            <div class="col-4 border-end">
+                                <small class="text-muted d-block small-label">LÍMITE</small>
+                                <span id="valLimite" class="fw-bold">$0.00</span>
+                            </div>
+                            <div class="col-4 border-end">
+                                <small class="text-muted d-block small-label text-danger">DEBE</small>
+                                <span id="valDebe" class="fw-bold text-danger">$0.00</span>
+                            </div>
+                            <div class="col-4">
+                                <small class="text-muted d-block small-label text-success">DISPONIBLE</small>
+                                <span id="valDisponible" class="fw-bold text-success">$0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-12 col-md-3">
+                    <label class="small fw-bold text-muted mb-1 text-uppercase">2. Método de Pago</label>
+                    <select id="metodoPago" class="form-select form-select-lg border-primary fw-bold" onchange="renderCarrito()">
+                        <option value="Credito" selected>CRÉDITO</option>
+                        <option value="Contado">CONTADO (EFECTIVO)</option>
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-4 text-end border-md-start">
+                    <label class="small fw-bold text-muted d-block text-uppercase">Total de esta Nota</label>
+                    <div class="total-display" id="granTotal">$0.00</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card card-erp mb-4 shadow-sm" style="z-index: 1000;">
+        <div class="card-body p-3">
+            <div class="row g-3 align-items-end">
+                <div class="col-12 col-md-7 position-relative" id="wrapperProducto">
+                    <label class="small fw-bold text-muted mb-1 text-uppercase">3. Agregar Producto</label>
+                    <input type="text" class="form-control form-control-lg border-primary shadow-sm" 
+                           id="inputBusquedaProd" placeholder="Escribe nombre o SKU..." autocomplete="off">
+                    <div id="listaSugerenciasProd" class="lista-sugerencias"></div>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="small fw-bold text-muted mb-1 text-uppercase">Cant.</label>
+                    <input type="number" id="inputCant" class="form-control form-control-lg text-center fw-bold" value="1" min="1">
+                </div>
+                <div class="col-6 col-md-3 d-grid">
+                    <button onclick="agregarAlCarrito()" class="btn btn-primary btn-lg fw-bold shadow">
+                        <i class="fa-solid fa-plus"></i> AGREGAR
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm" style="z-index: 1;">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="ps-3 py-3">Descripción</th>
+                        <th class="text-center">Cant.</th>
+                        <th class="text-end pe-3">Subtotal</th>
+                        <th class="text-center"></th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyCarrito"></tbody>
+            </table>
+        </div>
+        <div id="emptyMsg" class="text-center py-5 text-muted">
+            <i class="fa-solid fa-cart-shopping fa-3x mb-3 opacity-25"></i><br>
+            <span class="fs-5">La nota de remisión está vacía</span>
+        </div>
+    </div>
+    <div class="espaciador-footer"></div>
+</div>
+
+<div class="fixed-bottom p-3 bg-white border-top shadow-lg d-grid">
+    <button id="btnFinalizar" class="btn btn-success btn-lg fw-bold py-3 shadow" onclick="enviarPedido()" disabled>
+        CONFIRMAR PREVENTA
+    </button>
+</div>
+
+<script>
+    let carrito = {};
+    let totalGlobal = 0;
+    let productoSeleccionado = null;
+    let clienteId = null;
+    let creditoDisponible = 0;
+
+    const clientesArr = [
+        {% for c in clientes %}
+        { id: {{ c.id }}, nombre: "{{ c.nombre_negocio }}", encargado: "{{ c.nombres_encargado }}" },
+        {% endfor %}
+    ];
+    
+    const catalogoBase = {{ catalogo | tojson | safe }};
+    let catalogoActual = JSON.parse(JSON.stringify(catalogoBase));
+
+    // BUSCADOR CLIENTE
+    const inCli = document.getElementById('inputBusquedaCliente');
+    const sugCli = document.getElementById('listaSugerenciasCliente');
+
+    inCli.addEventListener('input', function() {
+        const val = this.value.toLowerCase();
+        sugCli.innerHTML = '';
+        if(val.length < 1) { sugCli.style.display = 'none'; return; }
+
+        const matches = clientesArr.filter(c => 
+            c.nombre.toLowerCase().includes(val) || c.encargado.toLowerCase().includes(val)
+        );
+
+        matches.forEach(c => {
+            const d = document.createElement('div');
+            d.className = 'item-sugerencia';
+            d.innerHTML = `<div><strong>${c.nombre}</strong><br><small>${c.encargado}</small></div>`;
+            d.onclick = () => {
+                inCli.value = c.nombre;
+                document.getElementById('labelCliente').innerText = c.nombre;
+                clienteId = c.id;
+                sugCli.style.display = 'none';
+                fetchInfoCliente(c.id);
+            };
+            sugCli.appendChild(d);
+        });
+        sugCli.style.display = matches.length > 0 ? 'block' : 'none';
+    });
+
+    // BUSCADOR PRODUCTO
+    const inProd = document.getElementById('inputBusquedaProd');
+    const sugProd = document.getElementById('listaSugerenciasProd');
+
+    inProd.addEventListener('input', function() {
+        const val = this.value.toLowerCase();
+        sugProd.innerHTML = '';
+        if(val.length < 1) { sugProd.style.display = 'none'; return; }
+
+        const matches = catalogoActual.filter(p => p.nombre.toLowerCase().includes(val));
+
+        matches.forEach(p => {
+            const d = document.createElement('div');
+            d.className = 'item-sugerencia';
+            const badge = p.esEspecial ? '<span class="badge bg-success ms-2">ESPECIAL</span>' : '';
+            d.innerHTML = `<span>${p.nombre}${badge}</span><span class="fw-bold text-primary">$${p.precio.toFixed(2)}</span>`;
+            d.onclick = () => {
+                inProd.value = p.nombre;
+                productoSeleccionado = p;
+                sugProd.style.display = 'none';
+                document.getElementById('inputCant').focus();
+            };
+            sugProd.appendChild(d);
+        });
+        sugProd.style.display = matches.length > 0 ? 'block' : 'none';
+    });
+
+    async function fetchInfoCliente(id) {
+        try {
+            const r = await fetch(`/ventas/api/cliente/${id}`);
+            const d = await r.json();
+            
+            // Lógica de Finanzas: Mostramos todo el desglose
+            creditoDisponible = d.disponible;
+            document.getElementById('resumenCliente').classList.remove('d-none');
+            document.getElementById('valLimite').innerText = `$${d.limite_credito.toFixed(2)}`;
+            document.getElementById('valDebe').innerText = `$${d.saldo_actual.toFixed(2)}`;
+            document.getElementById('valDisponible').innerText = `$${d.disponible.toFixed(2)}`;
+            
+            catalogoActual = catalogoBase.map(p => {
+                const esp = d.precios_especiales[p.id];
+                return { ...p, precio: esp !== undefined ? esp : p.precio, esEspecial: esp !== undefined };
+            });
+            
+            Object.keys(carrito).forEach(k => {
+                const p = catalogoActual.find(x => x.id == k);
+                if(p) carrito[k].precio = p.precio;
+            });
+            renderCarrito();
+        } catch (e) { console.error(e); }
+    }
+
+    function agregarAlCarrito() {
+        if(!clienteId) return alert("Selecciona un cliente");
+        if(!productoSeleccionado) return;
+        const c = parseFloat(document.getElementById('inputCant').value);
+        if(c <= 0) return;
+
+        if(carrito[productoSeleccionado.id]) carrito[productoSeleccionado.id].cant += c;
+        else carrito[productoSeleccionado.id] = { nombre: productoSeleccionado.nombre, precio: productoSeleccionado.precio, cant: c };
+        
+        inProd.value = ''; productoSeleccionado = null; renderCarrito();
+    }
+
+    function renderCarrito() {
+        const b = document.getElementById('tbodyCarrito');
+        const metodo = document.getElementById('metodoPago').value;
+        const btn = document.getElementById('btnFinalizar');
+        const displayTotal = document.getElementById('granTotal');
+        
+        b.innerHTML = ''; totalGlobal = 0;
+        
+        Object.keys(carrito).forEach(id => {
+            const i = carrito[id];
+            const s = i.cant * i.precio;
+            totalGlobal += s;
+            b.innerHTML += `<tr>
+                <td class="ps-3"><strong>${i.nombre}</strong><br><small>$${i.precio.toFixed(2)} u.</small></td>
+                <td class="text-center fw-bold">${i.cant}</td>
+                <td class="text-end pe-3">$${s.toFixed(2)}</td>
+                <td class="text-center"><button class="btn btn-link text-danger" onclick="delItem(${id})"><i class="fa-solid fa-trash"></i></button></td>
+            </tr>`;
+        });
+        
+        displayTotal.innerText = '$' + totalGlobal.toFixed(2);
+        document.getElementById('emptyMsg').style.display = Object.keys(carrito).length ? 'none' : 'block';
+        
+        const notaVacia = Object.keys(carrito).length === 0;
+        const excedeCredito = (metodo === 'Credito' && totalGlobal > creditoDisponible);
+
+        if (notaVacia) {
+            btn.disabled = true;
+            btn.classList.replace('btn-danger', 'btn-success');
+            btn.innerText = "CONFIRMAR PREVENTA";
+            displayTotal.classList.remove('text-danger');
+        } else if (excedeCredito) {
+            btn.disabled = true;
+            btn.classList.replace('btn-success', 'btn-danger');
+            btn.innerText = "LÍMITE DE CRÉDITO EXCEDIDO";
+            displayTotal.classList.add('text-danger');
+        } else {
+            btn.disabled = false;
+            btn.classList.replace('btn-danger', 'btn-success');
+            btn.innerText = (metodo === 'Contado') ? "CONFIRMAR VENTA (CONTADO)" : "CONFIRMAR PREVENTA (CRÉDITO)";
+            displayTotal.classList.remove('text-danger');
+        }
+    }
+
+    function delItem(id) { delete carrito[id]; renderCarrito(); }
+
+    async function enviarPedido() {
+        const metodo = document.getElementById('metodoPago').value;
+        if(!confirm(`¿Enviar pedido a PRODUCCIÓN?`)) return;
+        
+        const payload = { cliente_id: clienteId, fecha_entrega: "{{ date_now }}", metodo_pago: metodo, total: totalGlobal, items: carrito };
+
+        try {
+            const r = await fetch('/ventas/crear-pedido', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const d = await r.json();
+            if(d.status === 'success') {
+                alert("Éxito: " + d.message);
+                window.location.reload();
+            } else { alert("Error: " + d.message); }
+        } catch (e) { alert("Error de conexión"); }
+    }
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#wrapperCliente')) sugCli.style.display = 'none';
+        if (!e.target.closest('#wrapperProducto')) sugProd.style.display = 'none';
+    });
+</script>
+{% endblock %}
 
 ========================= FILE: .\db_seeds\data_catalogs.py =========================
 # db_seeds/01_catalogs_data.py

@@ -25,7 +25,7 @@ def create_app(config_name='default'):
     # --------------------------------------
 
     with app.app_context():
-        from app.models import catalogs, users, infrastructure, products, clients
+        from app.models import catalogs, users, infrastructure, products, clients, stock, orders 
         db.create_all()
 
     # --- REGISTRO DE BLUEPRINTS ---
@@ -40,5 +40,12 @@ def create_app(config_name='default'):
 
     from app.blueprints.inventory import inventory_bp
     app.register_blueprint(inventory_bp)
+
+    from app.blueprints.sales import sales_bp
+    app.register_blueprint(sales_bp)
+
+    from app.blueprints.production import production_bp
+    app.register_blueprint(production_bp)
+ 
     
     return app

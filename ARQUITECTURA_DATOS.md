@@ -75,7 +75,7 @@
     * `precio_venta_general` (Base).
 * **Físico:**
     * `peso_gramos`, `caducidad_dias`.
-    * `imagen_producto` (300x300 jpg, ruta).
+    * `imagen_producto` (300x300 jpg, path).
 
 **Tabla: `materia_prima`**
 * `id` (PK), `sku`, `descripcion`.
@@ -84,7 +84,7 @@
 * `precio_costo_promedio`.
 * `precio_venta_general` (Base).
 * `peso_gramos`, `caducidad_dias`.
-* `imagen_materia` (300x300 jpg, ruta).
+* `imagen_materia` (300x300 jpg, path).
 
 ---
 

@@ -4,102 +4,129 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GelMexSys 2.0 | {% block title %}Dashboard{% endblock %}</title>
-    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        /* Estilo Dark para el Submenú de Producción */
+        .sidebar .nav-link {
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+        
+        .sidebar .nav-link:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 4px solid #ffc107; /* Amarillo industrial */
+        }
+
+        .submenu-dark {
+            background: rgba(0, 0, 0, 0.2) !important; /* Fondo sutilmente más oscuro */
+            margin: 0 10px;
+            border-radius: 8px;
+            padding: 8px 0;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .submenu-dark .nav-link {
+            font-size: 0.85rem !important;
+            padding: 8px 20px !important;
+            color: rgba(255, 255, 255, 0.7) !important;
+            border-left: none !important;
+        }
+
+        .submenu-dark .nav-link:hover {
+            color: #fff !important;
+            background: transparent !important;
+            padding-left: 25px !important; /* Efecto de desplazamiento */
+        }
+
+        .submenu-dark .nav-link.active-sub {
+            color: #ffc107 !important;
+            font-weight: bold;
+        }
+
+        /* Ajuste de flecha de colapso */
+        .nav-link[data-bs-toggle="collapse"].collapsed i.fa-chevron-down {
+            transform: rotate(-90deg);
+        }
+        .nav-link i.fa-chevron-down {
+            transition: transform 0.3s ease;
+        }
+    </style>
 </head>
 <body>
 
     <nav class="sidebar">
         <div class="sidebar-header">
             <h4><i class="fa-solid fa-snowflake"></i> GelMexSys</h4>
-            <small>v2.0 Enterprise</small>
+            <small class="text-warning">v2.0 Enterprise</small>
         </div>
 
-        <div class="nav flex-column">
-            <a href="{{ url_for('home.dashboard') }}" class="nav-link active"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
-
-            <div class="nav-group-label">OPERACIÓN</div>
-            
-            <a href="#" class="nav-link"><i class="fa-solid fa-cash-register"></i> Ventas y Pedidos</a>
-            
-            <a href="{{ url_for('inventory.index') }}" class="nav-link"><i class="fa-solid fa-boxes-stacked"></i> Almacén e Inv.</a>
-
-            <a href="#submenuProduccion" class="nav-link" data-bs-toggle="collapse">
-                <i class="fa-solid fa-industry"></i> Producción <i class="fa-solid fa-caret-down float-end"></i>
+        <div class="nav flex-column mt-3">
+            <a href="{{ url_for('home.dashboard') }}" class="nav-link py-3">
+                <i class="fa-solid fa-gauge-high me-2"></i> Dashboard
             </a>
-            <div class="collapse" id="submenuProduccion">
-                <a href="#" class="nav-link sub-menu"><i class="fa-regular fa-calendar"></i> Programación</a>
-                <a href="#" class="nav-link sub-menu"><i class="fa-solid fa-blender"></i> Ejecución (Piso)</a>
+
+            <div class="nav-group-label mt-2">OPERACIÓN</div>
+            
+            <a href="{{ url_for('sales.preventa') }}" class="nav-link py-3">
+                <i class="fa-solid fa-cash-register me-2"></i> Ventas y Pedidos
+            </a>
+            
+            <a href="{{ url_for('inventory.index') }}" class="nav-link py-3">
+                <i class="fa-solid fa-boxes-stacked me-2"></i> Almacén e Inv.
+            </a>
+
+            <a class="nav-link py-3 d-flex justify-content-between align-items-center" 
+               data-bs-toggle="collapse" href="#collapseProduccion" role="button" aria-expanded="true">
+                <span><i class="fa-solid fa-industry me-2"></i> Producción</span>
+                <i class="fa-solid fa-chevron-down small"></i>
+            </a>
+            <div class="collapse show" id="collapseProduccion">
+                <div class="submenu-dark shadow-inner">
+                    <a class="nav-link py-2" href="{{ url_for('production.tablero_necesidades') }}">
+                        <i class="fa-solid fa-chart-line me-2"></i> Tablero de Demanda
+                    </a>
+                    <a class="nav-link py-2" href="#">
+                        <i class="fa-solid fa-clipboard-check me-2"></i> Órdenes Maestro
+                    </a>
+                </div>
             </div>
 
-            <a href="#" class="nav-link"><i class="fa-solid fa-truck-fast"></i> Logística y Rutas</a>
+            <a href="#" class="nav-link py-3"><i class="fa-solid fa-truck-fast me-2"></i> Logística y Rutas</a>
 
-            <div class="nav-group-label">ADMINISTRACIÓN</div>
-
-            <a href="#" class="nav-link"><i class="fa-solid fa-sack-dollar"></i> Finanzas</a>
-
-            <a href="#" class="nav-link"><i class="fa-solid fa-chart-line"></i> Business Intel.</a>
-
-            <a href="#" class="nav-link"><i class="fa-solid fa-users-gear"></i> Usuarios y Config</a>
+            <div class="nav-group-label mt-2">ADMINISTRACIÓN</div>
+            <a href="#" class="nav-link py-3"><i class="fa-solid fa-sack-dollar me-2"></i> Finanzas</a>
+            <a href="#" class="nav-link py-3"><i class="fa-solid fa-users-gear me-2"></i> Configuración</a>
         </div>
     </nav>
 
     <div class="main-content">
-        <nav class="navbar top-navbar d-flex justify-content-between">
+        <nav class="navbar top-navbar d-flex justify-content-between px-4 shadow-sm">
             <button class="btn btn-outline-secondary d-md-none" id="sidebarToggle"><i class="fa-solid fa-bars"></i></button>
-            <h5 class="m-0 text-secondary">{% block page_header %}Panel Principal{% endblock %}</h5>
+            <h5 class="m-0 text-secondary fw-bold">{% block page_header %}Sistema de Control{% endblock %}</h5>
             
             <div class="d-flex align-items-center gap-3">
                 <div class="dropdown">
-                    <a href="#" class="text-secondary position-relative" data-bs-toggle="dropdown">
-                        <i class="fa-regular fa-bell fa-lg"></i>
-                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                            3
-                        </span>
-                    </a>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="#">Stock bajo: Azúcar</a></li>
-                        <li><a class="dropdown-item" href="#">Pedido Pendiente #123</a></li>
-                    </ul>
-                </div>
-                
-                <div class="dropdown">
                     <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle text-dark" data-bs-toggle="dropdown">
-                        <img src="https://via.placeholder.com/32" class="rounded-circle me-2" alt="User">
-                        <strong>{{ current_user.nombres }} {{ current_user.apellido_paterno }}</strong>
+                        <img src="https://ui-avatars.com/api/?name={{ current_user.nombres }}&background=0d47a1&color=fff" class="rounded-circle me-2" width="32" alt="User">
+                        <strong class="d-none d-md-block">{{ current_user.nombres }}</strong>
                     </a>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="#">Mi Perfil</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">Cerrar Sesión</a></li>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                        <li><a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}"><i class="fa-solid fa-right-from-bracket me-2"></i>Cerrar Sesión</a></li>
                     </ul>
                 </div>
             </div>
         </nav>
 
-        <div class="container-fluid p-0">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-
+        <div class="p-4">
             {% block content %}{% endblock %}
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        document.getElementById('sidebarToggle').addEventListener('click', function() {
-            document.querySelector('.sidebar').classList.toggle('active');
-        });
+        document.getElementById('sidebarToggle').onclick = () => document.querySelector('.sidebar').classList.toggle('active');
     </script>
 </body>
 </html>
