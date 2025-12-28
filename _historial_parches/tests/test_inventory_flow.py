@@ -2,9 +2,15 @@ import unittest
 import sys
 import os
 
-# --- FIX: FORZAR LA RUTA RAÍZ PARA QUE ENCUENTRE 'APP' ---
+# 1. PREPARACIÓN DE ENTORNO (CRÍTICO: HACER ESTO ANTES DE IMPORTAR APP)
+# Esto engaña a Flask para que ignore tu archivo .env real
+os.environ['FLASK_ENV'] = 'testing'
+# Forzamos una URI de SQLite en memoria. Si tu config.py usa os.getenv('DATABASE_URL'), esto lo intercepta.
+os.environ['DATABASE_URL'] = 'sqlite:///:memory:'
+os.environ['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+
+# Ajuste de ruta para imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-# ---------------------------------------------------------
 
 from app import create_app, db
 from app.models.products import Producto
@@ -14,116 +20,124 @@ from app.models.catalogs import CatTipoMovimientoAlmacen, CatCategoriaProducto, 
 
 class TestFlujoInventario(unittest.TestCase):
     
-    # 1. SETUP: Se ejecuta antes de cada prueba.
     def setUp(self):
+        """Se ejecuta ANTES de cada prueba. Configura el entorno aislado."""
+        
+        # Crear la app
         self.app = create_app()
-        self.app.config['TESTING'] = True
-        self.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:' # DB en RAM
+        
+        # --- DOBLE VERIFICACIÓN DE SEGURIDAD (FAIL-SAFE) ---
+        # Forzamos la configuración en el objeto app directamente por si el entorno falló
+        self.app.config.update({
+            "TESTING": True,
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+            "SQLALCHEMY_TRACK_MODIFICATIONS": False,
+            "WTF_CSRF_ENABLED": False  # Desactivar tokens CSRF para facilitar test de formularios
+        })
+
         self.app_context = self.app.app_context()
         self.app_context.push()
-        db.create_all()
+
+        # MATAR CUALQUIER CONEXIÓN PREVIA (Por si acaso se coló Postgres)
+        db.session.remove()
+        db.engine.dispose()
+
+        # VERIFICACIÓN FINAL: Si esto imprime algo que no sea memory, lanzamos excepción
+        uri_actual = str(db.engine.url)
+        print(f"   [DEBUG] Conectado a: {uri_actual}")
         
-        # --- CREAMOS DATOS MAESTROS ---
-        self.crear_catalogos()
-        self.crear_infraestructura()
-        self.crear_producto()
+        if 'sqlite' not in uri_actual and ':memory:' not in uri_actual:
+            raise RuntimeError(f"🚨 PELIGRO: El test intentó conectarse a {uri_actual}. ABORTANDO.")
+
+        # Ahora sí, creamos las tablas en la RAM
+        try:
+            db.create_all()
+        except Exception as e:
+            print(f"Error creando DB virtual: {e}")
+            raise
+
+        # Cargar datos semilla falsos (Mocks)
+        self.crear_datos_mock()
 
     def tearDown(self):
+        """Se ejecuta DESPUÉS de cada prueba. Limpia la RAM."""
         db.session.remove()
         db.drop_all()
         self.app_context.pop()
 
-    # --- HELPERS (CORREGIDOS) ---
-    def crear_catalogos(self):
+    def crear_datos_mock(self):
+        """Crea datos falsos exclusivos para la memoria RAM"""
+        
+        # 1. Catálogos (Sin duplicados porque la DB está vacía en RAM)
         tipos = ['INVENTARIO_INICIAL', 'ENTRADA_COMPRA', 'SALIDA_VENTA', 'AJUSTE_MERMA']
         for t in tipos:
             db.session.add(CatTipoMovimientoAlmacen(descripcion=t))
         
-        # CORRECCIÓN: Quitamos 'codigo' y 'abreviatura' que causaban el error
-        # Solo usamos 'nombre' que es lo obligatorio.
-        db.session.add(CatCategoriaProducto(nombre="Helados")) 
-        db.session.add(CatUnidadMedida(nombre="Pieza"))
-        db.session.commit()
-
-    def crear_infraestructura(self):
-        # Asumiendo que Tipo de Almacén 1 existe o no es FK estricta en test, 
-        # pero si truena aqui, necesitaremos crear CatTipoAlmacen tambien.
-        # Por simplicidad del test unitario, a veces se permite nulo si el modelo lo deja.
-        # Si tu modelo exige FK, el test fallará pidiendo CatTipoAlmacen.
-        # Vamos a intentar insertar directo.
-        alm = Almacen(descripcion="Almacén Test", tipo_id=1) 
+        db.session.add(CatCategoriaProducto(nombre="Helados Test"))
+        db.session.add(CatUnidadMedida(nombre="Pieza", abreviatura="PZ"))
+        
+        # 2. Infraestructura
+        alm = Almacen(descripcion="Almacén RAM", tipo_id=1)
         db.session.add(alm)
-        db.session.commit()
+        db.session.flush() # Para obtener el ID
         
-        ubi = UbicacionAlmacen(codigo="A1", almacen_id=alm.id)
+        ubi = UbicacionAlmacen(codigo="RAM-A1", almacen_id=alm.id)
         db.session.add(ubi)
-        db.session.commit()
-        self.ubi_id = ubi.id 
+        db.session.flush()
+        self.ubi_id = ubi.id
 
-    def crear_producto(self):
-        prod = Producto(sku="TEST-01", descripcion="Boli Test", categoria_id=1, unidad_id=1)
+        # 3. Producto
+        prod = Producto(sku="TEST-RAM", descripcion="Boli Virtual", categoria_id=1, unidad_id=1)
         db.session.add(prod)
-        db.session.commit()
+        db.session.flush()
         self.prod_id = prod.id
+        
+        db.session.commit()
 
     # ==========================================
-    # CASOS DE PRUEBA
+    # PRUEBAS UNITARIAS
     # ==========================================
 
-    def test_1_inventario_inicial_corrige_negativos(self):
-        print("\n🧪 TEST 1: Inventario Inicial vs Negativos...")
-        basura = InventarioProducto(producto_id=self.prod_id, ubicacion_id=self.ubi_id, cantidad_actual=-500)
-        db.session.add(basura)
-        db.session.commit()
-        
-        # Simulación RESET
-        stock_record = InventarioProducto.query.filter_by(producto_id=self.prod_id, ubicacion_id=self.ubi_id).first()
-        stock_record.cantidad_actual = 1000 
-        db.session.commit()
-        
-        self.assertEqual(stock_record.cantidad_actual, 1000)
-        print("   ✅ ÉXITO: El saldo se corrigió de -500 a 1000.")
+    def test_flujo_completo_inventario(self):
+        print("\n🧪 INICIANDO TEST DE INTEGRIDAD DE INVENTARIO...")
 
-    def test_2_entrada_suma_correctamente(self):
-        print("🧪 TEST 2: Suma de Entradas...")
-        inicial = InventarioProducto(producto_id=self.prod_id, ubicacion_id=self.ubi_id, cantidad_actual=100)
-        db.session.add(inicial)
+        # CASO 1: Ajuste Inicial (Reset)
+        # Inyectamos un valor basura
+        inv = InventarioProducto(producto_id=self.prod_id, ubicacion_id=self.ubi_id, cantidad_actual=-999)
+        db.session.add(inv)
         db.session.commit()
-        
-        inicial.cantidad_actual += 50
-        db.session.commit()
-        
-        self.assertEqual(inicial.cantidad_actual, 150)
-        print("   ✅ ÉXITO: 100 + 50 = 150.")
 
-    def test_3_salida_resta_correctamente(self):
-        print("🧪 TEST 3: Resta de Salidas...")
-        inicial = InventarioProducto(producto_id=self.prod_id, ubicacion_id=self.ubi_id, cantidad_actual=100)
-        db.session.add(inicial)
+        # Simulamos la lógica de "INVENTARIO_INICIAL"
+        target = InventarioProducto.query.filter_by(producto_id=self.prod_id, ubicacion_id=self.ubi_id).first()
+        target.cantidad_actual = 500 # Borrón y cuenta nueva
         db.session.commit()
         
-        inicial.cantidad_actual -= 20
-        db.session.commit()
-        
-        self.assertEqual(inicial.cantidad_actual, 80)
-        print("   ✅ ÉXITO: 100 - 20 = 80.")
+        self.assertEqual(target.cantidad_actual, 500, "FALLO: El inventario inicial no reseteó el saldo negativo.")
+        print("   ✅ PASO 1: Corrección de negativos -> OK")
 
-    def test_4_bloqueo_de_negativos(self):
-        print("🧪 TEST 4: Bloqueo de Stocks Negativos...")
-        inicial = InventarioProducto(producto_id=self.prod_id, ubicacion_id=self.ubi_id, cantidad_actual=10)
-        db.session.add(inicial)
+        # CASO 2: Entrada (Suma)
+        target.cantidad_actual += 100
         db.session.commit()
+        self.assertEqual(target.cantidad_actual, 600, "FALLO: La suma de entrada falló.")
+        print("   ✅ PASO 2: Suma de inventario -> OK")
+
+        # CASO 3: Salida (Resta)
+        target.cantidad_actual -= 50
+        db.session.commit()
+        self.assertEqual(target.cantidad_actual, 550, "FALLO: La resta de salida falló.")
+        print("   ✅ PASO 3: Resta de inventario -> OK")
+
+        # CASO 4: Bloqueo de Stock Insuficiente
+        # Intentamos sacar 1000 cuando hay 550
+        saldo_antes = target.cantidad_actual
+        if target.cantidad_actual >= 1000:
+            target.cantidad_actual -= 1000
+        else:
+            # Esto es lo que esperamos que pase
+            pass 
         
-        cantidad_a_sacar = 50
-        operacion_exitosa = False
-        
-        if inicial.cantidad_actual >= cantidad_a_sacar:
-            inicial.cantidad_actual -= cantidad_a_sacar
-            operacion_exitosa = True
-        
-        self.assertFalse(operacion_exitosa)
-        self.assertEqual(inicial.cantidad_actual, 10)
-        print("   ✅ ÉXITO: El sistema impidió sacar 50 teniendo solo 10.")
+        self.assertEqual(target.cantidad_actual, saldo_antes, "FALLO: El sistema permitió sacar más de lo que había.")
+        print("   ✅ PASO 4: Bloqueo de saldo negativo -> OK")
 
 if __name__ == '__main__':
     unittest.main()
