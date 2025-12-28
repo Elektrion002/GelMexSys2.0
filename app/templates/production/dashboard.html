@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+
+{% block title %}Tablero de Necesidades | GelMexSys{% endblock %}
+{% block page_header %}Programación de Producción{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
+            <h5 class="mb-0 fw-bold"><i class="fa-solid fa-chart-line me-2"></i>ANALIZADOR DE DEMANDA (JIT)</h5>
+            <span class="badge bg-secondary">Actualizado: {{ now.strftime('%H:%M') }}</span>
+        </div>
+        
+        <div class="card-body bg-light border-bottom">
+            <div class="row text-center">
+                <div class="col-md-4">
+                    <small class="text-uppercase text-muted fw-bold">Salud del Inventario</small>
+                    <div class="h4 mt-1 fw-bold text-{{ clase_sys }}">
+                        {% if clase_sys == 'success' %}<i class="fa-solid fa-check-circle me-1"></i>{% endif %}
+                        {% if clase_sys == 'danger' %}<i class="fa-solid fa-triangle-exclamation me-1"></i>{% endif %}
+                        {{ estado_sys }}
+                    </div>
+                </div>
+                <div class="col-md-4 border-start border-end">
+                    <small class="text-uppercase text-muted fw-bold">Órdenes en Fábrica</small>
+                    <div class="h4 mt-1 fw-bold text-primary">
+                        {{ total_ordenes }} Activas
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <small class="text-uppercase text-muted fw-bold">Acción Sugerida</small>
+                    <div class="h4 mt-1 fw-bold text-dark">{{ accion_sys }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card card-erp shadow-lg border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light small text-uppercase text-secondary text-center">
+                    <tr>
+                        <th class="text-start ps-4">Producto</th>
+                        <th>Existencia<br>Física</th>
+                        <th class="text-danger bg-danger bg-opacity-10">Ventas<br>Pendientes</th>
+                        <th class="text-primary bg-primary bg-opacity-10">Disponible<br>Real</th>
+                        <th>En<br>Fábrica</th>
+                        <th class="d-none d-lg-table-cell">Meta</th>
+                        <th class="bg-warning bg-opacity-25 text-dark" style="width: 150px;">A Fabricar</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr class="text-center">
+                        <td class="text-start ps-4">
+                            <strong class="d-block text-dark">{{ item.descripcion }}</strong>
+                            <small class="text-muted">{{ item.sku }}</small>
+                        </td>
+
+                        <td><span class="fw-bold">{{ item.existencia | int }}</span></td>
+                        
+                        <td class="bg-danger bg-opacity-10 text-danger fw-bold">
+                            {% if item.comprometido > 0 %}
+                                -{{ item.comprometido | int }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+
+                        <td class="bg-primary bg-opacity-10 text-primary fw-bold fs-5">
+                            {{ item.disponible | int }}
+                        </td>
+
+                        <td>
+                            {% if item.en_proceso > 0 %}
+                                <span class="badge bg-info text-dark border border-info">
+                                    <i class="fa-solid fa-spinner fa-spin me-1"></i> {{ item.en_proceso | int }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="d-none d-lg-table-cell text-muted">{{ item.meta | int }}</td>
+                        
+                        <td class="bg-warning bg-opacity-25 py-3">
+                            <form action="{{ url_for('production.crear_orden') }}" method="POST">
+                                <input type="hidden" name="producto_id" value="{{ item.id }}">
+                                
+                                {% if item.estado == 'SURTIDO' or item.estado == 'EN CAMINO' %}
+                                    <span class="badge rounded-pill bg-{{ item.clase_estado }} px-3 py-2 shadow-sm">
+                                        {{ item.estado }}
+                                    </span>
+                                {% else %}
+                                    <div class="input-group input-group-sm justify-content-center">
+                                        <input type="number" name="cantidad" class="form-control text-center fw-bold border-warning" 
+                                               value="{{ item.a_fabricar | int }}" min="1" style="max-width: 70px;">
+                                        <button type="submit" class="btn btn-warning fw-bold shadow-sm" title="Enviar a Producción">
+                                            <i class="fa-solid fa-paper-plane"></i>
+                                        </button>
+                                    </div>
+                                {% endif %}
+                            </form>
+                        </td>
+                        
+                        <td>
+                            {% if item.disponible <= 0 %}
+                                <i class="fa-solid fa-circle-exclamation text-danger fs-5" title="Sin stock libre"></i>
+                            {% elif item.a_fabricar > 0 %}
+                                <i class="fa-solid fa-triangle-exclamation text-warning fs-5" title="Bajo stock"></i>
+                            {% else %}
+                                <i class="fa-solid fa-circle-check text-success fs-5" title="OK"></i>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

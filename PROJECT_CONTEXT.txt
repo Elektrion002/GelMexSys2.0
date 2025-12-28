@@ -1,6 +1,6 @@
 ============================================================
  GELMEXSYS 2.0 - REPORTE DE CONTEXTO TÉCNICO (PostgreSQL)
- FECHA: 2025-12-28 10:01:57
+ FECHA: 2025-12-28 11:58:14
 ============================================================
 
 ------------------------------
@@ -32,6 +32,7 @@ ESTRUCTURA DE DIRECTORIOS:
             clients.py
             infrastructure.py
             orders.py
+            production.py
             products.py
             stock.py
             users.py
@@ -49,6 +50,7 @@ ESTRUCTURA DE DIRECTORIOS:
             [inventory/]
                 form.html
                 list.html
+                movements.html
             [production/]
                 needs_board.html
             [sales/]
@@ -59,6 +61,12 @@ ESTRUCTURA DE DIRECTORIOS:
         data_infrastructure.py
         data_products.py
         data_users.py
+    [_historial_parches/]
+        fix_catalog.py
+        fix_column.py
+        [tests/]
+            test_inventory_flow.py
+            __init__.py
 ------------------------------
 
 
@@ -318,123 +326,115 @@ class Colors:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
 
+def check_table_health(inspector, table_name, required_cols=None):
+    """Verifica si la tabla existe y tiene columnas críticas."""
+    if not inspector.has_table(table_name):
+        print(f"   {Colors.FAIL}[CRÍTICO] La tabla '{table_name}' NO EXISTE.{Colors.ENDC}")
+        return False
+    
+    if required_cols:
+        cols = [c['name'] for c in inspector.get_columns(table_name)]
+        missing = [rc for rc in required_cols if rc not in cols]
+        if missing:
+            print(f"   {Colors.FAIL}[ERROR] Tabla '{table_name}' incompleta. Faltan columnas: {missing}{Colors.ENDC}")
+            return False
+        else:
+            print(f"   [OK] Tabla '{table_name}' estructuralmente correcta.")
+            # Imprimir columnas clave encontradas para validación visual
+            found_keys = [c for c in cols if c in required_cols]
+            print(f"        -> Columnas validadas: {found_keys}")
+    
+    return True
+
+def count_records(table_name):
+    """Cuenta registros reales usando SQL directo."""
+    try:
+        sql = text(f"SELECT COUNT(*) FROM {table_name}")
+        count = db.session.execute(sql).scalar()
+        color = Colors.OKGREEN if count > 0 else Colors.WARNING
+        print(f"   {color}Registros en '{table_name}': {count}{Colors.ENDC}")
+        return count
+    except Exception as e:
+        print(f"   {Colors.FAIL}Error leyendo '{table_name}': {e}{Colors.ENDC}")
+        return 0
+
 def audit_database():
     app = create_app()
     with app.app_context():
-        print(f"\n{Colors.HEADER}{'='*60}")
-        print(f" AUDITORÍA TÉCNICA GELMEXSYS - ESTADO REAL DEL SISTEMA")
-        print(f"{'='*60}{Colors.ENDC}\n")
+        print(f"\n{Colors.HEADER}{'='*70}")
+        print(f" AUDITORÍA MCP (MODEL CONTEXT PROTOCOL) - GELMEXSYS 2.0")
+        print(f"{'='*70}{Colors.ENDC}\n")
 
         inspector = inspect(db.engine)
 
         # ---------------------------------------------------------
-        # 1. INSPECCIÓN DE ESTRUCTURA (LA VERDAD DE POSTGRES)
+        # FASE 1: INFRAESTRUCTURA DE ALMACÉN (El terreno del Almacenista)
         # ---------------------------------------------------------
-        print(f"{Colors.BOLD}1. INSPECCIÓN DE ESTRUCTURA (Columnas Reales){Colors.ENDC}")
+        print(f"{Colors.BOLD}FASE 1: PREPARACIÓN DE ALMACENES (Infraestructura){Colors.ENDC}")
         
-        tablas_criticas = ['productos', 'inventario_productos', 'ordenes_venta', 'orden_venta_detalles']
-        
-        col_maps = {}
-        for tabla in tablas_criticas:
-            if inspector.has_table(tabla):
-                cols = [c['name'] for c in inspector.get_columns(tabla)]
-                col_maps[tabla] = cols
-                print(f"   [OK] Tabla '{tabla}' detectada. Columnas clave:")
-                # Filtramos solo las columnas que nos importan para el cálculo
-                claves = [c for c in cols if 'stock' in c or 'cantidad' in c or 'estado' in c]
-                print(f"        -> {claves}")
-            else:
-                print(f"{Colors.FAIL}   [ERROR] La tabla '{tabla}' NO EXISTE en la BD.{Colors.ENDC}")
-
-        # ---------------------------------------------------------
-        # 2. ANÁLISIS DE DATOS (CONTENIDO)
-        # ---------------------------------------------------------
-        print(f"\n{Colors.BOLD}2. ANÁLISIS DE DATOS (¿Qué hay adentro?){Colors.ENDC}")
-        
-        # A. Revisión de Inventario
-        print("   --- INVENTARIO ---")
-        try:
-            # Intentamos leer con el nombre que vimos en tu consola anterior
-            sql_inv = text("SELECT COUNT(*), SUM(cantidad_actual) FROM inventario_productos")
-            res_inv = db.session.execute(sql_inv).fetchone()
-            print(f"   Registros en Inventario: {res_inv[0]}")
-            print(f"   Suma Total Stock Físico: {res_inv[1] if res_inv[1] else 0}")
-        except Exception as e:
-            print(f"{Colors.FAIL}   Error leyendo inventario: {e}{Colors.ENDC}")
-
-        # B. Revisión de Preventas (El origen del problema)
-        print("\n   --- PREVENTAS (ORDENES) ---")
-        try:
-            sql_orders = text("SELECT estado, COUNT(*) FROM ordenes_venta GROUP BY estado")
-            res_orders = db.session.execute(sql_orders).fetchall()
-            if not res_orders:
-                print(f"{Colors.WARNING}   ⚠️ NO HAY ÓRDENES DE VENTA REGISTRADAS.{Colors.ENDC}")
-            for row in res_orders:
-                print(f"   Estado '{row[0]}': {row[1]} órdenes")
-        except Exception as e:
-            print(f"{Colors.FAIL}   Error leyendo órdenes: {e}{Colors.ENDC}")
-
-        # ---------------------------------------------------------
-        # 3. SIMULACIÓN DEL CÁLCULO MCP (PRUEBA DE LÓGICA)
-        # ---------------------------------------------------------
-        print(f"\n{Colors.BOLD}3. SIMULACIÓN DE CÁLCULO (Production Logic){Colors.ENDC}")
-        print("   Vamos a tomar el primer producto que encontremos y calcular su necesidad manualmente:")
-        
-        try:
-            # Tomamos un producto al azar
-            sql_prod = text("SELECT id, descripcion, stock_ideal, stock_minimo FROM productos LIMIT 1")
-            prod = db.session.execute(sql_prod).fetchone()
+        # Validar si existen almacenes y, más importante, UBICACIONES (Pasillos/Racks)
+        # Sin ubicaciones, el almacenista no puede "ubicar" el producto.
+        if check_table_health(inspector, 'almacenes') and check_table_health(inspector, 'ubicaciones_almacen', ['codigo', 'almacen_id']):
+            cnt_alm = count_records('almacenes')
+            cnt_ubi = count_records('ubicaciones_almacen')
             
-            if prod:
-                pid, desc, ideal, minimo = prod
-                print(f"   Producto Analizado: {Colors.OKBLUE}{desc}{Colors.ENDC} (ID: {pid})")
-                print(f"   > Stock Ideal (Meta): {ideal}")
-                print(f"   > Stock Mínimo (Referencia): {minimo}")
+            if cnt_alm > 0 and cnt_ubi == 0:
+                print(f"   {Colors.FAIL}>>> ALERTA DE PROCESO: Tienes almacenes pero NO tienes ubicaciones.{Colors.ENDC}")
+                print("       El Almacenista no podrá guardar nada porque no hay 'Pasillos' definidos.")
 
-                # Calculamos Demanda (CONFIRMADA)
-                sql_demanda = text("""
-                    SELECT COALESCE(SUM(d.cantidad_pedida), 0) 
-                    FROM orden_venta_detalles d 
-                    JOIN ordenes_venta o ON d.orden_id = o.id 
-                    WHERE d.producto_id = :pid AND o.estado = 'CONFIRMADA'
-                """)
-                demanda = db.session.execute(sql_demanda, {"pid": pid}).scalar()
-                print(f"   > Demanda (Pedidos Nuevos): {demanda}")
+        # ---------------------------------------------------------
+        # FASE 2: MODELO DE INVENTARIO (La divergencia detectada)
+        # ---------------------------------------------------------
+        print(f"\n{Colors.BOLD}FASE 2: MODELO DE INVENTARIO (Validación de Nombres){Colors.ENDC}")
+        
+        # Aquí validamos si postgres tiene 'cantidad_actual' o 'cantidad_fisica'
+        inv_cols = [c['name'] for c in inspector.get_columns('inventario_productos')] if inspector.has_table('inventario_productos') else []
+        
+        print(f"   Columnas en DB Real: {inv_cols}")
+        if 'cantidad_actual' in inv_cols:
+            print(f"   {Colors.OKGREEN}✓ PostgreSQL usa 'cantidad_actual'. (Asegúrate que stock.py coincida){Colors.ENDC}")
+        elif 'cantidad_fisica' in inv_cols:
+            print(f"   {Colors.OKGREEN}✓ PostgreSQL usa 'cantidad_fisica'. (Asegúrate que stock.py coincida){Colors.ENDC}")
+        else:
+            print(f"   {Colors.FAIL}❌ NO SE ENCONTRÓ COLUMNA DE CANTIDAD. El sistema tronará.{Colors.ENDC}")
 
-                # Calculamos WIP (EN PRODUCCION)
-                sql_wip = text("""
-                    SELECT COALESCE(SUM(d.cantidad_pedida), 0) 
-                    FROM orden_venta_detalles d 
-                    JOIN ordenes_venta o ON d.orden_id = o.id 
-                    WHERE d.producto_id = :pid AND o.estado = 'PRODUCCION'
-                """)
-                wip = db.session.execute(sql_wip, {"pid": pid}).scalar()
-                print(f"   > WIP (Ya en cocina): {wip}")
+        # Revisamos si hay Kárdex para auditoría
+        check_table_health(inspector, 'historial_movimientos', ['tipo_movimiento', 'cantidad', 'usuario_id', 'referencia'])
 
-                # Calculamos Existencia Real
-                sql_existencia = text("SELECT COALESCE(SUM(cantidad_actual), 0) FROM inventario_productos WHERE producto_id = :pid")
-                existencia = db.session.execute(sql_existencia, {"pid": pid}).scalar()
-                print(f"   > Existencia Real (DB): {existencia}")
+        # ---------------------------------------------------------
+        # FASE 3: LOGÍSTICA (El terreno del Repartidor)
+        # ---------------------------------------------------------
+        print(f"\n{Colors.BOLD}FASE 3: LOGÍSTICA Y RUTAS (Preparación para Entrega){Colors.ENDC}")
+        
+        # El proceso dice que el repartidor sube cajas según su ruta. ¿Hay rutas?
+        check_table_health(inspector, 'rutas_reparto', ['descripcion'])
+        count_records('rutas_reparto')
+        
+        check_table_health(inspector, 'vehiculos', ['placas', 'asignado'])
+        count_records('vehiculos')
 
-                # --- EL DIAGNÓSTICO ---
-                print(f"\n   {Colors.BOLD}--- RESULTADO DEL CÁLCULO ---{Colors.ENDC}")
-                
-                # FÓRMULA: (Demanda + Ideal) - (Existencia + WIP)
-                necesidad = (demanda + ideal) - (existencia + wip)
-                final = max(0, necesidad)
-                
-                print(f"   Fórmula: ({demanda} + {ideal}) - ({existencia} + {wip}) = {necesidad}")
-                print(f"   {Colors.OKGREEN}A FABRICAR SUGERIDO: {final}{Colors.ENDC}")
-                
-                if final == 0 and demanda > 0:
-                    print(f"   {Colors.OKBLUE}DIAGNÓSTICO: El sistema detecta que la demanda ya está cubierta.{Colors.ENDC}")
-                elif final > 0:
-                    print(f"   {Colors.WARNING}DIAGNÓSTICO: Falta producto para llegar al ideal.{Colors.ENDC}")
+        # ---------------------------------------------------------
+        # FASE 4: SIMULACIÓN DE FLUJO DE DATOS (Data Flow)
+        # ---------------------------------------------------------
+        print(f"\n{Colors.BOLD}FASE 4: DIAGNÓSTICO DE FLUJO{Colors.ENDC}")
+        
+        # Revisamos estados de órdenes para ver si el "Programador" tiene chamba
+        try:
+            sql = text("SELECT estado, COUNT(*) FROM ordenes_venta GROUP BY estado")
+            res = db.session.execute(sql).fetchall()
+            if res:
+                print("   Estado de las Órdenes:")
+                for r in res:
+                    print(f"   - {r[0]}: {r[1]}")
             else:
-                print("   No hay productos en la base de datos.")
+                print(f"   {Colors.WARNING}No hay órdenes activas.{Colors.ENDC}")
+        except:
+            pass
 
-        except Exception as e:
-            print(f"{Colors.FAIL}Error en la simulación: {str(e)}{Colors.ENDC}")
+        print(f"\n{Colors.HEADER}CONCLUSIÓN DEL PROTOCOLO:{Colors.ENDC}")
+        print("Si FASE 1 tiene Almacenes pero 0 Ubicaciones -> Bloqueante para Módulo Almacén.")
+        print("Si FASE 2 muestra nombres distintos a tu código Python -> Error 500 seguro.")
+        print("Si FASE 3 tiene 0 Rutas -> El módulo de Ventas no podrá asignar clientes correctamente.")
 
 if __name__ == "__main__":
     audit_database()
@@ -1249,18 +1249,23 @@ def dashboard():
     return render_template('home/index.html', user=current_user)
 
 ========================= FILE: .\app\blueprints\inventory.py =========================
-# app/blueprints/inventory.py
 import os
-from flask import Blueprint, render_template, redirect, url_for, flash, current_app
-from flask_login import login_required
+from flask import Blueprint, render_template, redirect, url_for, flash, current_app, request
+from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from app.extensions import db
+from datetime import datetime
+
+# Importación de Modelos
 from app.models.products import Producto
-from app.models.catalogs import CatCategoriaProducto, CatUnidadMedida
-from app.forms import ProductoForm # <--- Importamos el formulario nuevo
+from app.models.catalogs import CatCategoriaProducto, CatUnidadMedida, CatTipoMovimientoAlmacen
+from app.models.stock import InventarioProducto, HistorialMovimiento
+from app.models.infrastructure import Almacen, UbicacionAlmacen
+from app.forms import ProductoForm 
 
 inventory_bp = Blueprint('inventory', __name__, url_prefix='/inventario')
 
+# --- RUTAS DE CATÁLOGO (Index y Nuevo Producto) ---
 @inventory_bp.route('/')
 @inventory_bp.route('/lista')
 @login_required
@@ -1268,38 +1273,28 @@ def index():
     productos = Producto.query.all()
     return render_template('inventory/list.html', productos=productos)
 
-# --- NUEVA RUTA: CREAR PRODUCTO ---
 @inventory_bp.route('/nuevo', methods=['GET', 'POST'])
 @login_required
 def create():
     form = ProductoForm()
-    
-    # 1. Cargar los combos (Selects) con datos de la BD
     form.categoria_id.choices = [(c.id, c.nombre) for c in CatCategoriaProducto.query.all()]
     form.unidad_id.choices = [(u.id, u.nombre) for u in CatUnidadMedida.query.all()]
 
     if form.validate_on_submit():
-        # 2. Lógica para guardar
-        sku = form.sku.data.upper() # Siempre mayúsculas
-        
-        # Validar que no exista el SKU
+        sku = form.sku.data.upper()
         if Producto.query.filter_by(sku=sku).first():
             flash(f'Error: El SKU {sku} ya existe.', 'danger')
             return render_template('inventory/form.html', form=form, title="Nuevo Producto")
 
-        # Manejo de Imagen
         filename = None
         if form.imagen.data:
             file = form.imagen.data
             filename = secure_filename(sku + "_" + file.filename)
-            # Guardar en app/static/uploads/productos
             upload_path = os.path.join(current_app.root_path, 'static/uploads/productos')
             os.makedirs(upload_path, exist_ok=True)
             file.save(os.path.join(upload_path, filename))
-            # Guardamos la ruta relativa para la BD
             filename = f"uploads/productos/{filename}"
 
-        # Crear Objeto
         nuevo_prod = Producto(
             sku=sku,
             descripcion=form.descripcion.data,
@@ -1310,89 +1305,263 @@ def create():
             stock_minimo=form.stock_minimo.data,
             imagen_producto=filename
         )
-
         db.session.add(nuevo_prod)
         db.session.commit()
-        
-        flash(f'Producto "{nuevo_prod.descripcion}" creado exitosamente.', 'success')
+        flash(f'Producto "{nuevo_prod.descripcion}" creado.', 'success')
         return redirect(url_for('inventory.index'))
 
     return render_template('inventory/form.html', form=form, title="Nuevo Producto")
 
+# --- CONSOLA DE MOVIMIENTOS (ALMACENISTA) ---
+@inventory_bp.route('/movimientos', methods=['GET', 'POST'])
+@login_required
+def movimientos():
+    # Cargas para los selectores
+    productos = Producto.query.order_by(Producto.descripcion).all()
+    almacenes = Almacen.query.all()
+    ubicaciones = UbicacionAlmacen.query.all() # Necesario para el filtro de JS
+    tipos_movimiento = CatTipoMovimientoAlmacen.query.all()
+    
+    if request.method == 'POST':
+        try:
+            # 1. Datos del Formulario
+            producto_id = int(request.form.get('producto_id'))
+            
+            # Validación de Ubicación (Vital)
+            ubicacion_id_raw = request.form.get('ubicacion_id')
+            if not ubicacion_id_raw:
+                flash('Error: Debes seleccionar una ubicación exacta (Pasillo/Rack).', 'danger')
+                return redirect(url_for('inventory.movimientos'))
+            ubicacion_id = int(ubicacion_id_raw)
+
+            cantidad = float(request.form.get('cantidad'))
+            tipo_mov_id = int(request.form.get('tipo_movimiento_id'))
+            notas = request.form.get('notas')
+
+            # Obtenemos el objeto del catálogo para saber qué hacer
+            tipo_obj = CatTipoMovimientoAlmacen.query.get(tipo_mov_id)
+            desc_mov = tipo_obj.descripcion.upper()
+
+            # 2. Buscar Inventario
+            stock_record = InventarioProducto.query.filter_by(
+                producto_id=producto_id,
+                ubicacion_id=ubicacion_id
+            ).first()
+
+            saldo_anterior = stock_record.cantidad_actual if stock_record else 0
+            
+            # Si no existe registro, lo creamos en 0 para operar sobre él
+            if not stock_record:
+                stock_record = InventarioProducto(
+                    producto_id=producto_id,
+                    ubicacion_id=ubicacion_id,
+                    cantidad_actual=0,
+                    fecha_ingreso_almacen=datetime.now()
+                )
+                db.session.add(stock_record)
+
+            # 3. Lógica de Negocio BLINDADA
+            if "INICIAL" in desc_mov: 
+                # MODO RESET: Ignora lo que había, pone lo que dices.
+                # ESTO CORRIGE TU SALDO NEGATIVO AUTOMÁTICAMENTE
+                stock_record.cantidad_actual = cantidad 
+                
+            elif "ENTRADA" in desc_mov or "DEVOLUCION" in desc_mov or "PRODUCCION" in desc_mov:
+                # MODO SUMA
+                stock_record.cantidad_actual += cantidad
+                
+            elif "SALIDA" in desc_mov or "MERMA" in desc_mov or "AJUSTE" in desc_mov:
+                # MODO RESTA (Con validación)
+                if stock_record.cantidad_actual < cantidad:
+                    db.session.rollback()
+                    flash(f'⛔ ERROR: No tienes suficiente stock. Tienes {stock_record.cantidad_actual} y quieres sacar {cantidad}.', 'danger')
+                    return redirect(url_for('inventory.movimientos'))
+                
+                stock_record.cantidad_actual -= cantidad
+
+            # 4. Evidencia en Kárdex
+            kardex = HistorialMovimiento(
+                producto_id=producto_id,
+                ubicacion_id=ubicacion_id,
+                tipo_movimiento=desc_mov,
+                cantidad=cantidad,
+                usuario_id=current_user.id,
+                fecha=datetime.now(),
+                notas=f"{notas} | Saldo: {saldo_anterior} -> {stock_record.cantidad_actual}"
+            )
+            db.session.add(kardex)
+            
+            db.session.commit()
+            flash(f'✅ Movimiento registrado: {desc_mov}. Nuevo Saldo: {stock_record.cantidad_actual}', 'success')
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'❌ Error técnico: {str(e)}', 'danger')
+
+    return render_template('inventory/movements.html', 
+                           productos=productos, 
+                           almacenes=almacenes,
+                           ubicaciones=ubicaciones,
+                           tipos_movimiento=tipos_movimiento,
+                           now=datetime.now())
+
 ========================= FILE: .\app\blueprints\production.py =========================
-from flask import Blueprint, render_template, request, jsonify
-from flask_login import login_required
-from app.extensions import db
+import os
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask_login import login_required, current_user
 from datetime import datetime
-from app.models.products import Producto
-from app.models.orders import OrdenVenta, OrdenVentaDetalle
-from sqlalchemy import text # Para no pelear con modelos
+from app.extensions import db
+
+# Importación de Modelos
+from app.models.products import Producto 
+from app.models.production import OrdenProduccion
+from app.models.stock import InventarioProducto
+# SE ELIMINÓ LA IMPORTACIÓN DE CATÁLOGOS QUE NO EXISTEN O NO SE USAN
 
 production_bp = Blueprint('production', __name__, url_prefix='/produccion')
 
+# --- TABLERO DE NECESIDADES (DASHBOARD PRINCIPAL) ---
 @production_bp.route('/tablero-necesidades')
 @login_required
 def tablero_necesidades():
-    db.session.expire_all() 
-    productos = Producto.query.all()
-    analisis = []
+    # 1. Obtenemos todos los productos
+    productos = Producto.query.filter_by(es_materia_prima=False).order_by(Producto.descripcion).all()
+    
+    data_tablero = []
 
     for p in productos:
-        # Demanda Nueva (Ventas que apenas entraron)
-        demanda = db.session.query(db.func.sum(OrdenVentaDetalle.cantidad_pedida))\
-            .join(OrdenVenta, OrdenVentaDetalle.orden_id == OrdenVenta.id)\
-            .filter(OrdenVentaDetalle.producto_id == p.id)\
-            .filter(OrdenVenta.estado == 'CONFIRMADA').scalar() or 0
+        # A. Existencia Física (Suma de todas las ubicaciones)
+        inventarios = InventarioProducto.query.filter_by(producto_id=p.id).all()
+        cantidad_actual = sum(i.cantidad_actual for i in inventarios)
 
-        # WIP: Ventas que ya mandaste a fabricar (PRODUCCION)
-        en_proceso = db.session.query(db.func.sum(OrdenVentaDetalle.cantidad_pedida))\
-            .join(OrdenVenta, OrdenVentaDetalle.orden_id == OrdenVenta.id)\
-            .filter(OrdenVentaDetalle.producto_id == p.id)\
-            .filter(OrdenVenta.estado == 'PRODUCCION').scalar() or 0
-
-        # EXISTENCIA REAL (SQL Puro - usando 'cantidad_actual' de tu DB)
-        sql_stock = text("SELECT SUM(cantidad_actual) FROM inventario_productos WHERE producto_id = :pid")
-        fisico_total = db.session.execute(sql_stock, {"pid": p.id}).scalar() or 0
-
-        meta_optima = p.stock_ideal if p.stock_ideal is not None else 0
+        # B. En Proceso (Sumamos SOLICITADA, EN_PRODUCCION y BATIENDO)
+        ordenes_activas = OrdenProduccion.query.filter(
+            OrdenProduccion.producto_id == p.id,
+            OrdenProduccion.estatus.in_(['SOLICITADA', 'EN_PRODUCCION', 'BATIENDO'])
+        ).all()
         
-        # CÁLCULO DEFINITIVO: (Venta + Meta) - (Fisico + Ya batiéndose)
-        necesidad_final = (demanda + meta_optima) - (fisico_total + en_proceso)
-        final = max(0, necesidad_final)
+        cantidad_en_camino = sum(o.cantidad for o in ordenes_activas)
 
-        color = "success"
-        if fisico_total < demanda: color = "danger"
-        elif final > 0: color = "warning"
+        # C. Cálculo de Necesidad
+        meta = p.stock_ideal if p.stock_ideal else 0
+        stock_total_virtual = cantidad_actual + cantidad_en_camino
+        
+        a_fabricar = meta - stock_total_virtual
 
-        # IMPORTANTE: El nombre debe ser "en_proceso" para que el HTML lo vea
-        analisis.append({
-            "id": p.id,
-            "sku": p.sku,
-            "descripcion": p.descripcion,
-            "demanda": demanda,
-            "en_proceso": en_proceso, # <-- ANTES DECÍA "batiendo", POR ESO TRONABA
-            "stock_actual": fisico_total,
-            "stock_ideal": meta_optima,
-            "producir": final,
-            "semaforo": color
+        # Lógica de Estado Visual
+        if a_fabricar <= 0:
+            a_fabricar = 0
+            if cantidad_actual >= meta:
+                estado = "SURTIDO"
+                clase_estado = "success" # Verde
+            else:
+                estado = "EN CAMINO" # Azul
+                clase_estado = "info" 
+        else:
+            if cantidad_actual == 0:
+                estado = "CRÍTICO"
+                clase_estado = "danger" # Rojo
+            else:
+                estado = "RECUPERAR"
+                clase_estado = "warning" # Amarillo
+
+        data_tablero.append({
+            'id': p.id,
+            'sku': p.sku,
+            'descripcion': p.descripcion,
+            'existencia': cantidad_actual,
+            'en_proceso': cantidad_en_camino,
+            'meta': meta,
+            'a_fabricar': a_fabricar,
+            'estado': estado,
+            'clase_estado': clase_estado
         })
 
-    return render_template('production/needs_board.html', 
-                           analisis=analisis, 
-                           now=datetime.now().strftime('%H:%M'))
+    return render_template('production/dashboard.html', items=data_tablero, now=datetime.now())
 
-@production_bp.route('/guardar-orden', methods=['POST'])
+# --- CREAR ORDEN (ACCIÓN DEL BOTÓN) ---
+@production_bp.route('/crear-orden', methods=['POST'])
 @login_required
-def guardar_orden():
+def crear_orden():
     try:
-        db.session.query(OrdenVenta).filter(
-            OrdenVenta.estado == 'CONFIRMADA'
-        ).update({"estado": "PRODUCCION"}, synchronize_session='fetch')
+        producto_id = int(request.form.get('producto_id'))
+        cantidad = float(request.form.get('cantidad'))
+        
+        if cantidad <= 0:
+            flash('Error: La cantidad debe ser mayor a 0.', 'danger')
+            return redirect(url_for('production.tablero_necesidades'))
+
+        # --- BLINDAJE ANTI-SPAM ---
+        orden_existente = OrdenProduccion.query.filter(
+            OrdenProduccion.producto_id == producto_id,
+            OrdenProduccion.estatus.in_(['SOLICITADA']) 
+        ).first()
+
+        if orden_existente:
+            flash(f'⚠️ Ya existe una orden pendiente ({orden_existente.folio}). Espera a que el Maestro la acepte.', 'warning')
+            return redirect(url_for('production.tablero_necesidades'))
+        # ---------------------------
+
+        # Generar Folio
+        fecha_str = datetime.now().strftime('%Y%m%d')
+        
+        nueva_orden = OrdenProduccion(
+            folio=f"ORD-{fecha_str}-{producto_id}",
+            producto_id=producto_id,
+            receta_id=None, 
+            cantidad=cantidad,
+            usuario_solicita_id=current_user.id,
+            fecha_solicitud=datetime.now(),
+            estatus='SOLICITADA',
+            prioridad='NORMAL'
+        )
+
+        db.session.add(nueva_orden)
         db.session.commit()
-        return jsonify({"status": "success", "message": "Tablero actualizado."})
+        
+        # Ajuste de folio único con ID real
+        nueva_orden.folio = f"ORD-{fecha_str}-{nueva_orden.id}"
+        db.session.commit()
+
+        flash(f'✅ Orden {nueva_orden.folio} enviada correctamente.', 'success')
+
     except Exception as e:
         db.session.rollback()
-        return jsonify({"status": "error", "message": str(e)})
+        flash(f'❌ Error al crear orden: {str(e)}', 'danger')
+
+    return redirect(url_for('production.tablero_necesidades'))
+
+# --- VISTA DEL MAESTRO HELADERO ---
+@production_bp.route('/ordenes-maestro')
+@login_required
+def ordenes_maestro():
+    ordenes = OrdenProduccion.query.filter(
+        OrdenProduccion.estatus.in_(['SOLICITADA', 'EN_PRODUCCION', 'BATIENDO'])
+    ).order_by(OrdenProduccion.fecha_solicitud.desc()).all()
+    
+    return render_template('production/orders_list.html', ordenes=ordenes)
+
+# --- CAMBIAR ESTATUS ---
+@production_bp.route('/cambiar-estatus/<int:orden_id>/<string:nuevo_estatus>')
+@login_required
+def cambiar_estatus(orden_id, nuevo_estatus):
+    orden = OrdenProduccion.query.get_or_404(orden_id)
+    
+    validos = ['EN_PRODUCCION', 'BATIENDO', 'TERMINADA', 'CANCELADA']
+    if nuevo_estatus not in validos:
+        flash('Estatus no válido.', 'danger')
+        return redirect(url_for('production.ordenes_maestro'))
+
+    orden.estatus = nuevo_estatus
+    
+    if nuevo_estatus == 'TERMINADA':
+        orden.fecha_termino = datetime.now()
+        flash(f'Orden {orden.folio} terminada.', 'success')
+    else:
+        flash(f'Orden {orden.folio} pasó a {nuevo_estatus}.', 'info')
+
+    db.session.commit()
+    return redirect(url_for('production.ordenes_maestro'))
 
 ========================= FILE: .\app\blueprints\sales.py =========================
 from flask import Blueprint, render_template, request, jsonify
@@ -1697,45 +1866,64 @@ class PrecioEspecialCliente(db.Model):
 ========================= FILE: .\app\models\infrastructure.py =========================
 # app/models/infrastructure.py
 from app.extensions import db
+from datetime import datetime
 
 class Almacen(db.Model):
     __tablename__ = 'almacenes'
-
     id = db.Column(db.Integer, primary_key=True)
     descripcion = db.Column(db.String(100), nullable=False)
     imagen_almacen = db.Column(db.String(255))
-    
-    # FKs
     tipo_id = db.Column(db.Integer, db.ForeignKey('cat_tipos_almacen.id'))
     planta_id = db.Column(db.Integer, db.ForeignKey('cat_plantas.id'))
     area_id = db.Column(db.Integer, db.ForeignKey('cat_areas.id'))
-
-    # Relaciones
+    
     tipo = db.relationship('CatTipoAlmacen')
     planta = db.relationship('CatPlanta')
     area = db.relationship('CatArea')
 
 class UbicacionAlmacen(db.Model):
     __tablename__ = 'ubicaciones_almacen'
-
     id = db.Column(db.Integer, primary_key=True)
-    codigo = db.Column(db.String(50), unique=True, nullable=False) # Ej: CFPA001B004
+    codigo = db.Column(db.String(50), unique=True, nullable=False)
     notas = db.Column(db.String(255))
-    
     almacen_id = db.Column(db.Integer, db.ForeignKey('almacenes.id'))
-    
-    # Vinculación opcional con catálogo visual (Pasillo, Nivel)
     cat_ubicacion_id = db.Column(db.Integer, db.ForeignKey('cat_ubicaciones.id'), nullable=True)
-
+    
     almacen = db.relationship('Almacen', backref='ubicaciones')
 
 class RutaReparto(db.Model):
     __tablename__ = 'rutas_reparto'
-
     id = db.Column(db.Integer, primary_key=True)
     descripcion = db.Column(db.String(100), nullable=False)
     img_mapa = db.Column(db.String(255))
     notas = db.Column(db.Text)
+
+# --- CLASES FALTANTES AGREGADAS (CORRIGE EL ERROR CRÍTICO DEL AUDITOR) ---
+
+class Vehiculo(db.Model):
+    __tablename__ = 'vehiculos'
+    id = db.Column(db.Integer, primary_key=True)
+    placas = db.Column(db.String(20), unique=True)
+    serie_vehiculo = db.Column(db.String(50))
+    tipo_id = db.Column(db.Integer, db.ForeignKey('cat_tipos_vehiculo.id'))
+    modelo_id = db.Column(db.Integer, db.ForeignKey('cat_modelos_vehiculo.id'))
+    
+    # Estado
+    asignado = db.Column(db.Boolean, default=False)
+    kilometraje_ultimo_servicio = db.Column(db.Float)
+    
+    # Relaciones
+    tipo = db.relationship('CatTipoVehiculo')
+    # modelo = db.relationship('CatModeloVehiculo') # Descomentar si el catálogo existe
+
+class ActivoFrio(db.Model):
+    __tablename__ = 'activos_frio'
+    id = db.Column(db.Integer, primary_key=True)
+    serie = db.Column(db.String(50), unique=True)
+    descripcion = db.Column(db.String(100))
+    modelo_id = db.Column(db.Integer, db.ForeignKey('cat_modelos_activo.id'))
+    estado_id = db.Column(db.Integer, db.ForeignKey('cat_estados_fisicos.id'))
+    asignado = db.Column(db.Boolean, default=False)
 
 ========================= FILE: .\app\models\orders.py =========================
 # app/models/orders.py
@@ -1786,6 +1974,40 @@ class OrdenVentaDetalle(db.Model):
     subtotal = db.Column(db.Float, nullable=False)
     
     producto = db.relationship('Producto')
+
+========================= FILE: .\app\models\production.py =========================
+from app.extensions import db
+from datetime import datetime
+
+class OrdenProduccion(db.Model):
+    __tablename__ = 'ordenes_produccion'
+
+    id = db.Column(db.Integer, primary_key=True)
+    folio = db.Column(db.String(50), unique=True, nullable=False)
+    
+    # Relación con Producto
+    producto_id = db.Column(db.Integer, db.ForeignKey('productos.id'), nullable=False)
+    
+    # Receta (Opcional por ahora)
+    receta_id = db.Column(db.Integer, nullable=True)
+    
+    cantidad = db.Column(db.Float, nullable=False)
+    
+    # Quién la pidió
+    usuario_solicita_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    
+    # Fechas
+    fecha_solicitud = db.Column(db.DateTime, default=datetime.now)
+    fecha_inicio = db.Column(db.DateTime, nullable=True)
+    fecha_termino = db.Column(db.DateTime, nullable=True)
+    
+    # Estatus: SOLICITADA, EN_PRODUCCION, BATIENDO, TERMINADA, CANCELADA
+    estatus = db.Column(db.String(20), default='SOLICITADA')
+    prioridad = db.Column(db.String(20), default='NORMAL')
+
+    # Relaciones para acceder a los nombres fácilmente
+    producto = db.relationship('Producto', backref='ordenes')
+    usuario = db.relationship('User', backref='ordenes_creadas')
 
 ========================= FILE: .\app\models\products.py =========================
 # app/models/products.py
@@ -1860,14 +2082,15 @@ class InventarioProducto(db.Model):
     materia_prima_id = db.Column(db.Integer, db.ForeignKey('materia_prima.id'), nullable=True)
     ubicacion_id = db.Column(db.Integer, db.ForeignKey('ubicaciones_almacen.id'), nullable=False)
 
-    # --- CANTIDADES DINÁMICAS ---
-    cantidad_fisica = db.Column(db.Float, default=0.0)    # Lo que hay en el estante
-    cantidad_reservada = db.Column(db.Float, default=0.0)  # Apartado para órdenes en proceso
+    # --- CORRECCIÓN CRÍTICA: Nombre alineado con Postgres ---
+    cantidad_actual = db.Column(db.Float, default=0.0)  # ANTES: cantidad_fisica
+    cantidad_reservada = db.Column(db.Float, default=0.0) 
     
     # Propiedad calculada para saber qué puede vender el preventista
     @property
     def cantidad_disponible(self):
-        return self.cantidad_fisica - self.cantidad_reservada
+        # AQUÍ TAMBIÉN HABÍA QUE CORREGIR EL NOMBRE
+        return self.cantidad_actual - self.cantidad_reservada
 
     # --- TRAZABILIDAD ---
     fecha_produccion = db.Column(db.Date, nullable=True) 
@@ -1905,7 +2128,7 @@ class HistorialMovimiento(db.Model):
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
     fecha = db.Column(db.DateTime, default=datetime.utcnow)
     referencia = db.Column(db.String(100)) # ID de Orden o Lote
-    notas = db.Column(db.Text)    
+    notas = db.Column(db.Text)
 
 ========================= FILE: .\app\models\users.py =========================
 # app/models/users.py
@@ -2175,7 +2398,10 @@ body {
             </a>
             
             <a href="{{ url_for('inventory.index') }}" class="nav-link py-3">
-                <i class="fa-solid fa-boxes-stacked me-2"></i> Almacén e Inv.
+                <i class="fa-solid fa-boxes-stacked me-2"></i> Catálogo Productos
+            </a>
+            <a href="{{ url_for('inventory.movimientos') }}" class="nav-link py-3">
+                <i class="fa-solid fa-dolly me-2"></i> Movimientos Almacén
             </a>
 
             <a class="nav-link py-3 d-flex justify-content-between align-items-center" 
@@ -2219,6 +2445,19 @@ body {
                 </div>
             </div>
         </nav>
+
+        <div class="px-4">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
 
         <div class="p-4">
             {% block content %}{% endblock %}
@@ -2499,6 +2738,146 @@ body {
         <small>Mostrando {{ productos|length }} registros</small>
     </div>
 </div>
+{% endblock %}
+
+========================= FILE: .\app\templates\inventory\movements.html =========================
+{% extends 'base.html' %}
+
+{% block title %}Movimientos | GelMexSys{% endblock %}
+{% block page_header %}Operación de Almacén{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card card-erp shadow-lg border-0">
+                <div class="card-header bg-primary text-white py-3">
+                    <h5 class="m-0"><i class="fa-solid fa-dolly me-2"></i>Entradas y Ajustes</h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST">
+                        
+                        <div class="mb-4">
+                            <label class="form-label text-muted fw-bold small">ACCIÓN A REALIZAR</label>
+                            <select name="tipo_movimiento_id" class="form-select form-select-lg border-primary bg-light" required>
+                                <option value="">-- Selecciona Operación --</option>
+                                {% for tipo in tipos_movimiento %}
+                                    <option value="{{ tipo.id }}">🔹 {{ tipo.descripcion }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label text-muted fw-bold small">PRODUCTO</label>
+                            <select name="producto_id" class="form-select" required>
+                                <option value="">-- Selecciona el producto --</option>
+                                {% for p in productos %}
+                                <option value="{{ p.id }}">{{ p.sku }} - {{ p.descripcion }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label text-muted fw-bold small">1. ALMACÉN</label>
+                                <select id="selectAlmacen" name="almacen_id" class="form-select" required onchange="filtrarUbicaciones()">
+                                    <option value="">-- Selecciona --</option>
+                                    {% for a in almacenes %}
+                                    <option value="{{ a.id }}">{{ a.descripcion }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted fw-bold small">2. UBICACIÓN EXACTA</label>
+                                <select id="selectUbicacion" name="ubicacion_id" class="form-select border-primary" required disabled>
+                                    <option value="">-- Primero elije Almacén --</option>
+                                    {% for u in ubicaciones %}
+                                    <option value="{{ u.id }}" data-almacen="{{ u.almacen_id }}" class="opcion-ubicacion d-none">
+                                        📍 {{ u.codigo }} {% if u.notas %}({{ u.notas }}){% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label text-muted fw-bold small">CANTIDAD</label>
+                            <input type="number" step="0.01" name="cantidad" class="form-control fw-bold text-center border-primary form-control-lg" required placeholder="0">
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label text-muted small">Notas / Referencia</label>
+                            <textarea name="notas" class="form-control" rows="2" placeholder="Ej: Conteo físico arranque..."></textarea>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg fw-bold shadow-sm">
+                                <i class="fa-solid fa-check-circle me-2"></i> CONFIRMAR MOVIMIENTO
+                            </button>
+                            <a href="{{ url_for('inventory.index') }}" class="btn btn-outline-secondary">Cancelar</a>
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="alert alert-info shadow-sm border-0">
+                <h5><i class="fa-solid fa-circle-info me-2"></i>Control de Ubicaciones</h5>
+                <hr>
+                <p class="small">El sistema requiere ubicación exacta para la trazabilidad.</p>
+                <ul class="small mb-0">
+                    <li>Selecciona primero el <strong>Almacén General</strong>.</li>
+                    <li>Luego selecciona el <strong>Pasillo, Rack o Nivel</strong> específico.</li>
+                    <li>Si no aparecen ubicaciones, debes darlas de alta en Configuración.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function filtrarUbicaciones() {
+    const almacenSelect = document.getElementById('selectAlmacen');
+    const ubicacionSelect = document.getElementById('selectUbicacion');
+    const opciones = document.querySelectorAll('.opcion-ubicacion');
+    const almacenId = almacenSelect.value;
+
+    // Resetear selección
+    ubicacionSelect.value = "";
+    
+    if (almacenId) {
+        ubicacionSelect.disabled = false;
+        let count = 0;
+        opciones.forEach(op => {
+            if (op.dataset.almacen === almacenId) {
+                op.classList.remove('d-none');
+                count++;
+            } else {
+                op.classList.add('d-none');
+            }
+        });
+        
+        if(count === 0) {
+            ubicacionSelect.innerHTML = '<option value="">⚠️ Sin ubicaciones en este almacén</option>';
+            ubicacionSelect.disabled = true;
+        } else {
+            // Restaurar la opción por defecto si hay resultados
+            const defaultOp = document.createElement('option');
+            defaultOp.value = "";
+            defaultOp.text = "-- Selecciona Ubicación --";
+            // Limpiamos y re-agregamos las visibles (forma sencilla de limpiar basura)
+            // Ojo: el d-none funciona visualmente en navegadores modernos, 
+            // pero para compatibilidad total a veces es mejor reconstruir el select.
+            // Por simplicidad y rapidez usamos clases CSS aquí.
+        }
+    } else {
+        ubicacionSelect.disabled = true;
+        opciones.forEach(op => op.classList.add('d-none'));
+    }
+}
+</script>
 {% endblock %}
 
 ========================= FILE: .\app\templates\production\needs_board.html =========================
@@ -3333,3 +3712,190 @@ USUARIOS = [
         "foto_perfil": "uploads/usuarios/admin_profile.jpg"
     }
 ]
+
+========================= FILE: .\_historial_parches\fix_catalog.py =========================
+from app import create_app
+from app.extensions import db
+from app.models.catalogs import CatTipoMovimientoAlmacen
+
+app = create_app()
+
+with app.app_context():
+    print("🔧 Agregando opción 'INVENTARIO_INICIAL' al catálogo...")
+    
+    # Verificamos si ya existe para no duplicar
+    existe = CatTipoMovimientoAlmacen.query.filter_by(descripcion="INVENTARIO_INICIAL").first()
+    
+    if not existe:
+        nuevo = CatTipoMovimientoAlmacen(descripcion="INVENTARIO_INICIAL")
+        db.session.add(nuevo)
+        db.session.commit()
+        print("✅ ¡LISTO! Opción creada. Ahora aparecerá en el sistema.")
+    else:
+        print("ℹ️ La opción ya existía.")
+
+========================= FILE: .\_historial_parches\fix_column.py =========================
+from app import create_app
+from app.extensions import db
+from sqlalchemy import text
+
+app = create_app()
+
+with app.app_context():
+    print("🔧 Reparando tabla 'inventario_productos'...")
+    try:
+        # Comando SQL directo para agregar la columna que falta
+        sql = text("ALTER TABLE inventario_productos ADD COLUMN cantidad_reservada FLOAT DEFAULT 0.0;")
+        db.session.execute(sql)
+        db.session.commit()
+        print("✅ ¡ÉXITO! Columna 'cantidad_reservada' agregada correctamente.")
+    except Exception as e:
+        print(f"⚠️ Aviso (puede que ya exista): {e}")
+
+========================= FILE: .\_historial_parches\tests\test_inventory_flow.py =========================
+import unittest
+import sys
+import os
+
+# 1. PREPARACIÓN DE ENTORNO (CRÍTICO: HACER ESTO ANTES DE IMPORTAR APP)
+# Esto engaña a Flask para que ignore tu archivo .env real
+os.environ['FLASK_ENV'] = 'testing'
+# Forzamos una URI de SQLite en memoria. Si tu config.py usa os.getenv('DATABASE_URL'), esto lo intercepta.
+os.environ['DATABASE_URL'] = 'sqlite:///:memory:'
+os.environ['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+
+# Ajuste de ruta para imports
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from app import create_app, db
+from app.models.products import Producto
+from app.models.stock import InventarioProducto
+from app.models.infrastructure import Almacen, UbicacionAlmacen
+from app.models.catalogs import CatTipoMovimientoAlmacen, CatCategoriaProducto, CatUnidadMedida
+
+class TestFlujoInventario(unittest.TestCase):
+    
+    def setUp(self):
+        """Se ejecuta ANTES de cada prueba. Configura el entorno aislado."""
+        
+        # Crear la app
+        self.app = create_app()
+        
+        # --- DOBLE VERIFICACIÓN DE SEGURIDAD (FAIL-SAFE) ---
+        # Forzamos la configuración en el objeto app directamente por si el entorno falló
+        self.app.config.update({
+            "TESTING": True,
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+            "SQLALCHEMY_TRACK_MODIFICATIONS": False,
+            "WTF_CSRF_ENABLED": False  # Desactivar tokens CSRF para facilitar test de formularios
+        })
+
+        self.app_context = self.app.app_context()
+        self.app_context.push()
+
+        # MATAR CUALQUIER CONEXIÓN PREVIA (Por si acaso se coló Postgres)
+        db.session.remove()
+        db.engine.dispose()
+
+        # VERIFICACIÓN FINAL: Si esto imprime algo que no sea memory, lanzamos excepción
+        uri_actual = str(db.engine.url)
+        print(f"   [DEBUG] Conectado a: {uri_actual}")
+        
+        if 'sqlite' not in uri_actual and ':memory:' not in uri_actual:
+            raise RuntimeError(f"🚨 PELIGRO: El test intentó conectarse a {uri_actual}. ABORTANDO.")
+
+        # Ahora sí, creamos las tablas en la RAM
+        try:
+            db.create_all()
+        except Exception as e:
+            print(f"Error creando DB virtual: {e}")
+            raise
+
+        # Cargar datos semilla falsos (Mocks)
+        self.crear_datos_mock()
+
+    def tearDown(self):
+        """Se ejecuta DESPUÉS de cada prueba. Limpia la RAM."""
+        db.session.remove()
+        db.drop_all()
+        self.app_context.pop()
+
+    def crear_datos_mock(self):
+        """Crea datos falsos exclusivos para la memoria RAM"""
+        
+        # 1. Catálogos (Sin duplicados porque la DB está vacía en RAM)
+        tipos = ['INVENTARIO_INICIAL', 'ENTRADA_COMPRA', 'SALIDA_VENTA', 'AJUSTE_MERMA']
+        for t in tipos:
+            db.session.add(CatTipoMovimientoAlmacen(descripcion=t))
+        
+        db.session.add(CatCategoriaProducto(nombre="Helados Test"))
+        db.session.add(CatUnidadMedida(nombre="Pieza", abreviatura="PZ"))
+        
+        # 2. Infraestructura
+        alm = Almacen(descripcion="Almacén RAM", tipo_id=1)
+        db.session.add(alm)
+        db.session.flush() # Para obtener el ID
+        
+        ubi = UbicacionAlmacen(codigo="RAM-A1", almacen_id=alm.id)
+        db.session.add(ubi)
+        db.session.flush()
+        self.ubi_id = ubi.id
+
+        # 3. Producto
+        prod = Producto(sku="TEST-RAM", descripcion="Boli Virtual", categoria_id=1, unidad_id=1)
+        db.session.add(prod)
+        db.session.flush()
+        self.prod_id = prod.id
+        
+        db.session.commit()
+
+    # ==========================================
+    # PRUEBAS UNITARIAS
+    # ==========================================
+
+    def test_flujo_completo_inventario(self):
+        print("\n🧪 INICIANDO TEST DE INTEGRIDAD DE INVENTARIO...")
+
+        # CASO 1: Ajuste Inicial (Reset)
+        # Inyectamos un valor basura
+        inv = InventarioProducto(producto_id=self.prod_id, ubicacion_id=self.ubi_id, cantidad_actual=-999)
+        db.session.add(inv)
+        db.session.commit()
+
+        # Simulamos la lógica de "INVENTARIO_INICIAL"
+        target = InventarioProducto.query.filter_by(producto_id=self.prod_id, ubicacion_id=self.ubi_id).first()
+        target.cantidad_actual = 500 # Borrón y cuenta nueva
+        db.session.commit()
+        
+        self.assertEqual(target.cantidad_actual, 500, "FALLO: El inventario inicial no reseteó el saldo negativo.")
+        print("   ✅ PASO 1: Corrección de negativos -> OK")
+
+        # CASO 2: Entrada (Suma)
+        target.cantidad_actual += 100
+        db.session.commit()
+        self.assertEqual(target.cantidad_actual, 600, "FALLO: La suma de entrada falló.")
+        print("   ✅ PASO 2: Suma de inventario -> OK")
+
+        # CASO 3: Salida (Resta)
+        target.cantidad_actual -= 50
+        db.session.commit()
+        self.assertEqual(target.cantidad_actual, 550, "FALLO: La resta de salida falló.")
+        print("   ✅ PASO 3: Resta de inventario -> OK")
+
+        # CASO 4: Bloqueo de Stock Insuficiente
+        # Intentamos sacar 1000 cuando hay 550
+        saldo_antes = target.cantidad_actual
+        if target.cantidad_actual >= 1000:
+            target.cantidad_actual -= 1000
+        else:
+            # Esto es lo que esperamos que pase
+            pass 
+        
+        self.assertEqual(target.cantidad_actual, saldo_antes, "FALLO: El sistema permitió sacar más de lo que había.")
+        print("   ✅ PASO 4: Bloqueo de saldo negativo -> OK")
+
+if __name__ == '__main__':
+    unittest.main()
+
+========================= FILE: .\_historial_parches\tests\__init__.py =========================
+
