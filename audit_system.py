@@ -13,123 +13,115 @@ class Colors:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
 
+def check_table_health(inspector, table_name, required_cols=None):
+    """Verifica si la tabla existe y tiene columnas críticas."""
+    if not inspector.has_table(table_name):
+        print(f"   {Colors.FAIL}[CRÍTICO] La tabla '{table_name}' NO EXISTE.{Colors.ENDC}")
+        return False
+    
+    if required_cols:
+        cols = [c['name'] for c in inspector.get_columns(table_name)]
+        missing = [rc for rc in required_cols if rc not in cols]
+        if missing:
+            print(f"   {Colors.FAIL}[ERROR] Tabla '{table_name}' incompleta. Faltan columnas: {missing}{Colors.ENDC}")
+            return False
+        else:
+            print(f"   [OK] Tabla '{table_name}' estructuralmente correcta.")
+            # Imprimir columnas clave encontradas para validación visual
+            found_keys = [c for c in cols if c in required_cols]
+            print(f"        -> Columnas validadas: {found_keys}")
+    
+    return True
+
+def count_records(table_name):
+    """Cuenta registros reales usando SQL directo."""
+    try:
+        sql = text(f"SELECT COUNT(*) FROM {table_name}")
+        count = db.session.execute(sql).scalar()
+        color = Colors.OKGREEN if count > 0 else Colors.WARNING
+        print(f"   {color}Registros en '{table_name}': {count}{Colors.ENDC}")
+        return count
+    except Exception as e:
+        print(f"   {Colors.FAIL}Error leyendo '{table_name}': {e}{Colors.ENDC}")
+        return 0
+
 def audit_database():
     app = create_app()
     with app.app_context():
-        print(f"\n{Colors.HEADER}{'='*60}")
-        print(f" AUDITORÍA TÉCNICA GELMEXSYS - ESTADO REAL DEL SISTEMA")
-        print(f"{'='*60}{Colors.ENDC}\n")
+        print(f"\n{Colors.HEADER}{'='*70}")
+        print(f" AUDITORÍA MCP (MODEL CONTEXT PROTOCOL) - GELMEXSYS 2.0")
+        print(f"{'='*70}{Colors.ENDC}\n")
 
         inspector = inspect(db.engine)
 
         # ---------------------------------------------------------
-        # 1. INSPECCIÓN DE ESTRUCTURA (LA VERDAD DE POSTGRES)
+        # FASE 1: INFRAESTRUCTURA DE ALMACÉN (El terreno del Almacenista)
         # ---------------------------------------------------------
-        print(f"{Colors.BOLD}1. INSPECCIÓN DE ESTRUCTURA (Columnas Reales){Colors.ENDC}")
+        print(f"{Colors.BOLD}FASE 1: PREPARACIÓN DE ALMACENES (Infraestructura){Colors.ENDC}")
         
-        tablas_criticas = ['productos', 'inventario_productos', 'ordenes_venta', 'orden_venta_detalles']
-        
-        col_maps = {}
-        for tabla in tablas_criticas:
-            if inspector.has_table(tabla):
-                cols = [c['name'] for c in inspector.get_columns(tabla)]
-                col_maps[tabla] = cols
-                print(f"   [OK] Tabla '{tabla}' detectada. Columnas clave:")
-                # Filtramos solo las columnas que nos importan para el cálculo
-                claves = [c for c in cols if 'stock' in c or 'cantidad' in c or 'estado' in c]
-                print(f"        -> {claves}")
-            else:
-                print(f"{Colors.FAIL}   [ERROR] La tabla '{tabla}' NO EXISTE en la BD.{Colors.ENDC}")
-
-        # ---------------------------------------------------------
-        # 2. ANÁLISIS DE DATOS (CONTENIDO)
-        # ---------------------------------------------------------
-        print(f"\n{Colors.BOLD}2. ANÁLISIS DE DATOS (¿Qué hay adentro?){Colors.ENDC}")
-        
-        # A. Revisión de Inventario
-        print("   --- INVENTARIO ---")
-        try:
-            # Intentamos leer con el nombre que vimos en tu consola anterior
-            sql_inv = text("SELECT COUNT(*), SUM(cantidad_actual) FROM inventario_productos")
-            res_inv = db.session.execute(sql_inv).fetchone()
-            print(f"   Registros en Inventario: {res_inv[0]}")
-            print(f"   Suma Total Stock Físico: {res_inv[1] if res_inv[1] else 0}")
-        except Exception as e:
-            print(f"{Colors.FAIL}   Error leyendo inventario: {e}{Colors.ENDC}")
-
-        # B. Revisión de Preventas (El origen del problema)
-        print("\n   --- PREVENTAS (ORDENES) ---")
-        try:
-            sql_orders = text("SELECT estado, COUNT(*) FROM ordenes_venta GROUP BY estado")
-            res_orders = db.session.execute(sql_orders).fetchall()
-            if not res_orders:
-                print(f"{Colors.WARNING}   ⚠️ NO HAY ÓRDENES DE VENTA REGISTRADAS.{Colors.ENDC}")
-            for row in res_orders:
-                print(f"   Estado '{row[0]}': {row[1]} órdenes")
-        except Exception as e:
-            print(f"{Colors.FAIL}   Error leyendo órdenes: {e}{Colors.ENDC}")
-
-        # ---------------------------------------------------------
-        # 3. SIMULACIÓN DEL CÁLCULO MCP (PRUEBA DE LÓGICA)
-        # ---------------------------------------------------------
-        print(f"\n{Colors.BOLD}3. SIMULACIÓN DE CÁLCULO (Production Logic){Colors.ENDC}")
-        print("   Vamos a tomar el primer producto que encontremos y calcular su necesidad manualmente:")
-        
-        try:
-            # Tomamos un producto al azar
-            sql_prod = text("SELECT id, descripcion, stock_ideal, stock_minimo FROM productos LIMIT 1")
-            prod = db.session.execute(sql_prod).fetchone()
+        # Validar si existen almacenes y, más importante, UBICACIONES (Pasillos/Racks)
+        # Sin ubicaciones, el almacenista no puede "ubicar" el producto.
+        if check_table_health(inspector, 'almacenes') and check_table_health(inspector, 'ubicaciones_almacen', ['codigo', 'almacen_id']):
+            cnt_alm = count_records('almacenes')
+            cnt_ubi = count_records('ubicaciones_almacen')
             
-            if prod:
-                pid, desc, ideal, minimo = prod
-                print(f"   Producto Analizado: {Colors.OKBLUE}{desc}{Colors.ENDC} (ID: {pid})")
-                print(f"   > Stock Ideal (Meta): {ideal}")
-                print(f"   > Stock Mínimo (Referencia): {minimo}")
+            if cnt_alm > 0 and cnt_ubi == 0:
+                print(f"   {Colors.FAIL}>>> ALERTA DE PROCESO: Tienes almacenes pero NO tienes ubicaciones.{Colors.ENDC}")
+                print("       El Almacenista no podrá guardar nada porque no hay 'Pasillos' definidos.")
 
-                # Calculamos Demanda (CONFIRMADA)
-                sql_demanda = text("""
-                    SELECT COALESCE(SUM(d.cantidad_pedida), 0) 
-                    FROM orden_venta_detalles d 
-                    JOIN ordenes_venta o ON d.orden_id = o.id 
-                    WHERE d.producto_id = :pid AND o.estado = 'CONFIRMADA'
-                """)
-                demanda = db.session.execute(sql_demanda, {"pid": pid}).scalar()
-                print(f"   > Demanda (Pedidos Nuevos): {demanda}")
+        # ---------------------------------------------------------
+        # FASE 2: MODELO DE INVENTARIO (La divergencia detectada)
+        # ---------------------------------------------------------
+        print(f"\n{Colors.BOLD}FASE 2: MODELO DE INVENTARIO (Validación de Nombres){Colors.ENDC}")
+        
+        # Aquí validamos si postgres tiene 'cantidad_actual' o 'cantidad_fisica'
+        inv_cols = [c['name'] for c in inspector.get_columns('inventario_productos')] if inspector.has_table('inventario_productos') else []
+        
+        print(f"   Columnas en DB Real: {inv_cols}")
+        if 'cantidad_actual' in inv_cols:
+            print(f"   {Colors.OKGREEN}✓ PostgreSQL usa 'cantidad_actual'. (Asegúrate que stock.py coincida){Colors.ENDC}")
+        elif 'cantidad_fisica' in inv_cols:
+            print(f"   {Colors.OKGREEN}✓ PostgreSQL usa 'cantidad_fisica'. (Asegúrate que stock.py coincida){Colors.ENDC}")
+        else:
+            print(f"   {Colors.FAIL}❌ NO SE ENCONTRÓ COLUMNA DE CANTIDAD. El sistema tronará.{Colors.ENDC}")
 
-                # Calculamos WIP (EN PRODUCCION)
-                sql_wip = text("""
-                    SELECT COALESCE(SUM(d.cantidad_pedida), 0) 
-                    FROM orden_venta_detalles d 
-                    JOIN ordenes_venta o ON d.orden_id = o.id 
-                    WHERE d.producto_id = :pid AND o.estado = 'PRODUCCION'
-                """)
-                wip = db.session.execute(sql_wip, {"pid": pid}).scalar()
-                print(f"   > WIP (Ya en cocina): {wip}")
+        # Revisamos si hay Kárdex para auditoría
+        check_table_health(inspector, 'historial_movimientos', ['tipo_movimiento', 'cantidad', 'usuario_id', 'referencia'])
 
-                # Calculamos Existencia Real
-                sql_existencia = text("SELECT COALESCE(SUM(cantidad_actual), 0) FROM inventario_productos WHERE producto_id = :pid")
-                existencia = db.session.execute(sql_existencia, {"pid": pid}).scalar()
-                print(f"   > Existencia Real (DB): {existencia}")
+        # ---------------------------------------------------------
+        # FASE 3: LOGÍSTICA (El terreno del Repartidor)
+        # ---------------------------------------------------------
+        print(f"\n{Colors.BOLD}FASE 3: LOGÍSTICA Y RUTAS (Preparación para Entrega){Colors.ENDC}")
+        
+        # El proceso dice que el repartidor sube cajas según su ruta. ¿Hay rutas?
+        check_table_health(inspector, 'rutas_reparto', ['descripcion'])
+        count_records('rutas_reparto')
+        
+        check_table_health(inspector, 'vehiculos', ['placas', 'asignado'])
+        count_records('vehiculos')
 
-                # --- EL DIAGNÓSTICO ---
-                print(f"\n   {Colors.BOLD}--- RESULTADO DEL CÁLCULO ---{Colors.ENDC}")
-                
-                # FÓRMULA: (Demanda + Ideal) - (Existencia + WIP)
-                necesidad = (demanda + ideal) - (existencia + wip)
-                final = max(0, necesidad)
-                
-                print(f"   Fórmula: ({demanda} + {ideal}) - ({existencia} + {wip}) = {necesidad}")
-                print(f"   {Colors.OKGREEN}A FABRICAR SUGERIDO: {final}{Colors.ENDC}")
-                
-                if final == 0 and demanda > 0:
-                    print(f"   {Colors.OKBLUE}DIAGNÓSTICO: El sistema detecta que la demanda ya está cubierta.{Colors.ENDC}")
-                elif final > 0:
-                    print(f"   {Colors.WARNING}DIAGNÓSTICO: Falta producto para llegar al ideal.{Colors.ENDC}")
+        # ---------------------------------------------------------
+        # FASE 4: SIMULACIÓN DE FLUJO DE DATOS (Data Flow)
+        # ---------------------------------------------------------
+        print(f"\n{Colors.BOLD}FASE 4: DIAGNÓSTICO DE FLUJO{Colors.ENDC}")
+        
+        # Revisamos estados de órdenes para ver si el "Programador" tiene chamba
+        try:
+            sql = text("SELECT estado, COUNT(*) FROM ordenes_venta GROUP BY estado")
+            res = db.session.execute(sql).fetchall()
+            if res:
+                print("   Estado de las Órdenes:")
+                for r in res:
+                    print(f"   - {r[0]}: {r[1]}")
             else:
-                print("   No hay productos en la base de datos.")
+                print(f"   {Colors.WARNING}No hay órdenes activas.{Colors.ENDC}")
+        except:
+            pass
 
-        except Exception as e:
-            print(f"{Colors.FAIL}Error en la simulación: {str(e)}{Colors.ENDC}")
+        print(f"\n{Colors.HEADER}CONCLUSIÓN DEL PROTOCOLO:{Colors.ENDC}")
+        print("Si FASE 1 tiene Almacenes pero 0 Ubicaciones -> Bloqueante para Módulo Almacén.")
+        print("Si FASE 2 muestra nombres distintos a tu código Python -> Error 500 seguro.")
+        print("Si FASE 3 tiene 0 Rutas -> El módulo de Ventas no podrá asignar clientes correctamente.")
 
 if __name__ == "__main__":
     audit_database()

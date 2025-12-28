@@ -74,7 +74,10 @@
             </a>
             
             <a href="{{ url_for('inventory.index') }}" class="nav-link py-3">
-                <i class="fa-solid fa-boxes-stacked me-2"></i> Almacén e Inv.
+                <i class="fa-solid fa-boxes-stacked me-2"></i> Catálogo Productos
+            </a>
+            <a href="{{ url_for('inventory.movimientos') }}" class="nav-link py-3">
+                <i class="fa-solid fa-dolly me-2"></i> Movimientos Almacén
             </a>
 
             <a class="nav-link py-3 d-flex justify-content-between align-items-center" 
@@ -118,6 +121,19 @@
                 </div>
             </div>
         </nav>
+
+        <div class="px-4">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
 
         <div class="p-4">
             {% block content %}{% endblock %}

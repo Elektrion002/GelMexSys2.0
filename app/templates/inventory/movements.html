@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+
+{% block title %}Movimientos | GelMexSys{% endblock %}
+{% block page_header %}Operación de Almacén{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card card-erp shadow-lg border-0">
+                <div class="card-header bg-primary text-white py-3">
+                    <h5 class="m-0"><i class="fa-solid fa-dolly me-2"></i>Entradas y Ajustes</h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST">
+                        
+                        <div class="mb-4">
+                            <label class="form-label text-muted fw-bold small">ACCIÓN A REALIZAR</label>
+                            <select name="tipo_movimiento_id" class="form-select form-select-lg border-primary bg-light" required>
+                                <option value="">-- Selecciona Operación --</option>
+                                {% for tipo in tipos_movimiento %}
+                                    <option value="{{ tipo.id }}">🔹 {{ tipo.descripcion }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label text-muted fw-bold small">PRODUCTO</label>
+                            <select name="producto_id" class="form-select" required>
+                                <option value="">-- Selecciona el producto --</option>
+                                {% for p in productos %}
+                                <option value="{{ p.id }}">{{ p.sku }} - {{ p.descripcion }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label text-muted fw-bold small">1. ALMACÉN</label>
+                                <select id="selectAlmacen" name="almacen_id" class="form-select" required onchange="filtrarUbicaciones()">
+                                    <option value="">-- Selecciona --</option>
+                                    {% for a in almacenes %}
+                                    <option value="{{ a.id }}">{{ a.descripcion }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted fw-bold small">2. UBICACIÓN EXACTA</label>
+                                <select id="selectUbicacion" name="ubicacion_id" class="form-select border-primary" required disabled>
+                                    <option value="">-- Primero elije Almacén --</option>
+                                    {% for u in ubicaciones %}
+                                    <option value="{{ u.id }}" data-almacen="{{ u.almacen_id }}" class="opcion-ubicacion d-none">
+                                        📍 {{ u.codigo }} {% if u.notas %}({{ u.notas }}){% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label text-muted fw-bold small">CANTIDAD</label>
+                            <input type="number" step="0.01" name="cantidad" class="form-control fw-bold text-center border-primary form-control-lg" required placeholder="0">
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label text-muted small">Notas / Referencia</label>
+                            <textarea name="notas" class="form-control" rows="2" placeholder="Ej: Conteo físico arranque..."></textarea>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg fw-bold shadow-sm">
+                                <i class="fa-solid fa-check-circle me-2"></i> CONFIRMAR MOVIMIENTO
+                            </button>
+                            <a href="{{ url_for('inventory.index') }}" class="btn btn-outline-secondary">Cancelar</a>
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="alert alert-info shadow-sm border-0">
+                <h5><i class="fa-solid fa-circle-info me-2"></i>Control de Ubicaciones</h5>
+                <hr>
+                <p class="small">El sistema requiere ubicación exacta para la trazabilidad.</p>
+                <ul class="small mb-0">
+                    <li>Selecciona primero el <strong>Almacén General</strong>.</li>
+                    <li>Luego selecciona el <strong>Pasillo, Rack o Nivel</strong> específico.</li>
+                    <li>Si no aparecen ubicaciones, debes darlas de alta en Configuración.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function filtrarUbicaciones() {
+    const almacenSelect = document.getElementById('selectAlmacen');
+    const ubicacionSelect = document.getElementById('selectUbicacion');
+    const opciones = document.querySelectorAll('.opcion-ubicacion');
+    const almacenId = almacenSelect.value;
+
+    // Resetear selección
+    ubicacionSelect.value = "";
+    
+    if (almacenId) {
+        ubicacionSelect.disabled = false;
+        let count = 0;
+        opciones.forEach(op => {
+            if (op.dataset.almacen === almacenId) {
+                op.classList.remove('d-none');
+                count++;
+            } else {
+                op.classList.add('d-none');
+            }
+        });
+        
+        if(count === 0) {
+            ubicacionSelect.innerHTML = '<option value="">⚠️ Sin ubicaciones en este almacén</option>';
+            ubicacionSelect.disabled = true;
+        } else {
+            // Restaurar la opción por defecto si hay resultados
+            const defaultOp = document.createElement('option');
+            defaultOp.value = "";
+            defaultOp.text = "-- Selecciona Ubicación --";
+            // Limpiamos y re-agregamos las visibles (forma sencilla de limpiar basura)
+            // Ojo: el d-none funciona visualmente en navegadores modernos, 
+            // pero para compatibilidad total a veces es mejor reconstruir el select.
+            // Por simplicidad y rapidez usamos clases CSS aquí.
+        }
+    } else {
+        ubicacionSelect.disabled = true;
+        opciones.forEach(op => op.classList.add('d-none'));
+    }
+}
+</script>
+{% endblock %}
