@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+
+{% block title %}Cocina | GelMexSys{% endblock %}
+{% block page_header %}Consola del Maestro Heladero{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    {% if ordenes %}
+    <div class="row">
+        {% for orden in ordenes %}
+        <div class="col-12 col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 shadow-sm border-0 {% if orden.estatus == 'BATIENDO' %}border-start border-5 border-warning{% endif %}">
+                
+                <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                    <span class="badge bg-light text-dark border">{{ orden.folio }}</span>
+                    <small class="text-muted"><i class="fa-regular fa-clock me-1"></i> {{ orden.fecha_solicitud.strftime('%H:%M') }}</small>
+                </div>
+
+                <div class="card-body text-center">
+                    <h5 class="card-title fw-bold text-dark mb-1">{{ orden.producto.descripcion }}</h5>
+                    <p class="text-muted small mb-3">{{ orden.producto.sku }}</p>
+                    
+                    <div class="row mb-3">
+                        <div class="col-6 border-end">
+                            <small class="text-muted d-block text-uppercase">Solicitado</small>
+                            <span class="h4 fw-bold text-primary">{{ orden.cantidad | int }}</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block text-uppercase">Real Producido</small>
+                            {% if orden.cantidad_producida_real > 0 %}
+                                <span class="h4 fw-bold text-success">{{ orden.cantidad_producida_real | int }}</span>
+                            {% else %}
+                                <span class="h4 text-muted">--</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if orden.estatus == 'SOLICITADA' %}
+                        <div class="alert alert-secondary py-2 small">
+                            <i class="fa-solid fa-hourglass-start me-1"></i> Esperando turno
+                        </div>
+                    {% elif orden.estatus == 'BATIENDO' %}
+                        <div class="alert alert-warning py-2 small fw-bold text-dark">
+                            <i class="fa-solid fa-fire-burner fa-fade me-1"></i> EN PRODUCCIÓN
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="card-footer bg-white p-3">
+                    <div class="d-grid gap-2">
+                        {% if orden.estatus == 'SOLICITADA' %}
+                            <a href="{{ url_for('production.cambiar_estatus', orden_id=orden.id, nuevo_estatus='BATIENDO') }}" 
+                               class="btn btn-primary btn-lg shadow-sm">
+                                <i class="fa-solid fa-fire-burner"></i> INICIAR LOTE
+                            </a>
+                        {% elif orden.estatus == 'BATIENDO' %}
+                            <button type="button" class="btn btn-success btn-lg shadow fw-bold" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#modalCierre{{ orden.id }}">
+                                <i class="fa-solid fa-truck-ramp-box"></i> ENVIAR A ALMACÉN
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal fade" id="modalCierre{{ orden.id }}" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header bg-success text-white">
+                            <h5 class="modal-title">Cierre de Lote: {{ orden.folio }}</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form action="{{ url_for('production.reportar_produccion_real') }}" method="POST">
+                            <div class="modal-body">
+                                <input type="hidden" name="orden_id" value="{{ orden.id }}">
+                                
+                                <div class="mb-3 text-center">
+                                    <label class="form-label text-muted">Cantidad Solicitada</label>
+                                    <div class="h3">{{ orden.cantidad | int }}</div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold text-dark">¿Cuánto salió REALMENTE del lote?</label>
+                                    <input type="number" name="cantidad_real" class="form-control form-control-lg text-center fw-bold border-success" 
+                                           value="{{ orden.cantidad | int }}" min="1" required>
+                                    <div class="form-text">Si salió más o menos, ajústalo aquí. Esto es lo que recibirá el almacenista.</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Notas / Incidencias (Opcional)</label>
+                                    <textarea name="notas" class="form-control" rows="2" placeholder="Ej: Se tiró un poco de mezcla..."></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-success fw-bold">Confirmar Entrega</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <h3 class="text-muted">Sin Órdenes Activas</h3>
+        <p class="text-muted">Todo limpio por aquí.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
