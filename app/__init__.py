@@ -41,11 +41,16 @@ def create_app(config_name='default'):
     from app.blueprints.inventory import inventory_bp
     app.register_blueprint(inventory_bp)
 
+    from app.blueprints.reception import reception_bp
+    app.register_blueprint(reception_bp)
+
     from app.blueprints.sales import sales_bp
     app.register_blueprint(sales_bp)
 
     from app.blueprints.production import production_bp
     app.register_blueprint(production_bp)
- 
-    
+
+    from app.blueprints.shipping import shipping_bp
+    app.register_blueprint(shipping_bp)
+   
     return app

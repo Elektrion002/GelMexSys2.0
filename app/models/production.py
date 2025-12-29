@@ -14,9 +14,14 @@ class OrdenProduccion(db.Model):
     # LO QUE SE PIDE (Teórico)
     cantidad = db.Column(db.Float, nullable=False)
     
-    # LO QUE SALE (Realidad - Nuevo)
+    # LO QUE SALE (Realidad - Reportado por Maestro Heladero)
     cantidad_producida_real = db.Column(db.Float, default=0)
     notas_produccion = db.Column(db.Text, nullable=True)
+
+    # --- NUEVO CAMPO PARA RECEPCIÓN PARCIAL (ALMACÉN) ---
+    # Aquí se va sumando lo que el almacenista mete al refri poco a poco.
+    cantidad_recibida_almacen = db.Column(db.Float, default=0)
+    # ----------------------------------------------------
 
     usuario_solicita_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
     
@@ -25,7 +30,7 @@ class OrdenProduccion(db.Model):
     fecha_termino = db.Column(db.DateTime, nullable=True)
     
     # ESTATUS: 
-    # 'SOLICITADA' -> 'BATIENDO' -> 'POR_RECIBIR' (En tránsito) -> 'TERMINADA' (En almacén)
+    # 'SOLICITADA' -> 'BATIENDO' -> 'POR_RECIBIR' (En tránsito/Parcial) -> 'TERMINADA' (Cerrada)
     estatus = db.Column(db.String(20), default='SOLICITADA')
     prioridad = db.Column(db.String(20), default='NORMAL')
 

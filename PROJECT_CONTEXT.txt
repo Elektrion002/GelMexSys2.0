@@ -1,6 +1,6 @@
 ============================================================
  GELMEXSYS 2.0 - REPORTE DE CONTEXTO TÉCNICO (PostgreSQL)
- FECHA: 2025-12-28 11:58:14
+ FECHA: 2025-12-29 10:09:01
 ============================================================
 
 ------------------------------
@@ -8,14 +8,17 @@ ESTRUCTURA DE DIRECTORIOS:
 [./]
     ARQUITECTURA_DATOS.md
     audit_system.py
+    check_columns.py
     config.py
     HOJA_DE_METODO_INICIAL.md
+    init_production_table.py
     intrucciones git.txt
     requirements.txt
     run.py
     seed_runner.py
     setup_db.py
     setup_structure.py
+    update_db_real.py
     [app/]
         extensions.py
         forms.py
@@ -26,6 +29,7 @@ ESTRUCTURA DE DIRECTORIOS:
             home.py
             inventory.py
             production.py
+            reception.py
             sales.py
         [models/]
             catalogs.py
@@ -48,11 +52,14 @@ ESTRUCTURA DE DIRECTORIOS:
             [home/]
                 index.html
             [inventory/]
+                catalog_list.html
                 form.html
-                list.html
                 movements.html
             [production/]
-                needs_board.html
+                dashboard.html
+                orders_list.html
+            [reception/]
+                reception_dock.html
             [sales/]
                 console.html
     [db_seeds/]
@@ -439,6 +446,22 @@ def audit_database():
 if __name__ == "__main__":
     audit_database()
 
+========================= FILE: .\check_columns.py =========================
+from app import create_app
+from app.models.infrastructure import UbicacionAlmacen
+
+app = create_app()
+
+with app.app_context():
+    print("-" * 30)
+    print(f"TABLA REAL: {UbicacionAlmacen.__tablename__}")
+    print("-" * 30)
+    print("COLUMNAS EN EL MODELO:")
+    # Esto nos dirá exactamente qué atributos tiene la clase Python
+    for column in UbicacionAlmacen.__table__.columns:
+        print(f" >> {column.name}")
+    print("-" * 30)
+
 ========================= FILE: .\config.py =========================
 import os
 
@@ -753,6 +776,19 @@ python setup_db.py
 
 
 
+========================= FILE: .\init_production_table.py =========================
+from app import create_app, db
+# Importamos el modelo para que SQLAlchemy sepa que existe
+from app.models.production import OrdenProduccion 
+
+app = create_app()
+
+with app.app_context():
+    print("🔧 Verificando tablas faltantes...")
+    # Esto crea SOLO las tablas que no existen (ordenes_produccion)
+    db.create_all()
+    print("✅ Tabla 'ordenes_produccion' creada exitosamente en PostgreSQL.")
+
 ========================= FILE: .\intrucciones git.txt =========================
 1. Revisa qué vas a meter al horno
 powershell
@@ -1048,6 +1084,31 @@ def create_structure():
 if __name__ == "__main__":
     create_structure()
 
+========================= FILE: .\update_db_real.py =========================
+from app import create_app, db
+from sqlalchemy import text
+
+app = create_app()
+
+with app.app_context():
+    print("🔧 Actualizando tabla de Órdenes de Producción...")
+    try:
+        # 1. Columna para lo que REALMENTE salió de la máquina
+        db.session.execute(text("ALTER TABLE ordenes_produccion ADD COLUMN cantidad_producida_real FLOAT DEFAULT 0;"))
+        print("✅ Columna 'cantidad_producida_real' agregada.")
+    except Exception as e:
+        print(f"ℹ️ Aviso: {e}")
+
+    try:
+        # 2. Columna para notas del Maestro (Excusas de por qué salió menos)
+        db.session.execute(text("ALTER TABLE ordenes_produccion ADD COLUMN notas_produccion TEXT;"))
+        print("✅ Columna 'notas_produccion' agregada.")
+    except Exception as e:
+        print(f"ℹ️ Aviso: {e}")
+        
+    db.session.commit()
+    print("🚀 Base de datos lista para la Realidad Operativa.")
+
 ========================= FILE: .\app\extensions.py =========================
 # app/extensions.py
 from flask_sqlalchemy import SQLAlchemy
@@ -1125,13 +1186,15 @@ def create_app(config_name='default'):
     from app.blueprints.inventory import inventory_bp
     app.register_blueprint(inventory_bp)
 
+    from app.blueprints.reception import reception_bp
+    app.register_blueprint(reception_bp)
+
     from app.blueprints.sales import sales_bp
     app.register_blueprint(sales_bp)
 
     from app.blueprints.production import production_bp
     app.register_blueprint(production_bp)
- 
-    
+   
     return app
 
 ========================= FILE: .\app\blueprints\api_test.py =========================
@@ -1271,7 +1334,8 @@ inventory_bp = Blueprint('inventory', __name__, url_prefix='/inventario')
 @login_required
 def index():
     productos = Producto.query.all()
-    return render_template('inventory/list.html', productos=productos)
+    # CAMBIO AQUÍ: De 'list.html' a 'catalog_list.html'
+    return render_template('inventory/catalog_list.html', productos=productos)
 
 @inventory_bp.route('/nuevo', methods=['GET', 'POST'])
 @login_required
@@ -1407,69 +1471,93 @@ def movimientos():
 
 ========================= FILE: .\app\blueprints\production.py =========================
 import os
+import uuid  # <--- CORRECCIÓN CLAVE: Para generar códigos únicos y evitar el error de llave duplicada
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
 from datetime import datetime
 from app.extensions import db
+from sqlalchemy import func
 
-# Importación de Modelos
+# --- IMPORTACIÓN DE MODELOS ---
 from app.models.products import Producto 
 from app.models.production import OrdenProduccion
 from app.models.stock import InventarioProducto
-# SE ELIMINÓ LA IMPORTACIÓN DE CATÁLOGOS QUE NO EXISTEN O NO SE USAN
+from app.models.users import Usuario
+from app.models.orders import OrdenVenta, OrdenVentaDetalle
 
 production_bp = Blueprint('production', __name__, url_prefix='/produccion')
 
-# --- TABLERO DE NECESIDADES (DASHBOARD PRINCIPAL) ---
+# --- 1. TABLERO DE NECESIDADES (DASHBOARD PRINCIPAL) ---
 @production_bp.route('/tablero-necesidades')
 @login_required
 def tablero_necesidades():
-    # 1. Obtenemos todos los productos
-    productos = Producto.query.filter_by(es_materia_prima=False).order_by(Producto.descripcion).all()
-    
+    productos = Producto.query.order_by(Producto.descripcion).all()
     data_tablero = []
+    
+    # Contadores para el estado general del sistema
+    conteo_criticos = 0
+    conteo_recuperar = 0
 
     for p in productos:
-        # A. Existencia Física (Suma de todas las ubicaciones)
+        # A. Existencia Física (Lo que ya está guardado en ubicaciones)
         inventarios = InventarioProducto.query.filter_by(producto_id=p.id).all()
-        cantidad_actual = sum(i.cantidad_actual for i in inventarios)
+        cantidad_fisica = sum(i.cantidad_actual for i in inventarios)
 
-        # B. En Proceso (Sumamos SOLICITADA, EN_PRODUCCION y BATIENDO)
+        # B. En Proceso + En Tránsito (Lo que viene en camino)
+        # Sumamos: SOLICITADA (Espera), EN_PRODUCCION/BATIENDO (Cocina), POR_RECIBIR (Puerta Almacén)
         ordenes_activas = OrdenProduccion.query.filter(
             OrdenProduccion.producto_id == p.id,
-            OrdenProduccion.estatus.in_(['SOLICITADA', 'EN_PRODUCCION', 'BATIENDO'])
+            OrdenProduccion.estatus.in_(['SOLICITADA', 'EN_PRODUCCION', 'BATIENDO', 'POR_RECIBIR'])
         ).all()
         
-        cantidad_en_camino = sum(o.cantidad for o in ordenes_activas)
+        # Si ya se reportó producción real (POR_RECIBIR), usamos ese dato. Si no, usamos lo estimado.
+        cantidad_en_camino = 0
+        for o in ordenes_activas:
+            if o.estatus == 'POR_RECIBIR' and o.cantidad_producida_real > 0:
+                cantidad_en_camino += o.cantidad_producida_real
+            else:
+                cantidad_en_camino += o.cantidad
 
-        # C. Cálculo de Necesidad
-        meta = p.stock_ideal if p.stock_ideal else 0
-        stock_total_virtual = cantidad_actual + cantidad_en_camino
+        # C. Ventas Comprometidas (Lo que ya se vendió pero no ha salido)
+        ventas_pendientes = db.session.query(func.sum(OrdenVentaDetalle.cantidad_pedida))\
+            .join(OrdenVenta)\
+            .filter(OrdenVentaDetalle.producto_id == p.id)\
+            .filter(OrdenVenta.estado.in_(['CONFIRMADA', 'EN_RUTA']))\
+            .scalar() or 0
+
+        # D. Cálculo MRP (Disponible Real)
+        stock_disponible_real = cantidad_fisica - ventas_pendientes
         
-        a_fabricar = meta - stock_total_virtual
+        meta = p.stock_ideal if p.stock_ideal else 0
+        # Fórmula: Meta - (Lo que tengo libre + Lo que viene en camino)
+        a_fabricar = meta - (stock_disponible_real + cantidad_en_camino)
 
-        # Lógica de Estado Visual
+        # E. Semáforos Visuales
         if a_fabricar <= 0:
-            a_fabricar = 0
-            if cantidad_actual >= meta:
+            a_fabricar = 0 
+            if stock_disponible_real >= meta:
                 estado = "SURTIDO"
                 clase_estado = "success" # Verde
             else:
-                estado = "EN CAMINO" # Azul
+                estado = "EN CAMINO" # Azul (Ya viene en camino suficiente)
                 clase_estado = "info" 
         else:
-            if cantidad_actual == 0:
-                estado = "CRÍTICO"
-                clase_estado = "danger" # Rojo
+            if stock_disponible_real <= 0:
+                estado = "CRÍTICO" # Debes más de lo que tienes
+                clase_estado = "danger"
+                conteo_criticos += 1
             else:
-                estado = "RECUPERAR"
-                clase_estado = "warning" # Amarillo
+                estado = "RECUPERAR" # Hay stock, pero bajo
+                clase_estado = "warning"
+                conteo_recuperar += 1
 
         data_tablero.append({
             'id': p.id,
             'sku': p.sku,
             'descripcion': p.descripcion,
-            'existencia': cantidad_actual,
+            'existencia': cantidad_fisica,
+            'comprometido': ventas_pendientes,
+            'disponible': stock_disponible_real,
             'en_proceso': cantidad_en_camino,
             'meta': meta,
             'a_fabricar': a_fabricar,
@@ -1477,9 +1565,33 @@ def tablero_necesidades():
             'clase_estado': clase_estado
         })
 
-    return render_template('production/dashboard.html', items=data_tablero, now=datetime.now())
+    # F. Datos para el Encabezado
+    total_ordenes_activas = OrdenProduccion.query.filter(
+        OrdenProduccion.estatus.in_(['SOLICITADA', 'EN_PRODUCCION', 'BATIENDO'])
+    ).count()
 
-# --- CREAR ORDEN (ACCIÓN DEL BOTÓN) ---
+    if conteo_criticos > 0:
+        estado_sys = "ALERTA CRÍTICA"
+        clase_sys = "danger"
+        accion_sys = "Producir Urgente"
+    elif conteo_recuperar > 0:
+        estado_sys = "PRECAUCIÓN"
+        clase_sys = "warning"
+        accion_sys = "Programar Lotes"
+    else:
+        estado_sys = "ESTABLE"
+        clase_sys = "success"
+        accion_sys = "Monitoreo"
+
+    return render_template('production/dashboard.html', 
+                           items=data_tablero, 
+                           now=datetime.now(),
+                           total_ordenes=total_ordenes_activas, 
+                           estado_sys=estado_sys,
+                           clase_sys=clase_sys,
+                           accion_sys=accion_sys)
+
+# --- 2. CREAR ORDEN (CON SOLUCIÓN DE ERROR 'UNIQUEVIOLATION') ---
 @production_bp.route('/crear-orden', methods=['POST'])
 @login_required
 def crear_orden():
@@ -1491,24 +1603,26 @@ def crear_orden():
             flash('Error: La cantidad debe ser mayor a 0.', 'danger')
             return redirect(url_for('production.tablero_necesidades'))
 
-        # --- BLINDAJE ANTI-SPAM ---
+        # A. Blindaje Anti-Spam (Si ya hay una solicitada, no duplicar)
         orden_existente = OrdenProduccion.query.filter(
             OrdenProduccion.producto_id == producto_id,
             OrdenProduccion.estatus.in_(['SOLICITADA']) 
         ).first()
 
         if orden_existente:
-            flash(f'⚠️ Ya existe una orden pendiente ({orden_existente.folio}). Espera a que el Maestro la acepte.', 'warning')
+            flash(f'⚠️ Ya existe una orden pendiente ({orden_existente.folio}).', 'warning')
             return redirect(url_for('production.tablero_necesidades'))
-        # ---------------------------
 
-        # Generar Folio
-        fecha_str = datetime.now().strftime('%Y%m%d')
+        # B. Generación de Folio Único (SOLUCIÓN DEFINITIVA)
+        # Usamos UUID para asegurar que NUNCA se repita, ni aunque borres la BD.
+        # Formato: ORD-YYMMDD-IDPROD-XXXX (4 caracteres aleatorios)
+        suffix = uuid.uuid4().hex[:4].upper()
+        fecha_str = datetime.now().strftime('%y%m%d')
+        folio_unico = f"ORD-{fecha_str}-{producto_id}-{suffix}"
         
         nueva_orden = OrdenProduccion(
-            folio=f"ORD-{fecha_str}-{producto_id}",
+            folio=folio_unico,
             producto_id=producto_id,
-            receta_id=None, 
             cantidad=cantidad,
             usuario_solicita_id=current_user.id,
             fecha_solicitud=datetime.now(),
@@ -1519,54 +1633,216 @@ def crear_orden():
         db.session.add(nueva_orden)
         db.session.commit()
         
-        # Ajuste de folio único con ID real
-        nueva_orden.folio = f"ORD-{fecha_str}-{nueva_orden.id}"
-        db.session.commit()
-
         flash(f'✅ Orden {nueva_orden.folio} enviada correctamente.', 'success')
 
     except Exception as e:
         db.session.rollback()
+        print(f"ERROR PRODUCCION: {str(e)}")
         flash(f'❌ Error al crear orden: {str(e)}', 'danger')
 
     return redirect(url_for('production.tablero_necesidades'))
 
-# --- VISTA DEL MAESTRO HELADERO ---
+# --- 3. VISTA DEL MAESTRO HELADERO ---
 @production_bp.route('/ordenes-maestro')
 @login_required
 def ordenes_maestro():
+    # Mostramos lo nuevo y lo que se está cocinando
     ordenes = OrdenProduccion.query.filter(
         OrdenProduccion.estatus.in_(['SOLICITADA', 'EN_PRODUCCION', 'BATIENDO'])
-    ).order_by(OrdenProduccion.fecha_solicitud.desc()).all()
+    ).order_by(OrdenProduccion.estatus.asc(), OrdenProduccion.fecha_solicitud.asc()).all()
     
     return render_template('production/orders_list.html', ordenes=ordenes)
 
-# --- CAMBIAR ESTATUS ---
+# --- 4. CAMBIAR ESTATUS (SOLO INICIO) ---
 @production_bp.route('/cambiar-estatus/<int:orden_id>/<string:nuevo_estatus>')
 @login_required
 def cambiar_estatus(orden_id, nuevo_estatus):
     orden = OrdenProduccion.query.get_or_404(orden_id)
     
-    validos = ['EN_PRODUCCION', 'BATIENDO', 'TERMINADA', 'CANCELADA']
-    if nuevo_estatus not in validos:
-        flash('Estatus no válido.', 'danger')
-        return redirect(url_for('production.ordenes_maestro'))
-
-    orden.estatus = nuevo_estatus
+    # Solo permitimos iniciar la producción aquí. El cierre se hace por el modal.
+    if nuevo_estatus == 'BATIENDO':
+        orden.estatus = 'BATIENDO'
+        orden.fecha_inicio = datetime.now()
+        db.session.commit()
+        flash(f'🔥 Lote {orden.folio} iniciado. ¡A cocinar!', 'info')
     
-    if nuevo_estatus == 'TERMINADA':
-        orden.fecha_termino = datetime.now()
-        flash(f'Orden {orden.folio} terminada.', 'success')
-    else:
-        flash(f'Orden {orden.folio} pasó a {nuevo_estatus}.', 'info')
-
-    db.session.commit()
     return redirect(url_for('production.ordenes_maestro'))
+
+# --- 5. REPORTAR PRODUCCIÓN REAL (CIERRE DE LOTE) ---
+@production_bp.route('/reportar-produccion', methods=['POST'])
+@login_required
+def reportar_produccion_real():
+    try:
+        orden_id = int(request.form.get('orden_id'))
+        cantidad_real = float(request.form.get('cantidad_real'))
+        notas = request.form.get('notas')
+
+        orden = OrdenProduccion.query.get_or_404(orden_id)
+        
+        # Guardamos la realidad operativa
+        orden.cantidad_producida_real = cantidad_real
+        orden.notas_produccion = notas
+        orden.fecha_termino = datetime.now()
+        
+        # CAMBIO IMPORTANTE:
+        # No ponemos 'TERMINADA' todavía. Ponemos 'POR_RECIBIR'.
+        # Esto envía la orden a la "puerta del almacén" para que el Almacenista la cuente.
+        orden.estatus = 'POR_RECIBIR'
+        
+        db.session.commit()
+        
+        flash(f'✅ Lote enviado a Almacén. Reportaste {cantidad_real} piezas. Pendiente de recepción.', 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'❌ Error al reportar producción: {str(e)}', 'danger')
+
+    return redirect(url_for('production.ordenes_maestro'))
+
+========================= FILE: .\app\blueprints\reception.py =========================
+from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask_login import login_required, current_user
+from datetime import datetime
+from app.extensions import db
+
+# Importación de Modelos
+from app.models.production import OrdenProduccion
+from app.models.stock import InventarioProducto, HistorialMovimiento
+from app.models.infrastructure import UbicacionAlmacen, Almacen 
+
+reception_bp = Blueprint('reception', __name__, url_prefix='/recepcion')
+
+# --- 1. TABLERO DE RECEPCIÓN ---
+@reception_bp.route('/')
+@login_required
+def index():
+    # Filtramos las órdenes activas (POR_RECIBIR)
+    lotes_activos = OrdenProduccion.query.filter(
+        OrdenProduccion.estatus.in_(['POR_RECIBIR'])
+    ).all()
+    
+    # Traemos AMBOS catálogos para el filtro en cascada
+    almacenes = Almacen.query.order_by(Almacen.descripcion).all()
+    ubicaciones = UbicacionAlmacen.query.order_by(UbicacionAlmacen.codigo).all()
+    
+    # Renderizamos la vista con nombre ÚNICO
+    return render_template('reception/reception_dock.html', 
+                           lotes=lotes_activos, 
+                           almacenes=almacenes,
+                           ubicaciones=ubicaciones)
+
+# --- 2. PROCESAR EL INGRESO ---
+@reception_bp.route('/confirmar', methods=['POST'])
+@login_required
+def confirmar():
+    try:
+        orden_id = int(request.form.get('orden_id'))
+        # Recibimos el ID de la ubicación exacta (dropdown hijo)
+        ubicacion_id = int(request.form.get('ubicacion_id'))
+        cantidad_ingresar = float(request.form.get('cantidad_ingresar'))
+        forzar_cierre = request.form.get('forzar_cierre') == 'on'
+        # Capturamos las notas del usuario
+        notas_usuario = request.form.get('notas', '').strip()
+        
+        orden = OrdenProduccion.query.get_or_404(orden_id)
+        
+        # Validaciones
+        if cantidad_ingresar < 0:
+            flash('No puedes ingresar cantidades negativas.', 'warning')
+            return redirect(url_for('reception.index'))
+
+        # Solo permitimos 0 si se está cerrando la orden (Merma total del resto)
+        if cantidad_ingresar == 0 and not forzar_cierre:
+            flash('Si la cantidad es 0, debes marcar "Cerrar Orden" para indicar merma.', 'warning')
+            return redirect(url_for('reception.index'))
+
+        # A. ACTUALIZAR STOCK FÍSICO (Solo si hay cantidad > 0)
+        if cantidad_ingresar > 0:
+            inventario = InventarioProducto.query.filter_by(
+                producto_id=orden.producto_id, 
+                ubicacion_id=ubicacion_id
+            ).first()
+
+            if inventario:
+                inventario.cantidad_actual += cantidad_ingresar
+            else:
+                nuevo_inv = InventarioProducto(
+                    producto_id=orden.producto_id,
+                    ubicacion_id=ubicacion_id,
+                    cantidad_actual=cantidad_ingresar,
+                    fecha_ingreso_almacen=datetime.now()
+                )
+                db.session.add(nuevo_inv)
+
+        # B. ACTUALIZAR EL ACUMULADO DE LA ORDEN
+        acumulado_previo = orden.cantidad_recibida_almacen or 0
+        nuevo_acumulado = acumulado_previo + cantidad_ingresar
+        orden.cantidad_recibida_almacen = nuevo_acumulado
+        
+        # C. GENERAR EVIDENCIA (KÁRDEX) CON NOTAS
+        texto_historial = f"Ingreso ({cantidad_ingresar}). Acumulado: {nuevo_acumulado}/{orden.cantidad_producida_real}."
+        if notas_usuario:
+            texto_historial += f" | NOTA: {notas_usuario}"
+
+        movimiento = HistorialMovimiento(
+            producto_id=orden.producto_id,
+            ubicacion_id=ubicacion_id,
+            tipo_movimiento='ENTRADA_PRODUCCION',
+            cantidad=cantidad_ingresar,
+            usuario_id=current_user.id,
+            fecha=datetime.now(),
+            referencia=orden.folio,
+            notas=texto_historial
+        )
+        db.session.add(movimiento)
+
+        # D. LÓGICA DE CIERRE (Superávit, Exacto o Merma)
+        diferencia = orden.cantidad_producida_real - nuevo_acumulado
+        
+        # CASO 1: SUPERÁVIT (Sobrante positivo, diferencia negativa)
+        if diferencia < -0.001:
+            orden.estatus = 'TERMINADA'
+            orden.fecha_termino = datetime.now()
+            orden.notas_produccion = (orden.notas_produccion or "") + f" | SUPERÁVIT ALMACÉN: {abs(diferencia)} pzas extra."
+            flash(f"✅ Lote completado con EXCEDENTE de {abs(diferencia)} pzas.", 'success')
+            
+        # CASO 2: EXACTO
+        elif abs(diferencia) <= 0.001:
+            orden.estatus = 'TERMINADA'
+            orden.fecha_termino = datetime.now()
+            flash(f"✅ Lote {orden.folio} completado exacto.", 'success')
+            
+        # CASO 3: FALTANTE (MERMA) CON CIERRE FORZADO
+        elif forzar_cierre:
+            orden.estatus = 'TERMINADA'
+            orden.fecha_termino = datetime.now()
+            
+            nota_cierre = f" | FALTANTE (MERMA): {diferencia}."
+            if notas_usuario:
+                nota_cierre += f" Causa: {notas_usuario}"
+            
+            orden.notas_produccion = (orden.notas_produccion or "") + nota_cierre
+            flash(f"⚠️ Orden cerrada con faltante de {diferencia} pzas.", 'warning')
+            
+        # CASO 4: PARCIAL (Sigue abierta)
+        else:
+            flash(f"📥 Ingreso parcial guardado. Faltan {diferencia} pzas.", 'info')
+
+        db.session.commit()
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'❌ Error técnico: {str(e)}', 'danger')
+
+    return redirect(url_for('reception.index'))
 
 ========================= FILE: .\app\blueprints\sales.py =========================
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 from app.extensions import db
+from sqlalchemy import func
+
+# Modelos
 from app.models.clients import Cliente
 from app.models.products import Producto
 from app.models.orders import OrdenVenta, OrdenVentaDetalle
@@ -1574,7 +1850,7 @@ from datetime import datetime
 
 sales_bp = Blueprint('sales', __name__, url_prefix='/ventas')
 
-# --- 1. RUTA PARA CARGAR LA CONSOLA (LO QUE YA TENÍAS) ---
+# --- 1. RUTA PARA CARGAR LA CONSOLA ---
 @sales_bp.route('/preventa')
 @login_required
 def preventa():
@@ -1595,21 +1871,38 @@ def preventa():
                            catalogo=catalogo_js,
                            date_now=datetime.now().strftime('%Y-%m-%d'))
 
-# --- 2. API PARA PRECIOS ESPECIALES Y CRÉDITO ---
+# --- 2. API INTELIGENTE (CRÉDITO VIRTUAL) ---
 @sales_bp.route('/api/cliente/<int:id>')
 @login_required
 def api_cliente(id):
     c = Cliente.query.get_or_404(id)
-    # Diccionario de precios especiales {id_producto: precio_especial}
+    
+    # A. Deuda Contable
+    deuda_contable = float(c.saldo_actual)
+
+    # B. Deuda Virtual (Pedidos vivos)
+    ventas_en_curso = db.session.query(func.sum(OrdenVenta.total_venta))\
+        .filter(OrdenVenta.cliente_id == id)\
+        .filter(OrdenVenta.estado.in_(['CONFIRMADA', 'EN_RUTA', 'EN_PRODUCCION', 'EMPACADO']))\
+        .scalar() or 0.0
+    
+    ventas_en_curso = float(ventas_en_curso)
+
+    # C. Cálculo
+    deuda_total_real = deuda_contable + ventas_en_curso
+    limite = float(c.limite_credito)
+    disponible_real = limite - deuda_total_real
+
     precios = {p.producto_id: float(p.valor_descuento) for p in c.precios_especiales}
+    
     return jsonify({
-        "limite_credito": float(c.limite_credito),
-        "saldo_actual": float(c.saldo_actual),
-        "disponible": float(c.limite_credito - c.saldo_actual),
+        "limite_credito": limite,
+        "saldo_actual": deuda_total_real,
+        "disponible": disponible_real,
         "precios_especiales": precios
     })
 
-# --- 3. EL "OÍDO" QUE RECIBE EL PEDIDO DEL CELULAR ---
+# --- 3. CREAR PEDIDO (CON REGLA DE 15 CARACTERES) ---
 @sales_bp.route('/crear-pedido', methods=['POST'])
 @login_required
 def crear_pedido():
@@ -1619,18 +1912,44 @@ def crear_pedido():
         return jsonify({"status": "error", "message": "El pedido está vacío"}), 400
 
     try:
-        # Generar Folio: PV + AñoMesDiaHoraMinutoSegundo
+        # 1. VALIDACIÓN DE NOTA OBLIGATORIA (CULTURA FINANCIERA)
+        notas = data.get('notas', '').strip()
+        if len(notas) < 15:
+            return jsonify({
+                "status": "error", 
+                "message": "⚠️ Escribe una nota detallada (mínimo 15 letras). Explica condiciones de pago o entrega."
+            }), 400
+
+        # 2. VALIDACIÓN DE CRÉDITO
+        if data['metodo_pago'] == 'Credito':
+            cliente = Cliente.query.get(int(data['cliente_id']))
+            total_pedido = float(data['total'])
+            
+            ventas_en_curso = db.session.query(func.sum(OrdenVenta.total_venta))\
+                .filter(OrdenVenta.cliente_id == cliente.id)\
+                .filter(OrdenVenta.estado.in_(['CONFIRMADA', 'EN_RUTA', 'EN_PRODUCCION', 'EMPACADO']))\
+                .scalar() or 0.0
+            
+            deuda_total = float(cliente.saldo_actual) + float(ventas_en_curso)
+            
+            if (deuda_total + total_pedido) > float(cliente.limite_credito):
+                return jsonify({
+                    "status": "error", 
+                    "message": f"⛔ CRÉDITO INSUFICIENTE. Disp: ${float(cliente.limite_credito) - deuda_total:.2f}"
+                }), 400
+
+        # --- GUARDAR VENTA ---
         folio_gen = f"PV-{datetime.now().strftime('%y%m%d%H%M%S')}"
 
-        # A. Crear la Cabecera
         nueva_orden = OrdenVenta(
             folio = folio_gen,
             cliente_id = int(data['cliente_id']),
             vendedor_id = current_user.id,
             fecha_promesa_entrega = datetime.strptime(data['fecha_entrega'], '%Y-%m-%d'),
             metodo_pago_esperado = data['metodo_pago'],
-            total_venta = 0, # Se actualiza abajo
-            estado = 'CONFIRMADA'
+            total_venta = 0, 
+            estado = 'CONFIRMADA',
+            notas_vendedor = notas # Ya validada
         )
         
         db.session.add(nueva_orden)
@@ -1638,8 +1957,6 @@ def crear_pedido():
 
         total_calculado = 0
         
-        # B. Crear los Renglones (Items)
-        # El JS manda 'items' como un objeto donde la llave es el ID del producto
         for prod_id, info in data['items'].items():
             subtotal = float(info['cant']) * float(info['precio'])
             total_calculado += subtotal
@@ -1653,20 +1970,18 @@ def crear_pedido():
             )
             db.session.add(detalle)
 
-        # C. Actualizar total final
         nueva_orden.total_venta = total_calculado
-        
         db.session.commit()
         
         return jsonify({
             "status": "success", 
-            "message": f"Pedido {folio_gen} guardado!", 
+            "message": f"Pedido {folio_gen} guardado correctamente.", 
             "folio": folio_gen
         })
 
     except Exception as e:
         db.session.rollback()
-        print(f"Error en crear_pedido: {str(e)}") # Esto sale en tu consola negra
+        print(f"Error ventas: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 ========================= FILE: .\app\models\catalogs.py =========================
@@ -1978,6 +2293,7 @@ class OrdenVentaDetalle(db.Model):
 ========================= FILE: .\app\models\production.py =========================
 from app.extensions import db
 from datetime import datetime
+from app.models.users import Usuario 
 
 class OrdenProduccion(db.Model):
     __tablename__ = 'ordenes_produccion'
@@ -1985,29 +2301,34 @@ class OrdenProduccion(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     folio = db.Column(db.String(50), unique=True, nullable=False)
     
-    # Relación con Producto
     producto_id = db.Column(db.Integer, db.ForeignKey('productos.id'), nullable=False)
-    
-    # Receta (Opcional por ahora)
     receta_id = db.Column(db.Integer, nullable=True)
     
+    # LO QUE SE PIDE (Teórico)
     cantidad = db.Column(db.Float, nullable=False)
     
-    # Quién la pidió
-    usuario_solicita_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    # LO QUE SALE (Realidad - Reportado por Maestro Heladero)
+    cantidad_producida_real = db.Column(db.Float, default=0)
+    notas_produccion = db.Column(db.Text, nullable=True)
+
+    # --- NUEVO CAMPO PARA RECEPCIÓN PARCIAL (ALMACÉN) ---
+    # Aquí se va sumando lo que el almacenista mete al refri poco a poco.
+    cantidad_recibida_almacen = db.Column(db.Float, default=0)
+    # ----------------------------------------------------
+
+    usuario_solicita_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
     
-    # Fechas
     fecha_solicitud = db.Column(db.DateTime, default=datetime.now)
     fecha_inicio = db.Column(db.DateTime, nullable=True)
     fecha_termino = db.Column(db.DateTime, nullable=True)
     
-    # Estatus: SOLICITADA, EN_PRODUCCION, BATIENDO, TERMINADA, CANCELADA
+    # ESTATUS: 
+    # 'SOLICITADA' -> 'BATIENDO' -> 'POR_RECIBIR' (En tránsito/Parcial) -> 'TERMINADA' (Cerrada)
     estatus = db.Column(db.String(20), default='SOLICITADA')
     prioridad = db.Column(db.String(20), default='NORMAL')
 
-    # Relaciones para acceder a los nombres fácilmente
     producto = db.relationship('Producto', backref='ordenes')
-    usuario = db.relationship('User', backref='ordenes_creadas')
+    usuario = db.relationship('Usuario', backref='ordenes_creadas')
 
 ========================= FILE: .\app\models\products.py =========================
 # app/models/products.py
@@ -2332,7 +2653,7 @@ body {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <style>
-        /* Estilo Dark para el Submenú de Producción */
+        /* Estilos del Sidebar y Submenús */
         .sidebar .nav-link {
             transition: all 0.3s ease;
             border-left: 4px solid transparent;
@@ -2344,7 +2665,7 @@ body {
         }
 
         .submenu-dark {
-            background: rgba(0, 0, 0, 0.2) !important; /* Fondo sutilmente más oscuro */
+            background: rgba(0, 0, 0, 0.2) !important;
             margin: 0 10px;
             border-radius: 8px;
             padding: 8px 0;
@@ -2361,7 +2682,7 @@ body {
         .submenu-dark .nav-link:hover {
             color: #fff !important;
             background: transparent !important;
-            padding-left: 25px !important; /* Efecto de desplazamiento */
+            padding-left: 25px !important;
         }
 
         .submenu-dark .nav-link.active-sub {
@@ -2369,7 +2690,6 @@ body {
             font-weight: bold;
         }
 
-        /* Ajuste de flecha de colapso */
         .nav-link[data-bs-toggle="collapse"].collapsed i.fa-chevron-down {
             transform: rotate(-90deg);
         }
@@ -2397,25 +2717,37 @@ body {
                 <i class="fa-solid fa-cash-register me-2"></i> Ventas y Pedidos
             </a>
             
-            <a href="{{ url_for('inventory.index') }}" class="nav-link py-3">
-                <i class="fa-solid fa-boxes-stacked me-2"></i> Catálogo Productos
+            <a class="nav-link py-3 d-flex justify-content-between align-items-center" 
+               data-bs-toggle="collapse" href="#collapseInventario" role="button" aria-expanded="false">
+                <span><i class="fa-solid fa-boxes-stacked me-2"></i> Inventario y Almacén</span>
+                <i class="fa-solid fa-chevron-down small"></i>
             </a>
-            <a href="{{ url_for('inventory.movimientos') }}" class="nav-link py-3">
-                <i class="fa-solid fa-dolly me-2"></i> Movimientos Almacén
-            </a>
+            <div class="collapse" id="collapseInventario">
+                <div class="submenu-dark shadow-inner">
+                    <a class="nav-link py-2" href="{{ url_for('inventory.index') }}">
+                        <i class="fa-solid fa-list me-2"></i> Catálogo Productos
+                    </a>
+                    <a class="nav-link py-2" href="{{ url_for('inventory.movimientos') }}">
+                        <i class="fa-solid fa-right-left me-2"></i> Movimientos / Ajustes
+                    </a>
+                    <a class="nav-link py-2 text-warning" href="{{ url_for('reception.index') }}">
+                        <i class="fa-solid fa-dolly me-2"></i> Recepción Producción
+                    </a>
+                </div>
+            </div>
 
             <a class="nav-link py-3 d-flex justify-content-between align-items-center" 
-               data-bs-toggle="collapse" href="#collapseProduccion" role="button" aria-expanded="true">
+               data-bs-toggle="collapse" href="#collapseProduccion" role="button" aria-expanded="false">
                 <span><i class="fa-solid fa-industry me-2"></i> Producción</span>
                 <i class="fa-solid fa-chevron-down small"></i>
             </a>
-            <div class="collapse show" id="collapseProduccion">
+            <div class="collapse" id="collapseProduccion">
                 <div class="submenu-dark shadow-inner">
                     <a class="nav-link py-2" href="{{ url_for('production.tablero_necesidades') }}">
                         <i class="fa-solid fa-chart-line me-2"></i> Tablero de Demanda
                     </a>
-                    <a class="nav-link py-2" href="#">
-                        <i class="fa-solid fa-clipboard-check me-2"></i> Órdenes Maestro
+                    <a class="nav-link py-2" href="{{ url_for('production.ordenes_maestro') }}">
+                        <i class="fa-solid fa-fire-burner me-2"></i> Órdenes Maestro
                     </a>
                 </div>
             </div>
@@ -2581,6 +2913,70 @@ body {
 </div>
 {% endblock %}
 
+========================= FILE: .\app\templates\inventory\catalog_list.html =========================
+{% extends 'base.html' %}
+
+{% block title %}Catálogo | GelMexSys{% endblock %}
+{% block page_header %}Catálogo de Productos{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Lista Maestra de Productos</h5>
+        <a href="{{ url_for('inventory.create') }}" class="btn btn-warning fw-bold text-dark">
+            <i class="fa-solid fa-plus me-2"></i> Nuevo Producto
+        </a>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>SKU</th>
+                        <th>Producto</th>
+                        <th>Categoría</th>
+                        <th>Costo</th>
+                        <th>Precio Venta</th>
+                        <th>Stock Mín.</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in productos %}
+                    <tr>
+                        <td class="fw-bold">{{ p.sku }}</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                {% if p.imagen_producto %}
+                                    <img src="{{ url_for('static', filename=p.imagen_producto) }}" class="rounded-circle me-2" width="40" height="40">
+                                {% else %}
+                                    <div class="bg-secondary rounded-circle me-2 d-flex align-items-center justify-content-center text-white" style="width:40px; height:40px;">
+                                        <i class="fa-solid fa-ice-cream"></i>
+                                    </div>
+                                {% endif %}
+                                <span>{{ p.descripcion }}</span>
+                            </div>
+                        </td>
+                        <td><span class="badge bg-info text-dark">{{ p.categoria.nombre if p.categoria else 'N/A' }}</span></td>
+                        <td>${{ "{:.2f}".format(p.precio_costo_actual) }}</td>
+                        <td class="fw-bold text-success">${{ "{:.2f}".format(p.precio_venta_general) }}</td>
+                        <td>{{ p.stock_minimo }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-pen"></i></button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4">No hay productos registrados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
 ========================= FILE: .\app\templates\inventory\form.html =========================
 {% extends 'base.html' %}
 
@@ -2654,88 +3050,6 @@ body {
                 </form>
             </div>
         </div>
-    </div>
-</div>
-{% endblock %}
-
-========================= FILE: .\app\templates\inventory\list.html =========================
-{% extends 'base.html' %}
-
-{% block title %}Inventario Maestro{% endblock %}
-
-{% block page_header %}Catálogo de Productos y Existencias{% endblock %}
-
-{% block content %}
-<div class="card card-erp">
-    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-        <h5 class="m-0 text-primary"><i class="fa-solid fa-boxes-stacked"></i> Listado General</h5>
-        <button class="btn btn-primary btn-sm">
-            <a href="{{ url_for('inventory.create') }}" class="btn btn-primary btn-sm">
-                <i class="fa-solid fa-plus"></i> Nuevo Producto
-            </a>
-        </button>
-    </div>
-    
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover table-striped align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th class="ps-4">Producto</th>
-                        <th>SKU</th>
-                        <th>Categoría</th>
-                        <th class="text-end">Costo</th>
-                        <th class="text-end">Precio Venta</th>
-                        <th class="text-center">Stock</th>
-                        <th class="text-center">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for p in productos %}
-                    <tr>
-                        <td class="ps-4">
-                            <div class="d-flex align-items-center">
-                                <div class="bg-light rounded d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
-                                    <i class="fa-solid fa-ice-cream text-secondary"></i>
-                                </div>
-                                <div>
-                                    <div class="fw-bold text-dark">{{ p.descripcion }}</div>
-                                    <small class="text-muted">{{ p.unidad.nombre }}</small>
-                                </div>
-                            </div>
-                        </td>
-                        <td><span class="badge bg-light text-dark border">{{ p.sku }}</span></td>
-                        <td>{{ p.categoria.nombre }}</td>
-                        <td class="text-end text-muted">${{ "{:,.2f}".format(p.precio_costo_actual) }}</td>
-                        <td class="text-end fw-bold text-success">${{ "{:,.2f}".format(p.precio_venta_general) }}</td>
-                        
-                        <td class="text-center">
-                            {% if p.stock_minimo > 0 %}
-                                <span class="badge bg-warning text-dark">Bajo Stock</span>
-                            {% else %}
-                                <span class="badge bg-secondary">Sin Movimientos</span>
-                            {% endif %}
-                        </td>
-
-                        <td class="text-center">
-                            <button class="btn btn-sm btn-outline-secondary" title="Editar"><i class="fa-solid fa-pencil"></i></button>
-                            <button class="btn btn-sm btn-outline-info" title="Kardex"><i class="fa-solid fa-list-ol"></i></button>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="7" class="text-center py-4 text-muted">
-                            <i class="fa-solid fa-box-open fa-2x mb-2"></i><br>
-                            No hay productos registrados en el sistema.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    <div class="card-footer bg-white text-muted">
-        <small>Mostrando {{ productos|length }} registros</small>
     </div>
 </div>
 {% endblock %}
@@ -2880,7 +3194,7 @@ function filtrarUbicaciones() {
 </script>
 {% endblock %}
 
-========================= FILE: .\app\templates\production\needs_board.html =========================
+========================= FILE: .\app\templates\production\dashboard.html =========================
 {% extends 'base.html' %}
 
 {% block title %}Tablero de Necesidades | GelMexSys{% endblock %}
@@ -2888,143 +3202,415 @@ function filtrarUbicaciones() {
 
 {% block content %}
 <div class="container-fluid">
-    <div class="card shadow-sm border-0">
+    
+    <div class="card shadow-sm border-0 mb-4">
         <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
-            <h5 class="mb-0 fw-bold"><i class="fa-solid fa-microchip me-2"></i>ANALIZADOR DE DEMANDA VS ÓPTIMOS</h5>
-            <span class="badge bg-secondary">Corte: {{ now }}</span>
+            <h5 class="mb-0 fw-bold"><i class="fa-solid fa-chart-line me-2"></i>ANALIZADOR DE DEMANDA (JIT)</h5>
+            <span class="badge bg-secondary">Actualizado: {{ now.strftime('%H:%M') }}</span>
         </div>
         
+        <div class="card-body bg-light border-bottom">
+            <div class="row text-center">
+                <div class="col-md-4">
+                    <small class="text-uppercase text-muted fw-bold">Salud del Inventario</small>
+                    <div class="h4 mt-1 fw-bold text-{{ clase_sys }}">
+                        {% if clase_sys == 'success' %}<i class="fa-solid fa-check-circle me-1"></i>{% endif %}
+                        {% if clase_sys == 'danger' %}<i class="fa-solid fa-triangle-exclamation me-1"></i>{% endif %}
+                        {{ estado_sys }}
+                    </div>
+                </div>
+                <div class="col-md-4 border-start border-end">
+                    <small class="text-uppercase text-muted fw-bold">Órdenes en Fábrica</small>
+                    <div class="h4 mt-1 fw-bold text-primary">
+                        {{ total_ordenes }} Activas
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <small class="text-uppercase text-muted fw-bold">Acción Sugerida</small>
+                    <div class="h4 mt-1 fw-bold text-dark">{{ accion_sys }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card card-erp shadow-lg border-0">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" id="tablaProduccion">
-                <thead class="table-light small text-uppercase text-secondary">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light small text-uppercase text-secondary text-center">
                     <tr>
-                        <th class="ps-3">Producto</th>
-                        <th class="text-center">Vendido (Hoy)</th>
-                        <th class="text-center">Existencia / En Proceso</th>
-                        <th class="text-center d-none d-lg-table-cell">Meta Óptima</th>
-                        <th class="text-center bg-warning text-dark" style="width: 160px;">A FABRICAR</th>
-                        <th class="text-center">Estado</th>
+                        <th class="text-start ps-4">Producto</th>
+                        <th>Existencia<br>Física</th>
+                        <th class="text-danger bg-danger bg-opacity-10">Ventas<br>Pendientes</th>
+                        <th class="text-primary bg-primary bg-opacity-10">Disponible<br>Real</th>
+                        <th>En<br>Fábrica</th>
+                        <th class="d-none d-lg-table-cell">Meta</th>
+                        <th class="bg-warning bg-opacity-25 text-dark" style="width: 150px;">A Fabricar</th>
+                        <th>Acción</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for item in analisis %}
-                    <tr data-id="{{ item.id }}" data-sku="{{ item.sku }}">
-                        <td class="ps-3">
+                    {% for item in items %}
+                    <tr class="text-center">
+                        <td class="text-start ps-4">
                             <strong class="d-block text-dark">{{ item.descripcion }}</strong>
                             <small class="text-muted">{{ item.sku }}</small>
                         </td>
-                        <td class="text-center fw-bold text-primary">{{ item.demanda }}</td>
+
+                        <td><span class="fw-bold">{{ item.existencia | int }}</span></td>
                         
-                        <td class="text-center">
-                            <div class="fw-bold fs-5">{{ item.stock_actual }}</div>
-                            {% if item.en_proceso > 0 %}
-                                <div class="badge bg-info-subtle text-info border border-info-subtle">
-                                    <i class="fa-solid fa-fire-burner me-1"></i> {{ item.en_proceso }} batiendo
-                                </div>
+                        <td class="bg-danger bg-opacity-10 text-danger fw-bold">
+                            {% if item.comprometido > 0 %}
+                                -{{ item.comprometido | int }}
+                            {% else %}
+                                -
                             {% endif %}
                         </td>
 
-                        <td class="text-center text-muted d-none d-lg-table-cell">{{ item.stock_ideal }}</td>
-                        
-                        <td class="text-center bg-light">
-                            <input type="number" 
-                                   class="form-control fw-bold text-center border-warning input-producir" 
-                                   value="{{ item.producir }}" 
-                                   step="1" min="0"
-                                   id="input-{{ item.id }}">
+                        <td class="bg-primary bg-opacity-10 text-primary fw-bold fs-5">
+                            {{ item.disponible | int }}
                         </td>
 
-                        <td class="text-center">
-                            <span class="badge rounded-pill bg-{{ item.semaforo }} py-2 px-3 shadow-sm">
-                                {% if item.semaforo == 'danger' %} 
-                                    <i class="fa-solid fa-circle-exclamation me-1"></i> CRÍTICO
-                                {% elif item.semaforo == 'warning' %} 
-                                    <i class="fa-solid fa-clock-rotate-left me-1"></i> RECUPERAR
-                                {% else %} 
-                                    <i class="fa-solid fa-circle-check me-1"></i> SURTIDO
+                        <td>
+                            {% if item.en_proceso > 0 %}
+                                <span class="badge bg-info text-dark border border-info">
+                                    <i class="fa-solid fa-spinner fa-spin me-1"></i> {{ item.en_proceso | int }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="d-none d-lg-table-cell text-muted">{{ item.meta | int }}</td>
+                        
+                        <td class="bg-warning bg-opacity-25 py-3">
+                            <form action="{{ url_for('production.crear_orden') }}" method="POST">
+                                <input type="hidden" name="producto_id" value="{{ item.id }}">
+                                
+                                {% if item.estado == 'SURTIDO' or item.estado == 'EN CAMINO' %}
+                                    <span class="badge rounded-pill bg-{{ item.clase_estado }} px-3 py-2 shadow-sm">
+                                        {{ item.estado }}
+                                    </span>
+                                {% else %}
+                                    <div class="input-group input-group-sm justify-content-center">
+                                        <input type="number" name="cantidad" class="form-control text-center fw-bold border-warning" 
+                                               value="{{ item.a_fabricar | int }}" min="1" style="max-width: 70px;">
+                                        <button type="submit" class="btn btn-warning fw-bold shadow-sm" title="Enviar a Producción">
+                                            <i class="fa-solid fa-paper-plane"></i>
+                                        </button>
+                                    </div>
                                 {% endif %}
-                            </span>
+                            </form>
+                        </td>
+                        
+                        <td>
+                            {% if item.disponible <= 0 %}
+                                <i class="fa-solid fa-circle-exclamation text-danger fs-5" title="Sin stock libre"></i>
+                            {% elif item.a_fabricar > 0 %}
+                                <i class="fa-solid fa-triangle-exclamation text-warning fs-5" title="Bajo stock"></i>
+                            {% else %}
+                                <i class="fa-solid fa-circle-check text-success fs-5" title="OK"></i>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+    </div>
+</div>
+{% endblock %}
 
-        <div class="card-footer p-4 bg-white border-top text-end">
-            <button class="btn btn-warning btn-lg fw-bold shadow-lg py-3 px-5" id="btnEnviarOrden" onclick="enviarAlMaestro()">
-                <i class="fa-solid fa-hat-chef me-2"></i> ENVIAR ORDEN AL MAESTRO HELADERO
-            </button>
+========================= FILE: .\app\templates\production\orders_list.html =========================
+{% extends 'base.html' %}
+
+{% block title %}Cocina | GelMexSys{% endblock %}
+{% block page_header %}Consola del Maestro Heladero{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    {% if ordenes %}
+    <div class="row">
+        {% for orden in ordenes %}
+        <div class="col-12 col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 shadow-sm border-0 {% if orden.estatus == 'BATIENDO' %}border-start border-5 border-warning{% endif %}">
+                
+                <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                    <span class="badge bg-light text-dark border">{{ orden.folio }}</span>
+                    <small class="text-muted"><i class="fa-regular fa-clock me-1"></i> {{ orden.fecha_solicitud.strftime('%H:%M') }}</small>
+                </div>
+
+                <div class="card-body text-center">
+                    <h5 class="card-title fw-bold text-dark mb-1">{{ orden.producto.descripcion }}</h5>
+                    <p class="text-muted small mb-3">{{ orden.producto.sku }}</p>
+                    
+                    <div class="row mb-3">
+                        <div class="col-6 border-end">
+                            <small class="text-muted d-block text-uppercase">Solicitado</small>
+                            <span class="h4 fw-bold text-primary">{{ orden.cantidad | int }}</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block text-uppercase">Real Producido</small>
+                            {% if orden.cantidad_producida_real > 0 %}
+                                <span class="h4 fw-bold text-success">{{ orden.cantidad_producida_real | int }}</span>
+                            {% else %}
+                                <span class="h4 text-muted">--</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if orden.estatus == 'SOLICITADA' %}
+                        <div class="alert alert-secondary py-2 small">
+                            <i class="fa-solid fa-hourglass-start me-1"></i> Esperando turno
+                        </div>
+                    {% elif orden.estatus == 'BATIENDO' %}
+                        <div class="alert alert-warning py-2 small fw-bold text-dark">
+                            <i class="fa-solid fa-fire-burner fa-fade me-1"></i> EN PRODUCCIÓN
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="card-footer bg-white p-3">
+                    <div class="d-grid gap-2">
+                        {% if orden.estatus == 'SOLICITADA' %}
+                            <a href="{{ url_for('production.cambiar_estatus', orden_id=orden.id, nuevo_estatus='BATIENDO') }}" 
+                               class="btn btn-primary btn-lg shadow-sm">
+                                <i class="fa-solid fa-fire-burner"></i> INICIAR LOTE
+                            </a>
+                        {% elif orden.estatus == 'BATIENDO' %}
+                            <button type="button" class="btn btn-success btn-lg shadow fw-bold" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#modalCierre{{ orden.id }}">
+                                <i class="fa-solid fa-truck-ramp-box"></i> ENVIAR A ALMACÉN
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal fade" id="modalCierre{{ orden.id }}" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header bg-success text-white">
+                            <h5 class="modal-title">Cierre de Lote: {{ orden.folio }}</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form action="{{ url_for('production.reportar_produccion_real') }}" method="POST">
+                            <div class="modal-body">
+                                <input type="hidden" name="orden_id" value="{{ orden.id }}">
+                                
+                                <div class="mb-3 text-center">
+                                    <label class="form-label text-muted">Cantidad Solicitada</label>
+                                    <div class="h3">{{ orden.cantidad | int }}</div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold text-dark">¿Cuánto salió REALMENTE del lote?</label>
+                                    <input type="number" name="cantidad_real" class="form-control form-control-lg text-center fw-bold border-success" 
+                                           value="{{ orden.cantidad | int }}" min="1" required>
+                                    <div class="form-text">Si salió más o menos, ajústalo aquí. Esto es lo que recibirá el almacenista.</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Notas / Incidencias (Opcional)</label>
+                                    <textarea name="notas" class="form-control" rows="2" placeholder="Ej: Se tiró un poco de mezcla..."></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-success fw-bold">Confirmar Entrega</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <h3 class="text-muted">Sin Órdenes Activas</h3>
+        <p class="text-muted">Todo limpio por aquí.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+========================= FILE: .\app\templates\reception\reception_dock.html =========================
+{% extends 'base.html' %}
+
+{% block title %}Recepción | GelMexSys{% endblock %}
+{% block page_header %}Muelle de Recepción{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-dark text-white py-3 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fa-solid fa-dolly me-2"></i>Lotes Pendientes</h5>
+            <span class="badge bg-warning text-dark">{{ lotes|length }} Lotes</span>
+        </div>
+        
+        <div class="card-body bg-light">
+            {% if lotes %}
+            <div class="row">
+                {% for lote in lotes %}
+                {% set recibido = lote.cantidad_recibida_almacen or 0 %}
+                {% set total = lote.cantidad_producida_real %}
+                {% set pendiente = total - recibido %}
+                {% set porcentaje = (recibido / total * 100) | int %}
+                {% if porcentaje > 100 %}{% set porcentaje = 100 %}{% endif %}
+                
+                <div class="col-12 col-xl-6 mb-3">
+                    <div class="card h-100 shadow-sm border-0">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="badge bg-primary">{{ lote.folio }}</span>
+                                <small class="text-muted">{{ lote.fecha_termino.strftime('%d/%m %H:%M') if lote.fecha_termino else 'Hoy' }}</small>
+                            </div>
+                            <h5 class="fw-bold text-dark mb-0">{{ lote.producto.descripcion }}</h5>
+                            
+                            <div class="mt-3 p-3 bg-white rounded border">
+                                <div class="d-flex justify-content-between small fw-bold">
+                                    <span>Progreso: {{ recibido|int }} / {{ total|int }}</span>
+                                    {% if pendiente < 0 %}
+                                        <span class="text-success fw-bold">¡Excedente: {{ pendiente|abs|int }}!</span>
+                                    {% else %}
+                                        <span class="text-danger">Faltan: {{ pendiente|int }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="progress mt-2" style="height: 10px;">
+                                    <div class="progress-bar {% if porcentaje < 100 %}bg-warning{% else %}bg-success{% endif %}" style="width: {{ porcentaje }}%"></div>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-primary w-100 fw-bold mt-3" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#modal{{ lote.id }}">
+                                <i class="fa-solid fa-dolly-flatbed me-2"></i> ACOMODAR
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal fade" id="modal{{ lote.id }}" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-primary text-white">
+                                <h5 class="modal-title">Acomodar Lote</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <form action="{{ url_for('reception.confirmar') }}" method="POST">
+                                <div class="modal-body">
+                                    <input type="hidden" name="orden_id" value="{{ lote.id }}">
+                                    
+                                    <div class="alert alert-info text-center py-2">
+                                        Pendientes Teóricos: <strong>{{ pendiente|int }}</strong>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="fw-bold">Cantidad a ingresar (STOCK BUENO):</label>
+                                        <input type="number" name="cantidad_ingresar" class="form-control text-center fw-bold border-success text-dark" 
+                                               style="font-size: 1.5rem;"
+                                               value="{{ pendiente if pendiente > 0 else 0 }}" min="0" step="0.01" required>
+                                        <div class="form-text text-muted small">
+                                            Escribe la cantidad física real. Si hay de más, ponlo. Si es merma, pon 0 y marca cierre forzado.
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3 bg-light p-3 rounded border">
+                                        <label class="fw-bold text-primary mb-2">PASO 1: Selecciona Almacén</label>
+                                        <select class="form-select select-almacen text-dark" data-target="ubicacion{{ lote.id }}" required>
+                                            <option value="" selected disabled>-- Elegir Almacén --</option>
+                                            {% for a in almacenes %}
+                                                <option value="{{ a.id }}">{{ a.descripcion }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3 bg-light p-3 rounded border">
+                                        <label class="fw-bold text-primary mb-2">PASO 2: Ubicación Exacta</label>
+                                        <select name="ubicacion_id" id="ubicacion{{ lote.id }}" class="form-select text-dark" disabled required>
+                                            <option value="" selected disabled>-- Esperando Almacén --</option>
+                                            {% for u in ubicaciones %}
+                                                <option value="{{ u.id }}" data-almacen="{{ u.almacen_id }}">
+                                                    {{ u.codigo }} {% if u.notas %}({{ u.notas }}){% endif %}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="fw-bold">Notas / Observaciones</label>
+                                        <textarea name="notas" class="form-control text-dark" rows="2" placeholder="Ej: Sobrante de producción / Merma por caída..."></textarea>
+                                    </div>
+
+                                    <div class="alert alert-danger mt-4 d-flex align-items-start">
+                                        <div class="form-check me-2">
+                                            <input class="form-check-input border-danger" type="checkbox" name="forzar_cierre" id="check{{ lote.id }}" style="transform: scale(1.3);">
+                                        </div>
+                                        <div>
+                                            <label class="form-check-label fw-bold text-danger" for="check{{ lote.id }}">
+                                                🛑 YA NO VA A LLEGAR MÁS (Cerrar Orden)
+                                            </label>
+                                            <div class="small text-danger mt-1">
+                                                Marca esto si terminaste de acomodar y sobró o faltó producto.
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="submit" class="btn btn-success fw-bold">GUARDAR</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted"><h4>No hay lotes por recibir</h4></div>
+            {% endif %}
         </div>
     </div>
 </div>
 
-<style>
-    .input-producir:focus {
-        background-color: #fffde7;
-        border-color: #fbc02d;
-        box-shadow: 0 0 8px rgba(251, 192, 45, 0.4);
-    }
-    .bg-info-subtle { background-color: #e0f7fa !important; }
-    .text-info { color: #00838f !important; }
-</style>
-
 <script>
-async function enviarAlMaestro() {
-    const btn = document.getElementById('btnEnviarOrden');
-    const filas = document.querySelectorAll('#tablaProduccion tbody tr');
-    let itemsProduccion = [];
-
-    filas.forEach(fila => {
-        const id = fila.dataset.id;
-        const cantidad = fila.querySelector('input').value;
-        const descripcion = fila.querySelector('strong').innerText;
-
-        if (parseFloat(cantidad) > 0) {
-            itemsProduccion.push({
-                producto_id: id,
-                descripcion: descripcion,
-                cantidad: parseFloat(cantidad)
+document.addEventListener("DOMContentLoaded", function() {
+    const selectsAlmacen = document.querySelectorAll('.select-almacen');
+    
+    selectsAlmacen.forEach(select => {
+        select.addEventListener('change', function() {
+            const almacenId = this.value;
+            const targetId = this.getAttribute('data-target');
+            const selectUbicacion = document.getElementById(targetId);
+            
+            selectUbicacion.value = "";
+            selectUbicacion.disabled = false;
+            
+            const opciones = selectUbicacion.querySelectorAll('option');
+            let contador = 0;
+            
+            opciones.forEach(opt => {
+                if (opt.value === "") return; 
+                if (String(opt.getAttribute('data-almacen')) === String(almacenId)) {
+                    opt.style.display = "block";
+                    contador++;
+                } else {
+                    opt.style.display = "none";
+                }
             });
-        }
-    });
-
-    if (itemsProduccion.length === 0) {
-        alert("⚠️ Carnal, no pusiste nada para fabricar. El almacén sigue igual.");
-        return;
-    }
-
-    if(!confirm(`¿Confirmas enviar esta carga al Maestro Heladero? Se congelará la demanda actual.`)) {
-        return;
-    }
-
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-gear fa-spin me-2"></i>NOTIFICANDO FÁBRICA...';
-
-    try {
-        const response = await fetch("{{ url_for('production.guardar_orden') }}", {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items: itemsProduccion })
+            
+            if (contador === 0) {
+                selectUbicacion.options[0].text = "⚠️ No hay ubicaciones aquí";
+                selectUbicacion.disabled = true;
+            } else {
+                selectUbicacion.options[0].text = "-- Selecciona Ubicación --";
+            }
         });
-
-        const result = await response.json();
-
-        if (result.status === 'success') {
-            alert("✅ ¡A toda madre! " + result.message);
-            window.location.reload(); // Aquí el tablero ya saldrá restado
-        } else {
-            alert("❌ Chale, algo falló: " + result.message);
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-hat-chef me-2"></i> ENVIAR ORDEN AL MAESTRO HELADERO';
-        }
-    } catch (error) {
-        console.error("Error:", error);
-        alert("❌ Error de red. Checa si el servidor sigue vivo.");
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-hat-chef me-2"></i> ENVIAR ORDEN AL MAESTRO HELADERO';
-    }
-}
+    });
+});
 </script>
 {% endblock %}
 
@@ -3091,7 +3677,7 @@ async function enviarAlMaestro() {
 <div class="container-fluid pb-5">
     <div class="card card-erp mb-3 border-0 shadow-sm" style="z-index: 1001;">
         <div class="card-body p-4">
-            <div class="row g-3 align-items-end">
+            <div class="row g-3">
                 <div class="col-12 col-md-5 position-relative" id="wrapperCliente">
                     <label class="small fw-bold text-muted mb-1 text-uppercase">1. Buscar Cliente</label>
                     <input type="text" class="form-control form-control-lg border-primary shadow-sm" 
@@ -3119,15 +3705,25 @@ async function enviarAlMaestro() {
                     </div>
                 </div>
                 
-                <div class="col-12 col-md-3">
-                    <label class="small fw-bold text-muted mb-1 text-uppercase">2. Método de Pago</label>
-                    <select id="metodoPago" class="form-select form-select-lg border-primary fw-bold" onchange="renderCarrito()">
-                        <option value="Credito" selected>CRÉDITO</option>
-                        <option value="Contado">CONTADO (EFECTIVO)</option>
-                    </select>
+                <div class="col-12 col-md-4">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="small fw-bold text-muted mb-1 text-uppercase">2. Método de Pago</label>
+                            <select id="metodoPago" class="form-select form-select-lg border-primary fw-bold" onchange="renderCarrito()">
+                                <option value="Credito" selected>CRÉDITO</option>
+                                <option value="Contado">CONTADO (EFECTIVO)</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-floating">
+                                <input type="text" id="inputNotas" class="form-control" placeholder="Nota">
+                                <label for="inputNotas" class="text-muted small"><i class="fa-solid fa-pen-nib me-1"></i>Motivo / Condiciones (Mín. 15 letras)</label>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="col-12 col-md-4 text-end border-md-start">
+                <div class="col-12 col-md-3 text-end border-md-start d-flex flex-column justify-content-center">
                     <label class="small fw-bold text-muted d-block text-uppercase">Total de esta Nota</label>
                     <div class="total-display" id="granTotal">$0.00</div>
                 </div>
@@ -3262,7 +3858,6 @@ async function enviarAlMaestro() {
             const r = await fetch(`/ventas/api/cliente/${id}`);
             const d = await r.json();
             
-            // Lógica de Finanzas: Mostramos todo el desglose
             creditoDisponible = d.disponible;
             document.getElementById('resumenCliente').classList.remove('d-none');
             document.getElementById('valLimite').innerText = `$${d.limite_credito.toFixed(2)}`;
@@ -3342,17 +3937,34 @@ async function enviarAlMaestro() {
 
     async function enviarPedido() {
         const metodo = document.getElementById('metodoPago').value;
-        if(!confirm(`¿Enviar pedido a PRODUCCIÓN?`)) return;
+        const notas = document.getElementById('inputNotas').value.trim();
+
+        // --- VALIDACIÓN DE 15 CARACTERES (El Candado) ---
+        if (notas.length < 15) {
+            alert(`⚠️ ¡Ey! Explica la venta.\n\nEscribe al menos 15 letras en el campo de Notas.\n(Actualmente tienes ${notas.length}).\n\nEjemplo: "Paga al recibir en tienda"`);
+            document.getElementById('inputNotas').focus();
+            return;
+        }
+        // ------------------------------------------------
+
+        if(!confirm(`¿Confirmar este pedido?`)) return;
         
-        const payload = { cliente_id: clienteId, fecha_entrega: "{{ date_now }}", metodo_pago: metodo, total: totalGlobal, items: carrito };
+        const payload = { 
+            cliente_id: clienteId, 
+            fecha_entrega: "{{ date_now }}", 
+            metodo_pago: metodo, 
+            total: totalGlobal, 
+            notas: notas, 
+            items: carrito 
+        };
 
         try {
             const r = await fetch('/ventas/crear-pedido', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             const d = await r.json();
             if(d.status === 'success') {
-                alert("Éxito: " + d.message);
+                alert("✅ " + d.message);
                 window.location.reload();
-            } else { alert("Error: " + d.message); }
+            } else { alert("❌ Error: " + d.message); }
         } catch (e) { alert("Error de conexión"); }
     }
 

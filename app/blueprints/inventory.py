@@ -20,7 +20,8 @@ inventory_bp = Blueprint('inventory', __name__, url_prefix='/inventario')
 @login_required
 def index():
     productos = Producto.query.all()
-    return render_template('inventory/list.html', productos=productos)
+    # CAMBIO AQUÍ: De 'list.html' a 'catalog_list.html'
+    return render_template('inventory/catalog_list.html', productos=productos)
 
 @inventory_bp.route('/nuevo', methods=['GET', 'POST'])
 @login_required

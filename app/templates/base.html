@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <style>
-        /* Estilo Dark para el Submenú de Producción */
+        /* Estilos del Sidebar y Submenús */
         .sidebar .nav-link {
             transition: all 0.3s ease;
             border-left: 4px solid transparent;
@@ -20,7 +20,7 @@
         }
 
         .submenu-dark {
-            background: rgba(0, 0, 0, 0.2) !important; /* Fondo sutilmente más oscuro */
+            background: rgba(0, 0, 0, 0.2) !important;
             margin: 0 10px;
             border-radius: 8px;
             padding: 8px 0;
@@ -37,7 +37,7 @@
         .submenu-dark .nav-link:hover {
             color: #fff !important;
             background: transparent !important;
-            padding-left: 25px !important; /* Efecto de desplazamiento */
+            padding-left: 25px !important;
         }
 
         .submenu-dark .nav-link.active-sub {
@@ -45,7 +45,6 @@
             font-weight: bold;
         }
 
-        /* Ajuste de flecha de colapso */
         .nav-link[data-bs-toggle="collapse"].collapsed i.fa-chevron-down {
             transform: rotate(-90deg);
         }
@@ -73,25 +72,40 @@
                 <i class="fa-solid fa-cash-register me-2"></i> Ventas y Pedidos
             </a>
             
-            <a href="{{ url_for('inventory.index') }}" class="nav-link py-3">
-                <i class="fa-solid fa-boxes-stacked me-2"></i> Catálogo Productos
+            <a class="nav-link py-3 d-flex justify-content-between align-items-center" 
+               data-bs-toggle="collapse" href="#collapseInventario" role="button" aria-expanded="false">
+                <span><i class="fa-solid fa-boxes-stacked me-2"></i> Inventario y Almacén</span>
+                <i class="fa-solid fa-chevron-down small"></i>
             </a>
-            <a href="{{ url_for('inventory.movimientos') }}" class="nav-link py-3">
-                <i class="fa-solid fa-dolly me-2"></i> Movimientos Almacén
-            </a>
+            <div class="collapse" id="collapseInventario">
+                <div class="submenu-dark shadow-inner">
+                    <a class="nav-link py-2" href="{{ url_for('inventory.index') }}">
+                        <i class="fa-solid fa-list me-2"></i> Catálogo Productos
+                    </a>
+                    <a class="nav-link py-2" href="{{ url_for('inventory.movimientos') }}">
+                        <i class="fa-solid fa-right-left me-2"></i> Movimientos / Ajustes
+                    </a>
+                    <a class="nav-link py-2 text-warning" href="{{ url_for('reception.index') }}">
+                        <i class="fa-solid fa-dolly me-2"></i> Recepción Producción
+                    </a>
+                    <a class="nav-link py-2 text-info" href="{{ url_for('shipping.index') }}">
+                        <i class="fa-solid fa-box-open me-2"></i> Surtido y Empaque
+                    </a>
+                </div>
+            </div>
 
             <a class="nav-link py-3 d-flex justify-content-between align-items-center" 
-               data-bs-toggle="collapse" href="#collapseProduccion" role="button" aria-expanded="true">
+               data-bs-toggle="collapse" href="#collapseProduccion" role="button" aria-expanded="false">
                 <span><i class="fa-solid fa-industry me-2"></i> Producción</span>
                 <i class="fa-solid fa-chevron-down small"></i>
             </a>
-            <div class="collapse show" id="collapseProduccion">
+            <div class="collapse" id="collapseProduccion">
                 <div class="submenu-dark shadow-inner">
                     <a class="nav-link py-2" href="{{ url_for('production.tablero_necesidades') }}">
                         <i class="fa-solid fa-chart-line me-2"></i> Tablero de Demanda
                     </a>
                     <a class="nav-link py-2" href="{{ url_for('production.ordenes_maestro') }}">
-                        <i class="fa-solid fa-clipboard-check me-2"></i> Órdenes Maestro
+                        <i class="fa-solid fa-fire-burner me-2"></i> Órdenes Maestro
                     </a>
                 </div>
             </div>

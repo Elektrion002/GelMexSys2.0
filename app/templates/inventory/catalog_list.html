@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block title %}Catálogo | GelMexSys{% endblock %}
+{% block page_header %}Catálogo de Productos{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Lista Maestra de Productos</h5>
+        <a href="{{ url_for('inventory.create') }}" class="btn btn-warning fw-bold text-dark">
+            <i class="fa-solid fa-plus me-2"></i> Nuevo Producto
+        </a>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>SKU</th>
+                        <th>Producto</th>
+                        <th>Categoría</th>
+                        <th>Costo</th>
+                        <th>Precio Venta</th>
+                        <th>Stock Mín.</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in productos %}
+                    <tr>
+                        <td class="fw-bold">{{ p.sku }}</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                {% if p.imagen_producto %}
+                                    <img src="{{ url_for('static', filename=p.imagen_producto) }}" class="rounded-circle me-2" width="40" height="40">
+                                {% else %}
+                                    <div class="bg-secondary rounded-circle me-2 d-flex align-items-center justify-content-center text-white" style="width:40px; height:40px;">
+                                        <i class="fa-solid fa-ice-cream"></i>
+                                    </div>
+                                {% endif %}
+                                <span>{{ p.descripcion }}</span>
+                            </div>
+                        </td>
+                        <td><span class="badge bg-info text-dark">{{ p.categoria.nombre if p.categoria else 'N/A' }}</span></td>
+                        <td>${{ "{:.2f}".format(p.precio_costo_actual) }}</td>
+                        <td class="fw-bold text-success">${{ "{:.2f}".format(p.precio_venta_general) }}</td>
+                        <td>{{ p.stock_minimo }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-pen"></i></button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4">No hay productos registrados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

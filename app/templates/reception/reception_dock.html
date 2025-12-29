@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+
+{% block title %}Recepción | GelMexSys{% endblock %}
+{% block page_header %}Muelle de Recepción{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-dark text-white py-3 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fa-solid fa-dolly me-2"></i>Lotes Pendientes</h5>
+            <span class="badge bg-warning text-dark">{{ lotes|length }} Lotes</span>
+        </div>
+        
+        <div class="card-body bg-light">
+            {% if lotes %}
+            <div class="row">
+                {% for lote in lotes %}
+                {% set recibido = lote.cantidad_recibida_almacen or 0 %}
+                {% set total = lote.cantidad_producida_real %}
+                {% set pendiente = total - recibido %}
+                {% set porcentaje = (recibido / total * 100) | int %}
+                {% if porcentaje > 100 %}{% set porcentaje = 100 %}{% endif %}
+                
+                <div class="col-12 col-xl-6 mb-3">
+                    <div class="card h-100 shadow-sm border-0">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="badge bg-primary">{{ lote.folio }}</span>
+                                <small class="text-muted">{{ lote.fecha_termino.strftime('%d/%m %H:%M') if lote.fecha_termino else 'Hoy' }}</small>
+                            </div>
+                            <h5 class="fw-bold text-dark mb-0">{{ lote.producto.descripcion }}</h5>
+                            
+                            <div class="mt-3 p-3 bg-white rounded border">
+                                <div class="d-flex justify-content-between small fw-bold">
+                                    <span>Progreso: {{ recibido|int }} / {{ total|int }}</span>
+                                    {% if pendiente < 0 %}
+                                        <span class="text-success fw-bold">¡Excedente: {{ pendiente|abs|int }}!</span>
+                                    {% else %}
+                                        <span class="text-danger">Faltan: {{ pendiente|int }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="progress mt-2" style="height: 10px;">
+                                    <div class="progress-bar {% if porcentaje < 100 %}bg-warning{% else %}bg-success{% endif %}" style="width: {{ porcentaje }}%"></div>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-primary w-100 fw-bold mt-3" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#modal{{ lote.id }}">
+                                <i class="fa-solid fa-dolly-flatbed me-2"></i> ACOMODAR
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal fade" id="modal{{ lote.id }}" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-primary text-white">
+                                <h5 class="modal-title">Acomodar Lote</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <form action="{{ url_for('reception.confirmar') }}" method="POST">
+                                <div class="modal-body">
+                                    <input type="hidden" name="orden_id" value="{{ lote.id }}">
+                                    
+                                    <div class="alert alert-info text-center py-2">
+                                        Pendientes Teóricos: <strong>{{ pendiente|int }}</strong>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="fw-bold">Cantidad a ingresar (STOCK BUENO):</label>
+                                        <input type="number" name="cantidad_ingresar" class="form-control text-center fw-bold border-success text-dark" 
+                                               style="font-size: 1.5rem;"
+                                               value="{{ pendiente if pendiente > 0 else 0 }}" min="0" step="0.01" required>
+                                        <div class="form-text text-muted small">
+                                            Escribe la cantidad física real. Si hay de más, ponlo. Si es merma, pon 0 y marca cierre forzado.
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3 bg-light p-3 rounded border">
+                                        <label class="fw-bold text-primary mb-2">PASO 1: Selecciona Almacén</label>
+                                        <select class="form-select select-almacen text-dark" data-target="ubicacion{{ lote.id }}" required>
+                                            <option value="" selected disabled>-- Elegir Almacén --</option>
+                                            {% for a in almacenes %}
+                                                <option value="{{ a.id }}">{{ a.descripcion }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3 bg-light p-3 rounded border">
+                                        <label class="fw-bold text-primary mb-2">PASO 2: Ubicación Exacta</label>
+                                        <select name="ubicacion_id" id="ubicacion{{ lote.id }}" class="form-select text-dark" disabled required>
+                                            <option value="" selected disabled>-- Esperando Almacén --</option>
+                                            {% for u in ubicaciones %}
+                                                <option value="{{ u.id }}" data-almacen="{{ u.almacen_id }}">
+                                                    {{ u.codigo }} {% if u.notas %}({{ u.notas }}){% endif %}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="fw-bold">Notas / Observaciones</label>
+                                        <textarea name="notas" class="form-control text-dark" rows="2" placeholder="Ej: Sobrante de producción / Merma por caída..."></textarea>
+                                    </div>
+
+                                    <div class="alert alert-danger mt-4 d-flex align-items-start">
+                                        <div class="form-check me-2">
+                                            <input class="form-check-input border-danger" type="checkbox" name="forzar_cierre" id="check{{ lote.id }}" style="transform: scale(1.3);">
+                                        </div>
+                                        <div>
+                                            <label class="form-check-label fw-bold text-danger" for="check{{ lote.id }}">
+                                                🛑 YA NO VA A LLEGAR MÁS (Cerrar Orden)
+                                            </label>
+                                            <div class="small text-danger mt-1">
+                                                Marca esto si terminaste de acomodar y sobró o faltó producto.
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="submit" class="btn btn-success fw-bold">GUARDAR</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted"><h4>No hay lotes por recibir</h4></div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const selectsAlmacen = document.querySelectorAll('.select-almacen');
+    
+    selectsAlmacen.forEach(select => {
+        select.addEventListener('change', function() {
+            const almacenId = this.value;
+            const targetId = this.getAttribute('data-target');
+            const selectUbicacion = document.getElementById(targetId);
+            
+            selectUbicacion.value = "";
+            selectUbicacion.disabled = false;
+            
+            const opciones = selectUbicacion.querySelectorAll('option');
+            let contador = 0;
+            
+            opciones.forEach(opt => {
+                if (opt.value === "") return; 
+                if (String(opt.getAttribute('data-almacen')) === String(almacenId)) {
+                    opt.style.display = "block";
+                    contador++;
+                } else {
+                    opt.style.display = "none";
+                }
+            });
+            
+            if (contador === 0) {
+                selectUbicacion.options[0].text = "⚠️ No hay ubicaciones aquí";
+                selectUbicacion.disabled = true;
+            } else {
+                selectUbicacion.options[0].text = "-- Selecciona Ubicación --";
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

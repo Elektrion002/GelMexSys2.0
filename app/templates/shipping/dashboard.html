@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block title %}Despacho | GelMexSys{% endblock %}
+{% block page_header %}Tablero de Surtido y Embarque{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="text-primary fw-bold"><i class="fa-solid fa-clipboard-list me-2"></i>Cola de Trabajo (Pendientes)</h5>
+        <span class="badge bg-primary fs-6">{{ pendientes|length }} Órdenes</span>
+    </div>
+    
+    <div class="row">
+        {% for orden in pendientes %}
+        <div class="col-12 col-md-6 col-xl-4 mb-4">
+            <div class="card h-100 shadow-sm border-0 border-start border-4 {% if orden.estado == 'EMPACADO' %}border-warning{% else %}border-primary{% endif %}">
+                <div class="card-header bg-white border-bottom-0 pt-3 pb-0 d-flex justify-content-between">
+                    <span class="badge bg-light text-dark border">{{ orden.folio }}</span>
+                    {% if orden.estado == 'CONFIRMADA' %}
+                        <span class="badge bg-secondary">POR INICIAR</span>
+                    {% elif orden.estado == 'EN_PRODUCCION' %}
+                        <span class="badge bg-info text-dark">SURTIENDO</span>
+                    {% elif orden.estado == 'EMPACADO' %}
+                        <span class="badge bg-warning text-dark">EMPACANDO</span>
+                    {% endif %}
+                </div>
+                
+                <div class="card-body">
+                    <h5 class="card-title fw-bold text-dark mb-1">{{ orden.cliente.nombre_negocio }}</h5>
+                    <p class="text-muted small mb-3">
+                        <i class="fa-solid fa-route me-1"></i> 
+                        {{ orden.cliente.ruta.descripcion if orden.cliente.ruta else 'Sin Ruta' }}
+                    </p>
+                    
+                    <div class="d-flex align-items-center justify-content-between bg-light rounded p-2 mb-2">
+                        <div class="text-center px-2">
+                            <small class="text-muted d-block" style="font-size: 0.7rem;">ÍTEMS</small>
+                            <strong>{{ orden.items|length }}</strong>
+                        </div>
+                        <div class="text-center px-2 border-start border-end">
+                            <small class="text-muted d-block" style="font-size: 0.7rem;">ENTREGA</small>
+                            <strong>{{ orden.fecha_promesa_entrega.strftime('%d/%m') }}</strong>
+                        </div>
+                        <div class="text-center px-2">
+                            <small class="text-muted d-block" style="font-size: 0.7rem;">VENDEDOR</small>
+                            <strong>{{ orden.vendedor.nombres.split()[0] }}</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-footer bg-white border-top-0 pb-3 pt-0">
+                    <a href="{{ url_for('shipping.picking', orden_id=orden.id) }}" class="btn btn-primary w-100 fw-bold shadow-sm">
+                        {% if orden.estado == 'CONFIRMADA' %}
+                            INICIAR <i class="fa-solid fa-play ms-2"></i>
+                        {% else %}
+                            CONTINUAR <i class="fa-solid fa-arrow-right ms-2"></i>
+                        {% endif %}
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12 text-center py-4 bg-light rounded mb-4">
+            <h4 class="text-muted m-0">🎉 No hay pedidos pendientes por ahora.</h4>
+        </div>
+        {% endfor %}
+    </div>
+
+    <hr class="my-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="text-success fw-bold"><i class="fa-solid fa-truck-ramp-box me-2"></i>Listos para Ruta (Últimos Empacados)</h5>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle bg-white shadow-sm rounded">
+            <thead class="table-light">
+                <tr>
+                    <th>Folio</th>
+                    <th>Cliente</th>
+                    <th>Ruta</th>
+                    <th>Cajas</th>
+                    <th>Fecha Entrega</th>
+                    <th>Estatus</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for orden in terminados %}
+                <tr>
+                    <td class="fw-bold">{{ orden.folio }}</td>
+                    <td>{{ orden.cliente.nombre_negocio }}</td>
+                    <td>{{ orden.cliente.ruta.descripcion if orden.cliente.ruta else 'S/R' }}</td>
+                    <td><span class="badge bg-dark">{{ orden.paquetes|length }} Cajas</span></td>
+                    <td>{{ orden.fecha_promesa_entrega.strftime('%d/%m/%Y') }}</td>
+                    <td><span class="badge bg-success">LISTO PARA RUTA</span></td>
+                    <td>
+                        <a href="{{ url_for('shipping.picking', orden_id=orden.id) }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fa-solid fa-eye"></i> Ver / Reimprimir
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-3">No has terminado ninguna orden recientemente.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+{% endblock %}
