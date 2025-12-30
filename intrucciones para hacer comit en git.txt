@@ -1,0 +1,5 @@
+# 1. Agregar todos los cambios (incluyendo las nuevas carpetas de templates)
+git add .
+
+# 2. Sellar la versión con un mensaje técnico profesional
+git commit -m "Feat: Modulo RH Finalizado. Gestion de Usuarios completa (38 campos), seguridad en passwords y manejo de expedientes digitales."

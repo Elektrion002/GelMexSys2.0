@@ -63,4 +63,7 @@ def create_app(config_name='default'):
     from app.blueprints.clients import clients_bp
     app.register_blueprint(clients_bp)
 
+    from app.blueprints.users import users_bp
+    app.register_blueprint(users_bp)
+
     return app

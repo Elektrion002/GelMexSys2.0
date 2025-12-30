@@ -1,6 +1,6 @@
 ============================================================
  GELMEXSYS 2.0 - REPORTE DE CONTEXTO TÉCNICO (PostgreSQL)
- FECHA: 2025-12-30 15:16:27
+ FECHA: 2025-12-30 16:18:29
 ============================================================
 
 ------------------------------
@@ -35,6 +35,7 @@ ESTRUCTURA DE DIRECTORIOS:
             reception.py
             sales.py
             shipping.py
+            users.py
         [models/]
             catalogs.py
             clients.py
@@ -88,6 +89,9 @@ ESTRUCTURA DE DIRECTORIOS:
                 dashboard.html
                 labels.html
                 picking.html
+            [users/]
+                form.html
+                index.html
     [db_seeds/]
         data_catalogs.py
         data_clients.py
@@ -1058,10 +1062,13 @@ db = SQLAlchemy()
 ========================= FILE: .\app\forms.py =========================
 # app/forms.py
 from flask_wtf import FlaskForm
-from wtforms import StringField, DecimalField, SelectField, FileField, SubmitField, IntegerField
+from wtforms import StringField, DecimalField, SelectField, FileField, SubmitField, IntegerField, TextAreaField, PasswordField, DateField
 from wtforms.validators import DataRequired, NumberRange, Length, Optional, Email
 from flask_wtf.file import FileAllowed
 
+# ==========================================
+#  1. FORMULARIO DE INVENTARIO (PRODUCTOS)
+# ==========================================
 class ProductoForm(FlaskForm):
     sku = StringField('SKU / Código', validators=[DataRequired(), Length(max=50)])
     descripcion = StringField('Nombre del Producto', validators=[DataRequired(), Length(max=200)])
@@ -1073,42 +1080,100 @@ class ProductoForm(FlaskForm):
     imagen = FileField('Foto del Producto', validators=[FileAllowed(['jpg', 'png', 'jpeg'], 'Solo imágenes JPG o PNG')])
     submit = SubmitField('Guardar Producto')
 
-# --- NUEVO FORMULARIO DE CLIENTES ---
+# ==========================================
+#  2. FORMULARIO DE CLIENTES (CRM)
+# ==========================================
 class ClienteForm(FlaskForm):
-    # Pestaña 1: Identidad y Contacto
     nombre_negocio = StringField('Nombre del Negocio', validators=[DataRequired(), Length(max=150)])
     rfc = StringField('RFC', validators=[Optional(), Length(max=13)])
     tipo_negocio = StringField('Giro / Tipo', validators=[Optional()])
-    
     nombres_encargado = StringField('Nombre Encargado', validators=[DataRequired()])
     apellidos_encargado = StringField('Apellidos Encargado', validators=[Optional()])
-    
     telefono = StringField('Teléfono Fijo', validators=[Optional()])
     celular = StringField('Celular (WhatsApp)', validators=[Optional()])
     email = StringField('Correo Electrónico', validators=[Optional(), Email(message="Email inválido")])
-
-    # Pestaña 2: Dirección
     calle = StringField('Calle', validators=[DataRequired()])
     num_exterior = StringField('Número Ext.', validators=[DataRequired()])
     colonia = StringField('Colonia', validators=[DataRequired()])
     codigo_postal = StringField('C.P.', validators=[Optional()])
     ciudad = StringField('Ciudad', validators=[DataRequired()])
     estado = StringField('Estado', default='Guanajuato')
-
-    # Pestaña 3: Operación
     ruta_id = SelectField('Ruta de Reparto', coerce=int, validators=[DataRequired()])
     vendedor_id = SelectField('Vendedor Asignado', coerce=int, validators=[Optional()])
     repartidor_id = SelectField('Repartidor Habitual', coerce=int, validators=[Optional()])
-
-    # Pestaña 4: Finanzas
     limite_credito = DecimalField('Límite de Crédito ($)', places=2, default=0.00)
-    
-    # Pestaña 5: Documentos
     img_fachada = FileField('Fachada Negocio', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
     img_ine_frente = FileField('INE Frente', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
     img_ine_reverso = FileField('INE Reverso', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
-
     submit = SubmitField('Guardar Cliente')
+
+# ==========================================
+#  3. FORMULARIO DE USUARIOS (FULL - 38 CAMPOS)
+# ==========================================
+class UsuarioForm(FlaskForm):
+    # --- GRUPO 1: CREDENCIALES ---
+    email_acceso = StringField('Correo Institucional (Login)', validators=[DataRequired(), Email()])
+    password = PasswordField('Contraseña', validators=[Optional()]) 
+    puesto_id = SelectField('Puesto / Rol', coerce=int, validators=[DataRequired()])
+    nivel_usuario = SelectField('Nivel de Acceso Sistema', coerce=int, choices=[
+        (1, 'Nivel 1 - Operativo Básico (Chofer/Auxiliar)'),
+        (2, 'Nivel 2 - Operativo Ventas (Vendedor/Heladero)'),
+        (3, 'Nivel 3 - Supervisor (Almacén/Prod)'),
+        (4, 'Nivel 4 - Gerencial (Finanzas/Admin)'),
+        (5, 'Nivel 5 - Super Admin (Dueño)')
+    ], validators=[DataRequired()])
+    pin_seguridad = StringField('PIN App Móvil (6 dígitos)', validators=[Optional(), Length(min=4, max=6)])
+
+    # --- GRUPO 2: IDENTIDAD ---
+    nombres = StringField('Nombre(s)', validators=[DataRequired()])
+    apellido_paterno = StringField('Apellido Paterno', validators=[DataRequired()])
+    apellido_materno = StringField('Apellido Materno', validators=[Optional()])
+    fecha_nacimiento = DateField('Fecha Nacimiento', validators=[Optional()])
+    estado_civil = SelectField('Estado Civil', choices=[
+        ('SOLTERO', 'Soltero/a'), ('CASADO', 'Casado/a'), ('UNION_LIBRE', 'Unión Libre'), ('DIVORCIADO', 'Divorciado/a'), ('VIUDO', 'Viudo/a')
+    ], validators=[Optional()])
+    profesion = StringField('Profesión / Oficio', validators=[Optional()])
+    curp = StringField('CURP', validators=[Optional(), Length(max=18)])
+    rfc = StringField('RFC (Personal)', validators=[Optional(), Length(max=13)])
+
+    # --- GRUPO 3: DOMICILIO DETALLADO ---
+    calle = StringField('Calle', validators=[Optional()])
+    num_exterior = StringField('No. Ext', validators=[Optional()])
+    num_interior = StringField('No. Int', validators=[Optional()])
+    colonia = StringField('Colonia', validators=[Optional()])
+    codigo_postal = StringField('C.P.', validators=[Optional()])
+    ciudad = StringField('Ciudad', validators=[Optional()])
+    estado = StringField('Estado', default='Guanajuato')
+    pais = StringField('País', default='México')
+
+    # --- GRUPO 4: CONTACTO Y EMERGENCIA ---
+    telefono_celular = StringField('Celular Personal', validators=[DataRequired()])
+    telefono_casa = StringField('Teléfono Casa', validators=[Optional()])
+    email_personal = StringField('Email Personal', validators=[Optional(), Email()])
+    
+    contacto_emergencia_nombre = StringField('Nombre Contacto Emergencia', validators=[Optional()])
+    contacto_emergencia_telefono = StringField('Teléfono Emergencia', validators=[Optional()])
+
+    # --- GRUPO 5: INFORMACIÓN LABORAL ---
+    fecha_inicio_empresa = DateField('Fecha Ingreso', validators=[Optional()])
+    calificacion_evaluacion = SelectField('Evaluación Desempeño', coerce=int, choices=[
+        (5, '⭐⭐⭐⭐⭐ Excelente'),
+        (4, '⭐⭐⭐⭐ Bueno'),
+        (3, '⭐⭐⭐ Regular'),
+        (2, '⭐⭐ Malo'),
+        (1, '⭐ Pésimo')
+    ], default=5)
+    notas_generales = TextAreaField('Notas Generales / Observaciones', validators=[Optional()])
+
+    # --- GRUPO 6: EXPEDIENTE DIGITAL ---
+    foto_perfil = FileField('Foto Perfil (Rostro)', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
+    img_ine_frente = FileField('INE Frente', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
+    img_ine_reverso = FileField('INE Reverso', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
+    img_licencia_frente = FileField('Licencia Frente', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
+    img_licencia_reverso = FileField('Licencia Reverso', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
+    fecha_validez_licencia = DateField('Vigencia Licencia', validators=[Optional()])
+
+    submit = SubmitField('Guardar Empleado')
 
 ========================= FILE: .\app\__init__.py =========================
 from flask import Flask
@@ -1175,6 +1240,9 @@ def create_app(config_name='default'):
 
     from app.blueprints.clients import clients_bp
     app.register_blueprint(clients_bp)
+
+    from app.blueprints.users import users_bp
+    app.register_blueprint(users_bp)
 
     return app
 
@@ -2949,6 +3017,160 @@ def finalizar_orden(orden_id):
         
     return redirect(url_for('shipping.index'))
 
+========================= FILE: .\app\blueprints\users.py =========================
+import os
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask_login import login_required, current_user
+from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash
+from app.extensions import db
+
+# Modelos
+from app.models.users import Usuario
+from app.models.catalogs import CatPuesto
+from app.forms import UsuarioForm
+
+users_bp = Blueprint('users', __name__, url_prefix='/usuarios')
+
+# --- UTILIDAD: GUARDAR IMÁGENES ---
+def guardar_imagen_user(file, prefix):
+    # Validación estricta: Si no hay archivo o no tiene nombre, retorna None
+    if not file or not file.filename: return None
+    
+    filename = secure_filename(f"{prefix}_{file.filename}")
+    db_path = f"uploads/usuarios/{filename}"
+    save_path = os.path.join(current_app.root_path, 'static', 'uploads', 'usuarios')
+    os.makedirs(save_path, exist_ok=True)
+    file.save(os.path.join(save_path, filename))
+    return db_path
+
+# --- LISTADO ---
+@users_bp.route('/')
+@login_required
+def index():
+    if current_user.nivel_usuario < 4:
+        flash('⛔ Acceso denegado. Se requiere nivel Gerencial.', 'danger')
+        return redirect(url_for('home.dashboard'))
+
+    usuarios = Usuario.query.order_by(Usuario.activo.desc(), Usuario.nombres).all()
+    return render_template('users/index.html', usuarios=usuarios)
+
+# --- CREAR (CORREGIDO ERROR FILESTORAGE) ---
+@users_bp.route('/nuevo', methods=['GET', 'POST'])
+@login_required
+def create():
+    if current_user.nivel_usuario < 4: return redirect(url_for('home.dashboard'))
+
+    form = UsuarioForm()
+    form.puesto_id.choices = [(p.id, p.nombre) for p in CatPuesto.query.filter_by(activo=True).all()]
+
+    if form.validate_on_submit():
+        if not form.password.data:
+            flash('⚠️ La contraseña es obligatoria para nuevos usuarios.', 'warning')
+            return render_template('users/form.html', form=form, title="Nuevo Empleado")
+
+        nuevo_user = Usuario()
+        
+        # 1. Llenamos datos automáticos (Esto ensucia los campos de imagen con FileStorage)
+        form.populate_obj(nuevo_user)
+        
+        # 2. LIMPIEZA INMEDIATA DE IMÁGENES (Solución del error)
+        # Llamamos a guardar_imagen_user siempre. Si no hay archivo, devuelve None y limpia el FileStorage.
+        nuevo_user.foto_perfil = guardar_imagen_user(form.foto_perfil.data, 'avatar')
+        nuevo_user.img_ine_frente = guardar_imagen_user(form.img_ine_frente.data, 'ine_f')
+        nuevo_user.img_ine_reverso = guardar_imagen_user(form.img_ine_reverso.data, 'ine_r')
+        nuevo_user.img_licencia_frente = guardar_imagen_user(form.img_licencia_frente.data, 'lic_f')
+        nuevo_user.img_licencia_reverso = guardar_imagen_user(form.img_licencia_reverso.data, 'lic_r')
+
+        # 3. Configuración Manual
+        nuevo_user.password_hash = generate_password_hash(form.password.data)
+        nuevo_user.activo = True
+
+        try:
+            db.session.add(nuevo_user)
+            db.session.commit()
+            flash('✅ Empleado registrado correctamente.', 'success')
+            return redirect(url_for('users.index'))
+        except Exception as e:
+            db.session.rollback()
+            print(f"ERROR DB: {e}")
+            flash(f'Error al guardar en BD: {str(e)}', 'danger')
+    
+    # Debug visual
+    if request.method == 'POST':
+        print("❌ ERROR FORMULARIO:", form.errors)
+
+    return render_template('users/form.html', form=form, title="Nuevo Empleado")
+
+# --- EDITAR (CORREGIDO ERROR FILESTORAGE) ---
+@users_bp.route('/editar/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit(id):
+    if current_user.nivel_usuario < 4: return redirect(url_for('home.dashboard'))
+
+    usuario = Usuario.query.get_or_404(id)
+    form = UsuarioForm(obj=usuario)
+    form.puesto_id.choices = [(p.id, p.nombre) for p in CatPuesto.query.filter_by(activo=True).all()]
+
+    if form.validate_on_submit():
+        # 1. Guardar rutas actuales (backup)
+        rutas_old = {
+            'foto_perfil': usuario.foto_perfil,
+            'img_ine_frente': usuario.img_ine_frente,
+            'img_ine_reverso': usuario.img_ine_reverso,
+            'img_licencia_frente': usuario.img_licencia_frente,
+            'img_licencia_reverso': usuario.img_licencia_reverso
+        }
+
+        # 2. Actualizar textos (Esto ensucia las imágenes con FileStorage)
+        form.populate_obj(usuario)
+
+        # 3. Lógica de Contraseña
+        if form.password.data:
+            usuario.password_hash = generate_password_hash(form.password.data)
+            flash('🔐 Contraseña actualizada.', 'info')
+        
+        # 4. LIMPIEZA Y RESTAURACIÓN DE IMÁGENES
+        # Intentamos guardar la nueva. Si devuelve None (no subió nada), restauramos la vieja.
+        usuario.foto_perfil = guardar_imagen_user(form.foto_perfil.data, f'avatar_{id}') or rutas_old['foto_perfil']
+        usuario.img_ine_frente = guardar_imagen_user(form.img_ine_frente.data, f'ine_f_{id}') or rutas_old['img_ine_frente']
+        usuario.img_ine_reverso = guardar_imagen_user(form.img_ine_reverso.data, f'ine_r_{id}') or rutas_old['img_ine_reverso']
+        usuario.img_licencia_frente = guardar_imagen_user(form.img_licencia_frente.data, f'lic_f_{id}') or rutas_old['img_licencia_frente']
+        usuario.img_licencia_reverso = guardar_imagen_user(form.img_licencia_reverso.data, f'lic_r_{id}') or rutas_old['img_licencia_reverso']
+
+        try:
+            db.session.commit()
+            flash('✅ Datos actualizados correctamente.', 'success')
+            return redirect(url_for('users.index'))
+        except Exception as e:
+            db.session.rollback()
+            print(f"ERROR DB EDIT: {e}")
+            flash(f'Error al actualizar: {str(e)}', 'danger')
+    
+    else:
+        if request.method == 'POST':
+            print("\n❌ ERROR DE VALIDACIÓN:", form.errors)
+            flash('⚠️ Error en el formulario. Revisa los campos en rojo.', 'danger')
+
+    return render_template('users/form.html', form=form, title="Editar Empleado", usuario=usuario)
+
+@users_bp.route('/toggle-status/<int:id>')
+@login_required
+def toggle_status(id):
+    if current_user.nivel_usuario < 4: return redirect(url_for('home.dashboard'))
+    
+    if id == current_user.id:
+        flash('⛔ No puedes desactivar tu propia cuenta.', 'danger')
+        return redirect(url_for('users.index'))
+
+    usuario = Usuario.query.get_or_404(id)
+    usuario.activo = not usuario.activo
+    db.session.commit()
+    
+    estado = "Activado" if usuario.activo else "Desactivado"
+    flash(f'🔄 Usuario {usuario.nombres} {estado}.', 'info')
+    return redirect(url_for('users.index'))
+
 ========================= FILE: .\app\models\catalogs.py =========================
 # app/models/catalogs.py
 from app.extensions import db
@@ -3866,6 +4088,12 @@ body {
             </a>
 
             <div class="nav-group-label mt-2">ADMINISTRACIÓN</div>
+            
+            {% if current_user.nivel_usuario >= 4 %}
+            <a href="{{ url_for('users.index') }}" class="nav-link py-3">
+                <i class="fa-solid fa-users-gear me-2"></i> Recursos Humanos
+            </a>
+            {% endif %}
             
             <a href="{{ url_for('clients.index') }}" class="nav-link py-3">
                 <i class="fa-solid fa-users me-2"></i> Cartera de Clientes
@@ -7342,6 +7570,317 @@ function validarBoton(itemId) {
     }
 }
 </script>
+{% endblock %}
+
+========================= FILE: .\app\templates\users\form.html =========================
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container pb-5">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="fw-bold"><i class="fa-solid fa-id-card me-2"></i>{{ title }}</h4>
+        <a href="{{ url_for('users.index') }}" class="btn btn-outline-secondary">Cancelar</a>
+    </div>
+
+    {# --- ALERTA DE ERRORES --- #}
+    {% if form.errors %}
+    <div class="alert alert-danger">
+        <i class="fa-solid fa-triangle-exclamation me-2"></i> <strong>Corrige los siguientes errores:</strong>
+        <ul class="mb-0 mt-2 small">
+            {% for field, errors in form.errors.items() %}
+                {% for error in errors %}
+                    <li>{{ getattr(form, field).label.text }}: {{ error }}</li>
+                {% endfor %}
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data">
+        {{ form.hidden_tag() }}
+
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white border-bottom-0 pt-3">
+                <ul class="nav nav-tabs card-header-tabs" id="userTabs" role="tablist">
+                    <li class="nav-item"><button class="nav-link active fw-bold" data-bs-toggle="tab" data-bs-target="#tab-general" type="button">1. General</button></li>
+                    <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#tab-address" type="button">2. Domicilio</button></li>
+                    <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#tab-laboral" type="button">3. Laboral y Emergencia</button></li>
+                    <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#tab-access" type="button">4. Acceso</button></li>
+                    <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#tab-files" type="button">5. Expediente</button></li>
+                </ul>
+            </div>
+
+            <div class="card-body p-4">
+                <div class="tab-content">
+                    
+                    <div class="tab-pane fade show active" id="tab-general">
+                        <h6 class="text-muted border-bottom pb-2 mb-3">Datos de Identidad</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Nombre(s) *</label>
+                                {{ form.nombres(class="form-control " + ("is-invalid" if form.nombres.errors else "")) }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Apellido Paterno *</label>
+                                {{ form.apellido_paterno(class="form-control " + ("is-invalid" if form.apellido_paterno.errors else "")) }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Apellido Materno</label>
+                                {{ form.apellido_materno(class="form-control") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Fecha Nacimiento</label>
+                                {{ form.fecha_nacimiento(class="form-control", type="date") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Estado Civil</label>
+                                {{ form.estado_civil(class="form-select") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Profesión / Oficio</label>
+                                {{ form.profesion(class="form-control") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">CURP</label>
+                                {{ form.curp(class="form-control") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">RFC (Personal)</label>
+                                {{ form.rfc(class="form-control") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Celular Personal *</label>
+                                {{ form.telefono_celular(class="form-control " + ("is-invalid" if form.telefono_celular.errors else "")) }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Email Personal</label>
+                                {{ form.email_personal(class="form-control", placeholder="ejemplo@gmail.com") }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-address">
+                        <h6 class="text-muted border-bottom pb-2 mb-3">Dirección Particular</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Calle</label>
+                                {{ form.calle(class="form-control") }}
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">No. Exterior</label>
+                                {{ form.num_exterior(class="form-control") }}
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">No. Interior</label>
+                                {{ form.num_interior(class="form-control") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Colonia</label>
+                                {{ form.colonia(class="form-control") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Código Postal</label>
+                                {{ form.codigo_postal(class="form-control") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Teléfono Casa</label>
+                                {{ form.telefono_casa(class="form-control") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Ciudad</label>
+                                {{ form.ciudad(class="form-control") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Estado</label>
+                                {{ form.estado(class="form-control") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">País</label>
+                                {{ form.pais(class="form-control") }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-laboral">
+                        <h6 class="text-muted border-bottom pb-2 mb-3">Información de la Empresa</h6>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold text-primary">Puesto / Rol *</label>
+                                {{ form.puesto_id(class="form-select") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Fecha Ingreso</label>
+                                {{ form.fecha_inicio_empresa(class="form-control", type="date") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Evaluación Desempeño</label>
+                                {{ form.calificacion_evaluacion(class="form-select") }}
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Notas Generales / Observaciones</label>
+                                {{ form.notas_generales(class="form-control", rows="2") }}
+                            </div>
+                        </div>
+
+                        <h6 class="text-muted border-bottom pb-2 mb-3 text-danger">En Caso de Emergencia</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Nombre Contacto</label>
+                                {{ form.contacto_emergencia_nombre(class="form-control") }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Teléfono Contacto</label>
+                                {{ form.contacto_emergencia_telefono(class="form-control") }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-access">
+                        <h6 class="text-muted border-bottom pb-2 mb-3">Credenciales del Sistema</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Correo Institucional (Login) *</label>
+                                {{ form.email_acceso(class="form-control " + ("is-invalid" if form.email_acceso.errors else "")) }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Contraseña</label>
+                                {{ form.password(class="form-control", placeholder="Dejar vacío para mantener la actual") }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Nivel de Permisos *</label>
+                                {{ form.nivel_usuario(class="form-select") }}
+                                <div class="form-text">Define qué módulos puede ver.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">PIN Seguridad (App Móvil)</label>
+                                {{ form.pin_seguridad(class="form-control", placeholder="Ej: 1234") }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-files">
+                        <div class="row g-4 text-center">
+                            <div class="col-md-3">
+                                <div class="border p-2 rounded mb-2 bg-light">
+                                    {% if usuario and usuario.foto_perfil %}
+                                        <img src="{{ url_for('static', filename=usuario.foto_perfil) }}" class="img-fluid rounded-circle" style="width:100px; height:100px; object-fit:cover;">
+                                    {% else %}
+                                        <i class="fa-solid fa-user fa-3x text-muted my-3"></i><br>Sin Foto
+                                    {% endif %}
+                                </div>
+                                <label class="form-label small fw-bold">Foto Perfil</label>
+                                {{ form.foto_perfil(class="form-control form-control-sm") }}
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">INE Frente</label>
+                                {{ form.img_ine_frente(class="form-control form-control-sm") }}
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">INE Reverso</label>
+                                {{ form.img_ine_reverso(class="form-control form-control-sm") }}
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">Licencia Frente</label>
+                                {{ form.img_licencia_frente(class="form-control form-control-sm") }}
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">Licencia Reverso</label>
+                                {{ form.img_licencia_reverso(class="form-control form-control-sm") }}
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">Vigencia Licencia</label>
+                                {{ form.fecha_validez_licencia(class="form-control form-control-sm", type="date") }}
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            
+            <div class="card-footer bg-white text-end py-3">
+                {{ form.submit(class="btn btn-primary fw-bold px-5") }}
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+========================= FILE: .\app\templates\users\index.html =========================
+{% extends 'base.html' %}
+{% block title %}RH | GelMexSys{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold text-dark"><i class="fa-solid fa-users-gear me-2"></i>Recursos Humanos</h4>
+        <a href="{{ url_for('users.create') }}" class="btn btn-primary fw-bold shadow-sm">
+            <i class="fa-solid fa-user-plus me-2"></i> NUEVO EMPLEADO
+        </a>
+    </div>
+
+    <div class="card shadow border-0">
+        <div class="card-body p-0">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-3">Colaborador</th>
+                        <th>Rol / Puesto</th>
+                        <th>Acceso</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-end pe-3">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in usuarios %}
+                    <tr class="{% if not u.activo %}bg-light opacity-50{% endif %}">
+                        <td class="ps-3">
+                            <div class="d-flex align-items-center">
+                                <img src="{{ url_for('static', filename=u.foto_perfil) if u.foto_perfil else 'https://ui-avatars.com/api/?name=' + u.nombres + '&background=random' }}" 
+                                     class="rounded-circle me-3 border" width="45" height="45" style="object-fit: cover;">
+                                <div>
+                                    <div class="fw-bold text-dark">{{ u.nombres }} {{ u.apellido_paterno }}</div>
+                                    <small class="text-muted">{{ u.email_acceso }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ u.puesto.nombre }}</span>
+                        </td>
+                        <td>
+                            <div class="small">Nivel {{ u.nivel_usuario }}</div>
+                            <small class="text-muted">
+                                {% if u.nivel_usuario >= 4 %}ADMINISTRATIVO{% else %}OPERATIVO{% endif %}
+                            </small>
+                        </td>
+                        <td class="text-center">
+                            {% if u.activo %}
+                                <span class="badge bg-success">ACTIVO</span>
+                            {% else %}
+                                <span class="badge bg-danger">BAJA</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-3">
+                            <a href="{{ url_for('users.edit', id=u.id) }}" class="btn btn-sm btn-outline-primary" title="Editar Expediente">
+                                <i class="fa-solid fa-pen"></i>
+                            </a>
+                            
+                            {% if u.id != current_user.id %}
+                            <a href="{{ url_for('users.toggle_status', id=u.id) }}" 
+                               class="btn btn-sm {% if u.activo %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
+                               title="Cambiar Estatus">
+                                <i class="fa-solid fa-power-off"></i>
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 ========================= FILE: .\db_seeds\data_catalogs.py =========================
