@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+{% block title %}Cartera de Cobranza{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div class="d-flex align-items-center">
+            <a href="{{ url_for('logistics.index') }}" class="btn btn-outline-dark me-3"><i class="fa-solid fa-arrow-left"></i></a>
+            <div>
+                <h4 class="fw-bold m-0 text-danger">Cartera Vencida</h4>
+                <small class="text-muted">Lista de Deudores</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body p-2">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-0"><i class="fa-solid fa-filter text-secondary"></i></span>
+                <input type="text" id="inputFiltro" class="form-control border-0 fw-bold" 
+                       placeholder="Filtrar por nombre, calle o colonia..." 
+                       onkeyup="filtrarTabla()">
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="tablaCobranza">
+                    <thead class="bg-light text-secondary small text-uppercase">
+                        <tr>
+                            <th class="ps-3" style="cursor:pointer" onclick="ordenarTabla(0)">Negocio <i class="fa-solid fa-sort ms-1"></i></th>
+                            <th class="d-none d-md-table-cell">Dirección</th>
+                            <th class="text-end" style="cursor:pointer" onclick="ordenarTabla(2)">Deuda <i class="fa-solid fa-sort ms-1"></i></th>
+                            <th class="text-center">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyDeudores">
+                        {% if not deudores %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5 text-muted">
+                                <i class="fa-solid fa-check-circle fs-1 mb-3 text-success"></i><br>
+                                ¡Excelente! No hay clientes con deuda pendiente mayor a $1.
+                            </td>
+                        </tr>
+                        {% else %}
+                        {% for c in deudores %}
+                        <tr class="fila-deudor">
+                            <td class="ps-3 py-3">
+                                <div class="fw-bold text-dark">{{ c.nombre_negocio }}</div>
+                                <small class="text-muted d-md-none">{{ c.calle or '' }} {{ c.num_exterior or '' }}</small>
+                                <small class="text-primary d-block" style="font-size: 0.75rem;">
+                                    <i class="fa-solid fa-user"></i> {{ c.nombres_encargado or '' }} {{ c.apellidos_encargado or '' }}
+                                </small>
+                            </td>
+                            <td class="d-none d-md-table-cell text-muted small">
+                                {{ c.calle or '' }} {{ c.num_exterior or '' }}, {{ c.colonia or '' }}
+                            </td>
+                            <td class="text-end fw-bold text-danger fs-5">
+                                ${{ "{:,.2f}".format(c.saldo_actual) }}
+                            </td>
+                            <td class="text-center">
+                                <a href="{{ url_for('logistics.cobranza_cliente', cliente_id=c.id) }}" 
+                                   class="btn btn-sm btn-outline-danger fw-bold shadow-sm">
+                                    <i class="fa-solid fa-hand-holding-dollar"></i> VER
+                                </a>
+                            </td>
+                            <td style="display:none;">{{ c.colonia }} {{ c.calle }} {{ c.nombres_encargado }} {{ c.apellidos_encargado }}</td> 
+                        </tr>
+                        {% endfor %}
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="text-center mt-3 text-muted small">
+        Mostrando clientes con Saldo Pendiente.
+    </div>
+</div>
+
+<script>
+    // 1. FILTRADO EN VIVO (CLIENT SIDE)
+    function filtrarTabla() {
+        const input = document.getElementById("inputFiltro");
+        const filter = input.value.toUpperCase();
+        const table = document.getElementById("tablaCobranza");
+        const tr = table.getElementsByTagName("tr");
+
+        // Empezamos en 1 para no ocultar el encabezado
+        for (let i = 1; i < tr.length; i++) {
+            const rowContent = tr[i].textContent || tr[i].innerText;
+            if (rowContent.toUpperCase().indexOf(filter) > -1) {
+                tr[i].style.display = "";
+            } else {
+                tr[i].style.display = "none";
+            }
+        }
+    }
+
+    // 2. ORDENAMIENTO DE COLUMNAS
+    function ordenarTabla(n) {
+        var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+        table = document.getElementById("tablaCobranza");
+        switching = true;
+        dir = "asc"; 
+        
+        while (switching) {
+            switching = false;
+            rows = table.rows;
+            for (i = 1; i < (rows.length - 1); i++) {
+                shouldSwitch = false;
+                x = rows[i].getElementsByTagName("TD")[n];
+                y = rows[i + 1].getElementsByTagName("TD")[n];
+                
+                let xVal = x.innerText.toLowerCase();
+                let yVal = y.innerText.toLowerCase();
+                
+                // Si es la columna de dinero (índice 2), limpiar símbolos para ordenar numéricamente
+                if(n === 2) {
+                    xVal = parseFloat(xVal.replace(/[^0-9.-]+/g,""));
+                    yVal = parseFloat(yVal.replace(/[^0-9.-]+/g,""));
+                }
+
+                if (dir == "asc") {
+                    if (xVal > yVal) { shouldSwitch = true; break; }
+                } else if (dir == "desc") {
+                    if (xVal < yVal) { shouldSwitch = true; break; }
+                }
+            }
+            if (shouldSwitch) {
+                rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                switching = true;
+                switchcount ++;      
+            } else {
+                if (switchcount == 0 && dir == "asc") {
+                    dir = "desc";
+                    switching = true;
+                }
+            }
+        }
+    }
+</script>
+{% endblock %}

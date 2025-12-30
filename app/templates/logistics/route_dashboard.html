@@ -4,44 +4,89 @@
 {% block content %}
 <div class="container-fluid pb-5">
     
-    <h4 class="fw-bold text-primary mb-3"><i class="fa-solid fa-truck-fast me-2"></i>Por Entregar</h4>
-    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold text-primary m-0"><i class="fa-solid fa-truck-fast me-2"></i>Mi Ruta</h4>
+            <small class="text-muted">{{ ordenes|length }} entregas pendientes</small>
+        </div>
+        
+        <a href="{{ url_for('logistics.cobranza_buscar') }}" class="btn btn-dark shadow-sm fw-bold">
+            <i class="fa-solid fa-hand-holding-dollar me-2"></i> COBRANZA
+        </a>
+    </div>
+
     {% if not ordenes %}
-    <div class="alert alert-success shadow-sm mb-5">
-        <i class="fa-solid fa-check-circle me-2"></i> ¡Ruta limpia! No tienes entregas pendientes.
+    <div class="alert alert-success shadow-sm mb-5 border-0 border-start border-5 border-success">
+        <i class="fa-solid fa-check-circle me-2"></i> ¡Excelente! No tienes entregas pendientes en tu ruta.
     </div>
     {% endif %}
 
     <div class="row mb-5">
         {% for orden in ordenes %}
-            <div class="col-12 col-md-6 col-lg-4 mb-3">
-                <div class="card shadow-sm border-0 h-100 border-start border-warning border-5">
-                    <div class="card-body">
-                        <h5 class="fw-bold">{{ orden.cliente.nombre_negocio }}</h5>
-                        <p class="text-muted small mb-2">{{ orden.folio }}</p>
-                        <a href="{{ url_for('logistics.entrega_cliente', orden_id=orden.id) }}" class="btn btn-primary w-100 fw-bold">
-                            <i class="fa-solid fa-box-open me-2"></i> ENTREGAR
+        <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <div class="card shadow-sm border-0 h-100 {% if orden.estado == 'EN_RUTA' %}border-start border-primary border-5{% else %}border-start border-warning border-5{% endif %}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="fw-bold m-0 text-truncate">{{ orden.cliente.nombre_negocio }}</h5>
+                        <span class="badge {% if orden.estado == 'EN_RUTA' %}bg-primary{% else %}bg-warning text-dark{% endif %}">
+                            {{ orden.estado }}
+                        </span>
+                    </div>
+                    <p class="text-muted small mb-1"><i class="fa-solid fa-map-marker-alt me-1"></i> {{ orden.cliente.direccion or 'Sin dirección' }}</p>
+                    <p class="text-muted small mb-2"><i class="fa-solid fa-barcode me-1"></i> {{ orden.folio }}</p>
+                    
+                    <div class="d-flex justify-content-between bg-light rounded p-2 mb-3">
+                        <div class="text-center px-2">
+                            <small class="d-block text-muted" style="font-size: 0.7rem;">TOTAL</small>
+                            <span class="fw-bold">${{ "{:,.2f}".format(orden.total_venta) }}</span>
+                        </div>
+                        <div class="text-center px-2 border-start">
+                            <small class="d-block text-muted" style="font-size: 0.7rem;">PAGO</small>
+                            <span class="fw-bold">{{ orden.metodo_pago_esperado }}</span>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        {% if orden.estado == 'LISTO_RUTA' %}
+                        <a href="{{ url_for('logistics.cargar_orden', orden_id=orden.id) }}" class="btn btn-secondary fw-bold">
+                            <i class="fa-solid fa-dolly me-2"></i> SUBIR AL CAMIÓN
                         </a>
+                        {% else %}
+                        <a href="{{ url_for('logistics.entrega_cliente', orden_id=orden.id) }}" class="btn btn-primary fw-bold py-2">
+                            <i class="fa-solid fa-box-open me-2"></i> REALIZAR ENTREGA
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
+        </div>
         {% endfor %}
     </div>
 
     {% if terminadas %}
-    <h5 class="fw-bold text-secondary mb-3 border-top pt-4"><i class="fa-solid fa-clock-rotate-left me-2"></i>Entregados Hoy (Reimprimir)</h5>
+    <h5 class="fw-bold text-secondary mb-3 border-top pt-4"><i class="fa-solid fa-clock-rotate-left me-2"></i>Historial de Hoy (Reimprimir Tickets)</h5>
     <div class="row">
         {% for orden in terminadas %}
         <div class="col-12 col-md-6 col-lg-4 mb-3">
-            <div class="card shadow-sm border-0 h-100 bg-light opacity-75">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="fw-bold m-0 text-muted">{{ orden.cliente.nombre_negocio }}</h6>
-                        <small class="text-success fw-bold"><i class="fa-solid fa-check"></i> {{ orden.estado }}</small>
+            <div class="card shadow-sm border-0 h-100 bg-light">
+                <div class="card-body d-flex justify-content-between align-items-center p-3">
+                    <div style="max-width: 60%;">
+                        <h6 class="fw-bold m-0 text-dark text-truncate">{{ orden.cliente.nombre_negocio }}</h6>
+                        <small class="text-muted">{{ orden.folio }}</small>
                     </div>
-                    <a href="{{ url_for('logistics.ver_ticket', orden_id=orden.id) }}" class="btn btn-outline-dark btn-sm">
-                        <i class="fa-solid fa-print"></i> Ticket
-                    </a>
+                    
+                    <div class="text-end">
+                        <div class="mb-1">
+                            {% if orden.estado == 'PAGADO' %}
+                                <span class="badge bg-success"><i class="fa-solid fa-check"></i> PAGADO</span>
+                            {% else %}
+                                <span class="badge bg-info text-dark"><i class="fa-solid fa-clock"></i> CRÉDITO</span>
+                            {% endif %}
+                        </div>
+                        <a href="{{ url_for('logistics.ver_ticket', orden_id=orden.id) }}" class="btn btn-outline-dark btn-sm fw-bold">
+                            <i class="fa-solid fa-print"></i> TICKET
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

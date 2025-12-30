@@ -1,0 +1,254 @@
+{% extends 'base.html' %}
+{% block title %}Cobranza: {{ cliente.nombre_negocio }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid pb-5">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <a href="{{ url_for('logistics.cobranza_buscar') }}" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left"></i> Atrás</a>
+        <div class="text-end">
+            <small class="text-muted d-block">DEUDA TOTAL</small>
+            <h2 class="fw-bold text-danger m-0">${{ "{:,.2f}".format(cliente.saldo_actual) }}</h2>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4 bg-light">
+        <div class="card-body d-flex align-items-center">
+            <div class="bg-white p-3 rounded-circle shadow-sm me-3 text-primary">
+                <i class="fa-solid fa-store fs-3"></i>
+            </div>
+            <div>
+                <h4 class="fw-bold m-0">{{ cliente.nombre_negocio }}</h4>
+                <small class="text-muted">{{ cliente.direccion }} | {{ cliente.nombre_contacto or cliente.nombres_encargado }}</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold text-secondary m-0"><i class="fa-solid fa-file-invoice-dollar me-2"></i>Notas Pendientes</h5>
+        <button class="btn btn-outline-primary btn-sm fw-bold" onclick="abrirHistorial()">
+            <i class="fa-solid fa-clock-rotate-left me-1"></i> HISTORIAL PAGOS
+        </button>
+    </div>
+
+    {% if not ordenes %}
+    <div class="alert alert-success shadow-sm">
+        <i class="fa-solid fa-check-circle me-2"></i> Este cliente está al corriente.
+    </div>
+    {% else %}
+    
+    <div class="row">
+        {% for orden in ordenes %}
+        <div class="col-12 col-md-6 mb-3">
+            <div class="card shadow-sm border-0 border-top border-4 border-warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h5 class="fw-bold mb-1">{{ orden.folio }}</h5>
+                            <small class="text-muted"><i class="fa-solid fa-calendar me-1"></i> {{ orden.fecha_registro.strftime('%d/%m/%Y') }}</small>
+                        </div>
+                        <div class="text-end">
+                             <small class="text-muted d-block" style="font-size: 0.7rem;">SALDO PENDIENTE</small>
+                             <span class="fs-4 fw-bold text-dark">${{ "{:,.2f}".format(orden.saldo_pendiente or 0) }}</span>
+                        </div>
+                    </div>
+
+                    <hr class="my-2 border-secondary opacity-10">
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Total Nota: ${{ "{:,.2f}".format(orden.total_venta) }}</small>
+                        
+                        <button class="btn btn-success fw-bold btn-sm px-3" 
+                                onclick="abrirModalAbono({{ orden.id }}, '{{ orden.folio }}', {{ orden.saldo_pendiente or 0 }})">
+                            <i class="fa-solid fa-money-bill-wave me-1"></i> ABONAR
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<div class="modal fade" id="modalAbono" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold">Abonar a Nota</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h5 class="text-center fw-bold mb-1" id="lblFolio">---</h5>
+                <p class="text-center text-muted mb-4">Saldo: <span id="lblSaldo" class="fw-bold text-dark">---</span></p>
+
+                <div class="mb-3">
+                    <label class="fw-bold small">Monto a Pagar:</label>
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text bg-light">$</span>
+                        <input type="number" id="inputMonto" class="form-control fw-bold text-success" placeholder="0.00">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="fw-bold small">Método de Pago:</label>
+                    <select id="selectMetodoCobranza" class="form-select">
+                        <option value="2">EFECTIVO</option>
+                        <option value="3">TRANSFERENCIA</option>
+                        <option value="4">TARJETA</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="fw-bold small">Notas:</label>
+                    <textarea id="txtNotasCobranza" class="form-control" rows="2" placeholder="Opcional..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btnRegistrarPago" class="btn btn-success fw-bold w-50" onclick="confirmarAbono()">REGISTRAR PAGO</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalHistorial" tabindex="-1">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold">Últimos Pagos</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="listaHistorial" class="list-group list-group-flush">
+                    </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentOrdenId = null;
+
+    function abrirModalAbono(id, folio, saldo) {
+        currentOrdenId = id;
+        document.getElementById('lblFolio').innerText = folio;
+        document.getElementById('lblSaldo').innerText = '$' + saldo.toFixed(2);
+        
+        document.getElementById('inputMonto').value = saldo.toFixed(2); 
+        document.getElementById('txtNotasCobranza').value = '';
+        
+        const btn = document.getElementById('btnRegistrarPago');
+        btn.disabled = false;
+        btn.innerText = "REGISTRAR PAGO";
+        
+        const modal = new bootstrap.Modal(document.getElementById('modalAbono'));
+        modal.show();
+    }
+
+    async function confirmarAbono() {
+        const inputMonto = document.getElementById('inputMonto');
+        const btn = document.getElementById('btnRegistrarPago');
+        const monto = parseFloat(inputMonto.value);
+
+        if (!monto || monto <= 0) {
+            alert("Monto inválido.");
+            return;
+        }
+
+        // BLOQUEAR BOTÓN
+        btn.disabled = true;
+        btn.innerText = "Procesando...";
+
+        const payload = {
+            orden_id: currentOrdenId,
+            items: [], 
+            notas: "COBRANZA: " + document.getElementById('txtNotasCobranza').value,
+            pago: {
+                monto: monto,
+                recibido: monto,
+                cambio: 0,
+                tipo_id: document.getElementById('selectMetodoCobranza').value
+            }
+        };
+
+        try {
+            const res = await fetch("{{ url_for('logistics.confirmar_entrega') }}", {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                const modalEl = document.getElementById('modalAbono');
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if(modalInstance) modalInstance.hide();
+
+                // ABRIR TICKET NUEVA PESTAÑA
+                window.open("/logistica/ticket/" + currentOrdenId, '_blank');
+
+                // RECARGAR PAGINA
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+
+            } else {
+                alert("Error: " + data.message);
+                btn.disabled = false;
+                btn.innerText = "REGISTRAR PAGO";
+            }
+        } catch(e) {
+            alert("Error de conexión.");
+            console.error(e);
+            btn.disabled = false;
+            btn.innerText = "REGISTRAR PAGO";
+        }
+    }
+
+    async function abrirHistorial() {
+        const modal = new bootstrap.Modal(document.getElementById('modalHistorial'));
+        modal.show();
+        
+        const lista = document.getElementById('listaHistorial');
+        lista.innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary"></div><p>Cargando...</p></div>';
+
+        try {
+            const res = await fetch("{{ url_for('logistics.api_historial_pagos', cliente_id=cliente.id) }}");
+            const pagos = await res.json();
+
+            if(pagos.length === 0) {
+                lista.innerHTML = '<div class="p-4 text-center text-muted">No hay pagos recientes.</div>';
+                return;
+            }
+
+            let html = '';
+            pagos.forEach(p => {
+                html += `
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="fw-bold text-dark">$${p.monto.toFixed(2)}</div>
+                        <small class="text-muted">${p.fecha}</small><br>
+                        <small class="text-primary" style="font-size:0.75em">${p.folio}</small>
+                    </div>
+                    <div class="text-end">
+                        <small class="d-block text-muted mb-1">Nota: ${p.orden}</small>
+                        <a href="/logistica/ticket/${p.orden_id}" target="_blank" class="btn btn-sm btn-light border shadow-sm">
+                            <i class="fa-solid fa-print"></i>
+                        </a>
+                    </div>
+                </div>
+                `;
+            });
+            lista.innerHTML = html;
+
+        } catch(e) {
+            console.error(e);
+            lista.innerHTML = '<div class="p-4 text-center text-danger">Error al cargar historial.</div>';
+        }
+    }
+</script>
+{% endblock %}

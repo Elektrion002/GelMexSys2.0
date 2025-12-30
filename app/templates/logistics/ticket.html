@@ -3,83 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ticket {{ orden.folio }}</title>
+    <title>Ticket #{{ orden.folio }}</title>
     <style>
-        body { font-family: 'Courier New', Courier, monospace; font-size: 13px; margin: 0; padding: 10px; background: #eee; }
-        .ticket { max-width: 300px; margin: 0 auto; background: white; padding: 15px; border: 1px dashed #999; }
-        .center { text-align: center; }
-        .bold { font-weight: bold; }
-        .line { border-bottom: 1px dashed black; margin: 8px 0; }
-        .row { display: flex; justify-content: space-between; }
-        .total-row { font-size: 15px; font-weight: bold; margin-top: 5px; }
-        .btn-print { display: block; width: 100%; padding: 12px; background: #212529; color: white; border: none; font-size: 16px; margin-top: 20px; font-weight: bold; border-radius: 5px;}
-        .btn-back { display: block; width: 100%; padding: 10px; text-align: center; text-decoration: none; color: #555; margin-top: 10px; }
-        @media print { .btn-print, .btn-back { display: none; } body { background: white; } .ticket { border: none; margin: 0; padding: 0; } }
+        body { font-family: 'Courier New', Courier, monospace; font-size: 12px; margin: 0; padding: 10px; max-width: 300px; background: #fff; }
+        .text-center { text-align: center; }
+        .text-end { text-align: right; }
+        .text-start { text-align: left; }
+        .fw-bold { font-weight: bold; }
+        .line { border-bottom: 1px dashed #000; margin: 5px 0; }
+        .big { font-size: 14px; }
+        .mega { font-size: 18px; font-weight: bold; }
+        .table { width: 100%; border-collapse: collapse; }
+        .table td { vertical-align: top; }
+        @media print { .no-print { display: none; } }
     </style>
 </head>
-<body>
-
-<div class="ticket">
-    <div class="center">
-        <h3 style="margin:0;">GELMEXSYS</h3>
-        <small>Helados y Paletas Finas</small><br>
-        <small>{{ orden.fecha_promesa_entrega.strftime('%d/%m/%Y') }}</small>
+<body onload="window.print()">
+    <div class="text-center">
+        <h3 class="margin:0;">GELMEX SYS</h3>
+        <p>Nota de Remisión</p>
+        <p class="fw-bold">{{ orden.folio }}</p>
+        <p>{{ orden.fecha_registro.strftime('%d/%m/%Y %H:%M') }}</p>
     </div>
     
     <div class="line"></div>
     
-    <div class="row"><span>Cliente:</span> <span class="bold">{{ orden.cliente.nombre_negocio[:20] }}</span></div>
-    <div class="row"><span>Folio:</span> <span>{{ orden.folio }}</span></div>
+    <div>
+        <strong>Cliente:</strong> {{ orden.cliente.nombre_negocio }}<br>
+        <small>{{ orden.cliente.direccion }}</small>
+    </div>
 
     <div class="line"></div>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th class="text-start">Cant</th>
+                <th class="text-start">Prod</th>
+                <th class="text-end">$$</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in orden.items %}
+            {% if item.cantidad_entregada > 0 %}
+            <tr>
+                <td>{{ item.cantidad_entregada|int }}</td>
+                <td>{{ item.producto.descripcion[:15] }}</td>
+                <td class="text-end">${{ "{:,.0f}".format(item.subtotal) }}</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="line"></div>
+
+    <table style="width: 100%;">
+        <tr>
+            <td class="text-end fw-bold big">TOTAL NOTA:</td>
+            <td class="text-end fw-bold big">${{ "{:,.2f}".format(orden.total_venta) }}</td>
+        </tr>
+    </table>
+
+    <div class="line"></div>
+
+    <div class="text-start mb-2">
+        <small class="fw-bold">HISTORIAL DE ABONOS:</small>
+        <table class="table table-sm mt-1" style="font-size: 11px;">
+            {% for p in pagos %}
+            <tr>
+                <td>{{ p.fecha_registro.strftime('%d/%m') }}</td>
+                <td>{{ p.folio_recibo[-4:] }}</td> 
+                <td class="text-end fw-bold">${{ "{:,.2f}".format(p.monto_pago) }}</td>
+            </tr>
+            {% endfor %}
+            {% if not pagos %}
+            <tr><td colspan="3" class="text-muted text-center">- Sin abonos -</td></tr>
+            {% endif %}
+        </table>
+    </div>
     
-    <div class="bold" style="margin-bottom: 5px;">PRODUCTOS ENTREGADOS:</div>
-    {% for item in orden.items %}
-        {% if item.cantidad_entregada and item.cantidad_entregada > 0 %}
-        <div class="row">
-            <span>{{ item.cantidad_entregada|int }} x {{ item.producto.descripcion[:16] }}</span>
-            <span>${{ "{:,.2f}".format(item.subtotal or 0) }}</span>
-        </div>
+    <div class="line"></div>
+
+    <div class="text-center mt-2">
+        {% if orden.estado == 'PAGADO' or orden.estado == 'SINAUDITARPAGO' %}
+            <span class="mega">*** PAGADO ***</span>
+            <p class="small">SALDO: $0.00</p>
+        {% else %}
+            <span class="mega">*** RESTAN ***</span>
+            <p class="fw-bold big">SALDO PENDIENTE: ${{ "{:,.2f}".format(orden.saldo_pendiente or 0) }}</p>
         {% endif %}
-    {% endfor %}
-
-    <div class="line"></div>
-
-    <div class="row bold">
-        <span>TOTAL NOTA:</span>
-        <span>${{ "{:,.2f}".format(orden.total_venta or 0) }}</span>
-    </div>
-
-    {% if pago %}
-        <div class="row"><span>PAGO CONTRA-ENTREGA:</span> <span>- ${{ "{:,.2f}".format(pago.monto_pago or 0) }}</span></div>
-        <div class="line"></div>
-        <div class="center bold">DETALLE EFECTIVO/TRANSF</div>
-        <div class="row"><span>Recibido:</span> <span>${{ "{:,.2f}".format(pago.dinero_recibido or 0) }}</span></div>
-        <div class="row"><span>Cambio:</span> <span>${{ "{:,.2f}".format(pago.cambio_devuelto or 0) }}</span></div>
-    {% else %}
-        <div class="center bold" style="margin-top: 5px;">(CRÉDITO / SIN PAGO)</div>
-    {% endif %}
-
-    <div class="line"></div>
-
-    <div class="center bold">ESTADO DE CUENTA</div>
-    <div class="row"><span>Resta esta Nota:</span> <span>${{ "{:,.2f}".format(orden.saldo_pendiente or 0) }}</span></div>
-    <div class="row total-row">
-        <span>DEUDA TOTAL:</span>
-        <span>${{ "{:,.2f}".format(orden.cliente.saldo_actual or 0) }}</span>
     </div>
 
     <div class="line"></div>
-    <div class="center" style="font-size: 11px;">
-        {{ pago.notas if pago and pago.notas else '' }}
+    <div class="text-center">
+        <p>¡Gracias por su compra!</p>
+        <small>Este comprobante es informativo.</small>
     </div>
-    
-    <br>
-    <div class="center">*** GRACIAS ***</div>
-</div>
 
-<button class="btn-print" onclick="window.print()">🖨️ IMPRIMIR</button>
-<a href="{{ url_for('logistics.index') }}" class="btn-back">⬅️ Volver a Ruta</a>
-
+    <button class="no-print" onclick="window.close()" style="width:100%; padding: 10px; margin-top: 20px; font-size: 16px;">CERRAR</button>
 </body>
 </html>
