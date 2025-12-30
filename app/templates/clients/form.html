@@ -1,0 +1,247 @@
+{% extends 'base.html' %}
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container pb-5">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="fw-bold"><i class="fa-solid fa-store me-2"></i>{{ titulo }}</h4>
+        <a href="{{ url_for('clients.index') }}" class="btn btn-outline-secondary">Cancelar</a>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+        {{ form.hidden_tag() }}
+
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white border-bottom-0 pt-3">
+                <ul class="nav nav-tabs card-header-tabs" id="clientTabs" role="tablist">
+                    <li class="nav-item"><button class="nav-link active fw-bold" data-bs-toggle="tab" data-bs-target="#tab-identity" type="button">1. Identidad</button></li>
+                    <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#tab-logistics" type="button">2. Logística</button></li>
+                    <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#tab-finance" type="button">3. Finanzas</button></li>
+                    <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#tab-docs" type="button">4. Documentos</button></li>
+                    {% if cliente %}
+                    <li class="nav-item"><button class="nav-link fw-bold text-success" data-bs-toggle="tab" data-bs-target="#tab-prices" type="button"><i class="fa-solid fa-tags me-1"></i> Precios VIP</button></li>
+                    {% endif %}
+                </ul>
+            </div>
+
+            <div class="card-body p-4">
+                <div class="tab-content">
+                    
+                    <div class="tab-pane fade show active" id="tab-identity">
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label class="form-label fw-bold">Nombre del Negocio *</label>
+                                {{ form.nombre_negocio(class="form-control form-control-lg", placeholder="Ej: Abarrotes La Esperanza") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">RFC</label>
+                                {{ form.rfc(class="form-control", placeholder="XAXX010101000") }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Encargado *</label>
+                                {{ form.nombres_encargado(class="form-control") }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Apellidos</label>
+                                {{ form.apellidos_encargado(class="form-control") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label text-success fw-bold"><i class="fa-brands fa-whatsapp"></i> Celular</label>
+                                {{ form.celular(class="form-control border-success") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Teléfono Fijo</label>
+                                {{ form.telefono(class="form-control") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Email</label>
+                                {{ form.email(class="form-control", placeholder="tienda@correo.com") }}
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Giro del Negocio</label>
+                                {{ form.tipo_negocio(class="form-control") }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-logistics">
+                        <h6 class="text-muted border-bottom pb-2 mb-3">Ubicación</h6>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label">Calle y Número *</label>
+                                <div class="input-group">
+                                    {{ form.calle(class="form-control", placeholder="Calle") }}
+                                    {{ form.num_exterior(class="form-control", placeholder="#") }}
+                                </div>
+                            </div>
+                            <div class="col-md-6"><label class="form-label">Colonia *</label>{{ form.colonia(class="form-control") }}</div>
+                            <div class="col-md-4"><label class="form-label">Ciudad *</label>{{ form.ciudad(class="form-control") }}</div>
+                            <div class="col-md-4"><label class="form-label">Estado</label>{{ form.estado(class="form-control", readonly=true) }}</div>
+                            <div class="col-md-4"><label class="form-label">C.P.</label>{{ form.codigo_postal(class="form-control") }}</div>
+                        </div>
+                        <h6 class="text-muted border-bottom pb-2 mb-3">Asignación Operativa</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold text-primary">Ruta *</label>
+                                {{ form.ruta_id(class="form-select border-primary") }}
+                            </div>
+                            <div class="col-md-4"><label class="form-label">Vendedor</label>{{ form.vendedor_id(class="form-select") }}</div>
+                            <div class="col-md-4"><label class="form-label">Repartidor</label>{{ form.repartidor_id(class="form-select") }}</div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-finance">
+                        <div class="row g-4 align-items-center">
+                            <div class="col-12">
+                                <label class="form-label fw-bold">Límite de Crédito Autorizado ($)</label>
+                                {{ form.limite_credito(class="form-control form-control-lg fw-bold border-dark w-50") }}
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="card bg-light border p-3 text-center">
+                                    <small class="text-muted text-uppercase fw-bold">Saldo Contable (Facturado)</small>
+                                    <h3 class="fw-bold text-secondary my-2">
+                                        ${{ "{:,.2f}".format(cliente.saldo_actual if cliente else 0) }}
+                                    </h3>
+                                    <small class="text-muted"><i class="fa-solid fa-lock me-1"></i> Solo lectura</small>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                {% if cliente %}
+                                    {% set limite = cliente.limite_credito|float %}
+                                    {% set riesgo = riesgo_total|float %}
+                                    <div class="card p-3 text-center text-white {% if riesgo > limite %}bg-danger{% elif riesgo > 0 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                        <small class="text-uppercase fw-bold opacity-75">Riesgo Total (Deuda + En Curso)</small>
+                                        <h3 class="fw-bold my-2">${{ "{:,.2f}".format(riesgo) }}</h3>
+                                        <small class="opacity-75">
+                                            {% if riesgo > limite %}
+                                            <i class="fa-solid fa-circle-exclamation me-1"></i> ¡LÍMITE EXCEDIDO!
+                                            {% else %}
+                                            <i class="fa-solid fa-check-circle me-1"></i> Crédito Disponible: ${{ "{:,.2f}".format(limite - riesgo) }}
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-info">Guarda primero para ver análisis de riesgo.</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-docs">
+                        <div class="row g-3">
+                            <div class="col-md-4 text-center">
+                                <label class="form-label fw-bold">Fachada</label>
+                                {{ form.img_fachada(class="form-control mb-2") }}
+                                {% if cliente and cliente.img_fachada %}<img src="{{ url_for('static', filename=cliente.img_fachada) }}" class="img-thumbnail" style="height:150px;">{% endif %}
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <label class="form-label fw-bold">INE Frente</label>
+                                {{ form.img_ine_frente(class="form-control mb-2") }}
+                                {% if cliente and cliente.img_ine_frente %}<img src="{{ url_for('static', filename=cliente.img_ine_frente) }}" class="img-thumbnail" style="height:150px;">{% endif %}
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <label class="form-label fw-bold">INE Reverso</label>
+                                {{ form.img_ine_reverso(class="form-control mb-2") }}
+                                {% if cliente and cliente.img_ine_reverso %}<img src="{{ url_for('static', filename=cliente.img_ine_reverso) }}" class="img-thumbnail" style="height:150px;">{% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if cliente %}
+                    <div class="tab-pane fade" id="tab-prices">
+                        <div class="card bg-light border mb-3">
+                            <div class="card-body">
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-4">
+                                        <label class="small fw-bold text-primary">Selecciona Producto</label>
+                                        <select id="new_prod" class="form-select">
+                                            {% for p in productos %}
+                                                <option value="{{ p.id }}">
+                                                    {{ p.descripcion }} (${{ "{:,.2f}".format(p.precio_venta_general) }})
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="small">Tipo Descuento</label>
+                                        <select id="new_rule" class="form-select">{% for t in tipos_descuento %}<option value="{{ t.id }}">{{ t.descripcion }}</option>{% endfor %}</select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="small">Valor</label>
+                                        <input type="number" id="new_val" class="form-control" step="0.01" placeholder="0.00">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button type="button" class="btn btn-success w-100 fw-bold" onclick="addPrice()">
+                                            <i class="fa-solid fa-plus"></i> AGREGAR
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <table class="table table-hover align-middle text-center">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="text-start">Producto</th>
+                                    <th>Precio Lista</th>
+                                    <th>Regla Aplicada</th>
+                                    <th>PRECIO FINAL</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pe in cliente.precios_especiales %}
+                                <tr>
+                                    <td class="text-start fw-bold">{{ pe.producto.descripcion }}</td>
+                                    <td class="text-muted text-decoration-line-through">${{ "{:.2f}".format(pe.producto.precio_venta_general) }}</td>
+                                    <td>
+                                        {% if pe.tipo_descuento.descripcion == 'PORCENTAJE' %}
+                                            <span class="badge bg-warning text-dark">-{{ pe.valor_descuento }}%</span>
+                                        {% else %}
+                                            <span class="badge bg-primary">FIJO</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="fw-bold text-success fs-5">
+                                        {% if pe.tipo_descuento.descripcion == 'PORCENTAJE' %}
+                                            {% set descuento = (pe.producto.precio_venta_general * pe.valor_descuento) / 100 %}
+                                            ${{ "{:.2f}".format(pe.producto.precio_venta_general - descuento) }}
+                                        {% else %}
+                                            ${{ "{:.2f}".format(pe.valor_descuento) }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end"><a href="{{ url_for('clients.del_precio', id=pe.id) }}" class="text-danger"><i class="fa-solid fa-trash"></i></a></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card-footer bg-white text-end py-3">
+                {{ form.submit(class="btn btn-primary fw-bold px-5") }}
+            </div>
+        </div>
+    </form>
+</div>
+
+{% if cliente %}
+<form id="fPrice" action="{{ url_for('clients.add_precio') }}" method="POST">
+    <input type="hidden" name="cliente_id" value="{{ cliente.id }}">
+    <input type="hidden" name="producto_id" id="h_p">
+    <input type="hidden" name="tipo_descuento_id" id="h_t">
+    <input type="hidden" name="valor" id="h_v">
+</form>
+<script>
+function addPrice() {
+    document.getElementById('h_p').value = document.getElementById('new_prod').value;
+    document.getElementById('h_t').value = document.getElementById('new_rule').value;
+    document.getElementById('h_v').value = document.getElementById('new_val').value;
+    if(document.getElementById('h_v').value) document.getElementById('fPrice').submit();
+}
+</script>
+{% endif %}
+{% endblock %}

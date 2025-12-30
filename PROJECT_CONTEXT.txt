@@ -1,6 +1,6 @@
 ============================================================
  GELMEXSYS 2.0 - REPORTE DE CONTEXTO TÉCNICO (PostgreSQL)
- FECHA: 2025-12-30 08:17:13
+ FECHA: 2025-12-30 15:16:27
 ============================================================
 
 ------------------------------
@@ -26,6 +26,7 @@ ESTRUCTURA DE DIRECTORIOS:
         [blueprints/]
             api_test.py
             auth.py
+            clients.py
             finance.py
             home.py
             inventory.py
@@ -55,10 +56,14 @@ ESTRUCTURA DE DIRECTORIOS:
             base.html
             [auth/]
                 login.html
+            [clients/]
+                form.html
+                index.html
             [finance/]
                 audit.html
                 dashboard.html
                 expenses.html
+                income.html
                 ticket_movement.html
             [home/]
                 index.html
@@ -1054,27 +1059,56 @@ db = SQLAlchemy()
 # app/forms.py
 from flask_wtf import FlaskForm
 from wtforms import StringField, DecimalField, SelectField, FileField, SubmitField, IntegerField
-from wtforms.validators import DataRequired, NumberRange, Length
+from wtforms.validators import DataRequired, NumberRange, Length, Optional, Email
 from flask_wtf.file import FileAllowed
 
 class ProductoForm(FlaskForm):
     sku = StringField('SKU / Código', validators=[DataRequired(), Length(max=50)])
     descripcion = StringField('Nombre del Producto', validators=[DataRequired(), Length(max=200)])
-    
-    # Los SelectField (Combos) se llenan dinámicamente en el controlador
     categoria_id = SelectField('Categoría', coerce=int, validators=[DataRequired()])
     unidad_id = SelectField('Unidad de Medida', coerce=int, validators=[DataRequired()])
-    
     precio_costo = DecimalField('Costo Producción ($)', places=2, validators=[NumberRange(min=0)])
     precio_venta = DecimalField('Precio Venta ($)', places=2, validators=[DataRequired(), NumberRange(min=0)])
-    
     stock_minimo = IntegerField('Stock Mínimo (Alerta)', validators=[NumberRange(min=0)], default=10)
-    
-    imagen = FileField('Foto del Producto', validators=[
-        FileAllowed(['jpg', 'png', 'jpeg'], 'Solo imágenes JPG o PNG')
-    ])
-    
+    imagen = FileField('Foto del Producto', validators=[FileAllowed(['jpg', 'png', 'jpeg'], 'Solo imágenes JPG o PNG')])
     submit = SubmitField('Guardar Producto')
+
+# --- NUEVO FORMULARIO DE CLIENTES ---
+class ClienteForm(FlaskForm):
+    # Pestaña 1: Identidad y Contacto
+    nombre_negocio = StringField('Nombre del Negocio', validators=[DataRequired(), Length(max=150)])
+    rfc = StringField('RFC', validators=[Optional(), Length(max=13)])
+    tipo_negocio = StringField('Giro / Tipo', validators=[Optional()])
+    
+    nombres_encargado = StringField('Nombre Encargado', validators=[DataRequired()])
+    apellidos_encargado = StringField('Apellidos Encargado', validators=[Optional()])
+    
+    telefono = StringField('Teléfono Fijo', validators=[Optional()])
+    celular = StringField('Celular (WhatsApp)', validators=[Optional()])
+    email = StringField('Correo Electrónico', validators=[Optional(), Email(message="Email inválido")])
+
+    # Pestaña 2: Dirección
+    calle = StringField('Calle', validators=[DataRequired()])
+    num_exterior = StringField('Número Ext.', validators=[DataRequired()])
+    colonia = StringField('Colonia', validators=[DataRequired()])
+    codigo_postal = StringField('C.P.', validators=[Optional()])
+    ciudad = StringField('Ciudad', validators=[DataRequired()])
+    estado = StringField('Estado', default='Guanajuato')
+
+    # Pestaña 3: Operación
+    ruta_id = SelectField('Ruta de Reparto', coerce=int, validators=[DataRequired()])
+    vendedor_id = SelectField('Vendedor Asignado', coerce=int, validators=[Optional()])
+    repartidor_id = SelectField('Repartidor Habitual', coerce=int, validators=[Optional()])
+
+    # Pestaña 4: Finanzas
+    limite_credito = DecimalField('Límite de Crédito ($)', places=2, default=0.00)
+    
+    # Pestaña 5: Documentos
+    img_fachada = FileField('Fachada Negocio', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
+    img_ine_frente = FileField('INE Frente', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
+    img_ine_reverso = FileField('INE Reverso', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
+
+    submit = SubmitField('Guardar Cliente')
 
 ========================= FILE: .\app\__init__.py =========================
 from flask import Flask
@@ -1138,7 +1172,10 @@ def create_app(config_name='default'):
     # NUEVO: Módulo de Finanzas
     from app.blueprints.finance import finance_bp
     app.register_blueprint(finance_bp)
-    
+
+    from app.blueprints.clients import clients_bp
+    app.register_blueprint(clients_bp)
+
     return app
 
 ========================= FILE: .\app\blueprints\api_test.py =========================
@@ -1241,6 +1278,222 @@ def logout():
     flash('Has cerrado sesión correctamente.', 'info')
     return redirect(url_for('auth.login'))
 
+========================= FILE: .\app\blueprints\clients.py =========================
+import os
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask_login import login_required, current_user
+from werkzeug.utils import secure_filename
+from app.extensions import db
+from sqlalchemy import func
+
+# Modelos
+from app.models.clients import Cliente, PrecioEspecialCliente
+from app.models.products import Producto
+from app.models.infrastructure import RutaReparto, ActivoFrio
+from app.models.users import Usuario
+from app.models.catalogs import CatPuesto, CatTipoDescuento
+from app.models.orders import OrdenVenta
+from app.forms import ClienteForm
+
+clients_bp = Blueprint('clients', __name__, url_prefix='/clientes')
+
+# --- UTILIDAD: GUARDAR IMÁGENES ---
+def guardar_imagen(file, prefix):
+    if not file or not file.filename: return None
+    filename = secure_filename(f"{prefix}_{file.filename}")
+    db_path = f"uploads/clientes/{filename}"
+    save_path = os.path.join(current_app.root_path, 'static', 'uploads', 'clientes')
+    os.makedirs(save_path, exist_ok=True)
+    file.save(os.path.join(save_path, filename))
+    return db_path
+
+# --- LISTADO ---
+@clients_bp.route('/')
+@login_required
+def index():
+    clientes = Cliente.query.filter_by(activo=True).order_by(Cliente.nombre_negocio).all()
+    return render_template('clients/index.html', clientes=clientes)
+
+# --- CREAR ---
+@clients_bp.route('/nuevo', methods=['GET', 'POST'])
+@login_required
+def create():
+    form = ClienteForm()
+    cargar_selectores_inteligentes(form)
+
+    if form.validate_on_submit():
+        # En CREAR no usamos populate_obj para tener control total desde cero
+        nuevo_cliente = Cliente(
+            nombre_negocio=form.nombre_negocio.data,
+            rfc=form.rfc.data,
+            tipo_negocio=form.tipo_negocio.data,
+            nombres_encargado=form.nombres_encargado.data,
+            apellidos_encargado=form.apellidos_encargado.data,
+            telefono=form.telefono.data,
+            celular=form.celular.data,
+            email=form.email.data,
+            calle=form.calle.data,
+            num_exterior=form.num_exterior.data,
+            colonia=form.colonia.data,
+            codigo_postal=form.codigo_postal.data,
+            ciudad=form.ciudad.data,
+            estado=form.estado.data,
+            ruta_id=form.ruta_id.data,
+            vendedor_habitual_id=form.vendedor_id.data if form.vendedor_id.data > 0 else None,
+            repartidor_habitual_id=form.repartidor_id.data if form.repartidor_id.data > 0 else None,
+            limite_credito=form.limite_credito.data,
+            saldo_actual=0.0,
+            activo=True
+        )
+
+        # Guardado de imágenes inicial
+        if form.img_fachada.data: 
+            nuevo_cliente.img_fachada = guardar_imagen(form.img_fachada.data, 'fac')
+        if form.img_ine_frente.data:
+            nuevo_cliente.img_ine_frente = guardar_imagen(form.img_ine_frente.data, 'inef')
+        if form.img_ine_reverso.data:
+            nuevo_cliente.img_ine_reverso = guardar_imagen(form.img_ine_reverso.data, 'iner')
+
+        db.session.add(nuevo_cliente)
+        db.session.commit()
+        
+        flash('✅ Cliente registrado. Ahora configura sus precios especiales.', 'success')
+        return redirect(url_for('clients.edit', id=nuevo_cliente.id))
+
+    return render_template('clients/form.html', form=form, titulo="Nuevo Cliente", cliente=None)
+
+# --- EDITAR (AQUI ESTABA EL ERROR) ---
+@clients_bp.route('/editar/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit(id):
+    cliente = Cliente.query.get_or_404(id)
+    form = ClienteForm(obj=cliente)
+    cargar_selectores_inteligentes(form)
+    
+    if request.method == 'GET':
+        form.vendedor_id.data = cliente.vendedor_habitual_id or 0
+        form.repartidor_id.data = cliente.repartidor_habitual_id or 0
+
+    if form.validate_on_submit():
+        # 1. Rescatamos las rutas actuales ANTES de que populate_obj las borre
+        ruta_fachada_actual = cliente.img_fachada
+        ruta_ine_f_actual = cliente.img_ine_frente
+        ruta_ine_r_actual = cliente.img_ine_reverso
+
+        # 2. Actualizamos los campos de texto
+        form.populate_obj(cliente) 
+        
+        # 3. Lógica de Rescate de Imágenes:
+        # Si el usuario subió archivo nuevo (data y filename existen) -> Guardamos nueva ruta
+        # Si NO subió archivo (FileStorage vacío) -> Restauramos la ruta vieja
+
+        # Fachada
+        if form.img_fachada.data and form.img_fachada.data.filename:
+            cliente.img_fachada = guardar_imagen(form.img_fachada.data, f'fac_{id}')
+        else:
+            cliente.img_fachada = ruta_fachada_actual
+
+        # INE Frente
+        if form.img_ine_frente.data and form.img_ine_frente.data.filename:
+            cliente.img_ine_frente = guardar_imagen(form.img_ine_frente.data, f'inef_{id}')
+        else:
+            cliente.img_ine_frente = ruta_ine_f_actual
+
+        # INE Reverso
+        if form.img_ine_reverso.data and form.img_ine_reverso.data.filename:
+            cliente.img_ine_reverso = guardar_imagen(form.img_ine_reverso.data, f'iner_{id}')
+        else:
+            cliente.img_ine_reverso = ruta_ine_r_actual
+
+        # 4. Ajuste de IDs manuales
+        cliente.vendedor_habitual_id = form.vendedor_id.data if form.vendedor_id.data > 0 else None
+        cliente.repartidor_habitual_id = form.repartidor_id.data if form.repartidor_id.data > 0 else None
+
+        db.session.commit()
+        flash('✅ Datos actualizados.', 'success')
+        return redirect(url_for('clients.edit', id=id))
+
+    # Cálculo de Deuda Real
+    ventas_en_curso = db.session.query(func.sum(OrdenVenta.total_venta))\
+        .filter(OrdenVenta.cliente_id == id)\
+        .filter(OrdenVenta.estado.in_(['CONFIRMADA', 'EN_PRODUCCION', 'EMPACADO', 'EN_RUTA']))\
+        .scalar() or 0.0
+    
+    riesgo_total = float(cliente.saldo_actual) + float(ventas_en_curso)
+
+    productos = Producto.query.filter_by(activo=True).order_by(Producto.descripcion).all()
+    tipos_descuento = CatTipoDescuento.query.all()
+
+    return render_template('clients/form.html', 
+                           form=form, 
+                           titulo="Editar Cliente", 
+                           cliente=cliente,
+                           productos=productos,
+                           tipos_descuento=tipos_descuento,
+                           riesgo_total=riesgo_total)
+
+# --- BAJA LÓGICA ---
+@clients_bp.route('/eliminar/<int:id>')
+@login_required
+def delete(id):
+    cliente = Cliente.query.get_or_404(id)
+    if cliente.saldo_actual > 1:
+        flash(f'⚠️ No se puede dar de baja. Tiene deuda de ${cliente.saldo_actual}.', 'warning')
+        return redirect(url_for('clients.index'))
+
+    cliente.activo = False
+    db.session.commit()
+    flash(f'🗑️ Cliente "{cliente.nombre_negocio}" dado de baja.', 'info')
+    return redirect(url_for('clients.index'))
+
+# --- PRECIOS ESPECIALES ---
+@clients_bp.route('/add-precio', methods=['POST'])
+@login_required
+def add_precio():
+    try:
+        nuevo = PrecioEspecialCliente(
+            cliente_id=int(request.form.get('cliente_id')),
+            producto_id=int(request.form.get('producto_id')),
+            tipo_descuento_id=int(request.form.get('tipo_descuento_id')),
+            valor_descuento=float(request.form.get('valor'))
+        )
+        db.session.add(nuevo)
+        db.session.commit()
+        flash('✅ Precio especial agregado.', 'success')
+    except Exception as e:
+        flash(f'Error: {str(e)}', 'danger')
+    return redirect(url_for('clients.edit', id=request.form.get('cliente_id')))
+
+@clients_bp.route('/del-precio/<int:id>')
+@login_required
+def del_precio(id):
+    precio = PrecioEspecialCliente.query.get_or_404(id)
+    cid = precio.cliente_id
+    db.session.delete(precio)
+    db.session.commit()
+    flash('Precio eliminado.', 'info')
+    return redirect(url_for('clients.edit', id=cid))
+
+# --- HELPERS ---
+def cargar_selectores_inteligentes(form):
+    form.ruta_id.choices = [(r.id, r.descripcion) for r in RutaReparto.query.all()]
+    
+    puestos_vend = CatPuesto.query.filter(CatPuesto.nombre.ilike('%Vendedor%')).all()
+    ids_vend = [p.id for p in puestos_vend]
+    if ids_vend:
+        vendedores = Usuario.query.filter(Usuario.puesto_id.in_(ids_vend), Usuario.activo==True).all()
+    else:
+        vendedores = []
+    form.vendedor_id.choices = [(0, '-- Sin Asignar --')] + [(u.id, f"{u.nombres} {u.apellido_paterno}") for u in vendedores]
+
+    puestos_rep = CatPuesto.query.filter(CatPuesto.nombre.ilike('%Repartidor%')).all()
+    ids_rep = [p.id for p in puestos_rep]
+    if ids_rep:
+        repartidores = Usuario.query.filter(Usuario.puesto_id.in_(ids_rep), Usuario.activo==True).all()
+    else:
+        repartidores = []
+    form.repartidor_id.choices = [(0, '-- Sin Asignar --')] + [(u.id, f"{u.nombres} {u.apellido_paterno}") for u in repartidores]
+
 ========================= FILE: .\app\blueprints\finance.py =========================
 import random
 import string
@@ -1255,15 +1508,12 @@ from app.extensions import db
 from app.models.finance import CajaEmpresa, TransaccionFinanciera, GastoOperativo
 from app.models.payments import Pago
 from app.models.orders import OrdenVenta
-
-# --- CORRECCIÓN AQUÍ: Importamos la clase en SINGULAR como está en tu catalogs.py ---
 from app.models.catalogs import CatConceptoFinanzas
 
 finance_bp = Blueprint('finance', __name__, url_prefix='/finanzas')
 
-# --- UTILIDAD: GENERADOR DE FOLIOS DE TESORERÍA ---
+# --- UTILIDAD: GENERADOR DE FOLIOS ---
 def generar_folio_tesoreria(tipo):
-    # Formato: TES-ING-AAMMDD-XXXX o TES-EGR-AAMMDD-XXXX
     prefijo = "ING" if tipo == 'INGRESO' else "EGR"
     fecha = datetime.now().strftime('%y%m%d')
     sufijo = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
@@ -1278,7 +1528,6 @@ def dashboard():
         db.session.add(caja)
         db.session.commit()
 
-    # Totales para tarjetas
     dinero_en_calle = db.session.query(func.sum(Pago.monto_pago))\
         .filter(Pago.estado == 'POR_AUDITAR').scalar() or 0.0
 
@@ -1286,15 +1535,7 @@ def dashboard():
     gastos_mes = db.session.query(func.sum(GastoOperativo.monto))\
         .filter(func.extract('month', GastoOperativo.fecha_registro) == mes_actual).scalar() or 0.0
 
-    # Usamos CatConceptoFinanzas (Singular)
-    conceptos_ingreso = CatConceptoFinanzas.query.filter(
-        CatConceptoFinanzas.tipo_flujo == 'INGRESO',
-        CatConceptoFinanzas.activo == True,
-        CatConceptoFinanzas.id != 1, 
-        CatConceptoFinanzas.id != 2 
-    ).all()
-
-    # --- HISTORIAL DE ÚLTIMOS 30 MOVIMIENTOS ---
+    # Historial General
     ultimos_movimientos = TransaccionFinanciera.query\
         .order_by(desc(TransaccionFinanciera.fecha))\
         .limit(30).all()
@@ -1303,42 +1544,64 @@ def dashboard():
                            caja=caja, 
                            en_calle=dinero_en_calle,
                            gastos=gastos_mes,
-                           conceptos_ingreso=conceptos_ingreso,
                            movimientos=ultimos_movimientos)
 
-# --- INGRESOS DE CAPITAL ---
+# --- SECCIÓN INGRESOS ---
+@finance_bp.route('/ingresos')
+@login_required
+def ingresos():
+    conceptos_ingreso = CatConceptoFinanzas.query.filter_by(tipo_flujo='INGRESO', activo=True).all()
+    
+    # Historial de INGRESOS (Transacciones)
+    ultimos_ingresos = TransaccionFinanciera.query\
+        .filter_by(tipo='INGRESO')\
+        .order_by(desc(TransaccionFinanciera.fecha))\
+        .limit(20).all()
+
+    return render_template('finance/income.html', 
+                           conceptos=conceptos_ingreso, 
+                           ultimos_ingresos=ultimos_ingresos)
+
 @finance_bp.route('/registrar-ingreso-extra', methods=['POST'])
 @login_required
 def registrar_ingreso_extra():
-    monto = float(request.form.get('monto'))
-    concepto_id = request.form.get('concepto_id')
-    notas = request.form.get('notas')
+    try:
+        monto = float(request.form.get('monto'))
+        concepto_id = int(request.form.get('concepto_id'))
+        detalle_texto = request.form.get('detalle')
+        notas = request.form.get('notas')
+    except (ValueError, TypeError):
+        flash('❌ Error: Datos numéricos inválidos.', 'danger')
+        return redirect(url_for('finance.ingresos'))
 
-    # Corrección: Singular
     cat_concepto = CatConceptoFinanzas.query.get(concepto_id)
-    descripcion = cat_concepto.descripcion if cat_concepto else "Ingreso Extra"
+    descripcion_base = cat_concepto.descripcion if cat_concepto else "Ingreso General"
+    concepto_final = f"{descripcion_base} - {detalle_texto}" if detalle_texto else descripcion_base
 
     caja = CajaEmpresa.query.get(1)
+    if not caja:
+        caja = CajaEmpresa(id=1, saldo_actual=0)
+        db.session.add(caja)
+
     caja.saldo_actual = float(caja.saldo_actual) + monto
 
-    # Generamos Folio Único
     folio = generar_folio_tesoreria('INGRESO')
 
     transaccion = TransaccionFinanciera(
         folio=folio,
         tipo='INGRESO',
         monto=monto,
-        concepto=descripcion,
+        concepto=concepto_final,
         notas=notas,
         usuario_id=current_user.id
     )
     db.session.add(transaccion)
     db.session.commit()
 
-    flash(f"💰 Ingreso registrado. Folio: {folio}", 'success')
-    return redirect(url_for('finance.dashboard'))
+    flash(f"💰 Ingreso registrado correctamente. Folio: {folio}", 'success')
+    return redirect(url_for('finance.ingresos'))
 
-# --- AUDITORÍA DE PAGOS ---
+# --- AUDITORÍA ---
 @finance_bp.route('/auditoria')
 @login_required
 def auditoria():
@@ -1360,10 +1623,8 @@ def confirmar_ingreso():
         pago.auditado_por_id = current_user.id
         pago.fecha_auditoria = datetime.now()
 
-        # Sumar a caja
         caja.saldo_actual = float(caja.saldo_actual) + float(pago.monto_pago)
 
-        # GENERAR FOLIO DE TESORERÍA (El espejo financiero)
         folio_tesoreria = generar_folio_tesoreria('INGRESO')
 
         transaccion = TransaccionFinanciera(
@@ -1381,7 +1642,7 @@ def confirmar_ingreso():
         if orden.estado == 'SINAUDITARPAGO':
             orden.estado = 'PAGADO'
 
-        msg = f"✅ Auditado correctamente. Generado Ticket Tesorería: {folio_tesoreria}"
+        msg = f"✅ Auditado correctamente. Generado Ticket: {folio_tesoreria}"
 
     elif accion == 'RECHAZAR':
         pago.estado = 'RECHAZADO'
@@ -1392,13 +1653,18 @@ def confirmar_ingreso():
     flash(msg, 'success' if accion == 'AUDITAR' else 'warning')
     return redirect(url_for('finance.auditoria'))
 
-# --- GASTOS ---
+# --- SECCIÓN GASTOS ---
 @finance_bp.route('/gastos')
 @login_required
 def gastos():
-    # Corrección: Singular
     conceptos_egreso = CatConceptoFinanzas.query.filter_by(tipo_flujo='EGRESO', activo=True).all()
-    ultimos_gastos = GastoOperativo.query.order_by(GastoOperativo.id.desc()).limit(20).all()
+    
+    # CORRECCIÓN AQUÍ: Consultamos TransaccionFinanciera (que tiene folio) filtrando por EGRESO
+    # en lugar de GastoOperativo.
+    ultimos_gastos = TransaccionFinanciera.query\
+        .filter_by(tipo='EGRESO')\
+        .order_by(desc(TransaccionFinanciera.fecha))\
+        .limit(20).all()
     
     return render_template('finance/expenses.html', 
                            gastos=ultimos_gastos,
@@ -1407,25 +1673,35 @@ def gastos():
 @finance_bp.route('/registrar-gasto', methods=['POST'])
 @login_required
 def registrar_gasto():
-    monto = float(request.form.get('monto'))
-    concepto_id = request.form.get('concepto_id')
-    notas = request.form.get('notas')
-
-    # Corrección: Singular
-    cat_concepto = CatConceptoFinanzas.query.get(concepto_id)
-    descripcion = cat_concepto.descripcion if cat_concepto else "Gasto General"
-
-    caja = CajaEmpresa.query.get(1)
-
-    if float(caja.saldo_actual) < monto:
-        flash('❌ Error: No hay fondos suficientes.', 'danger')
+    try:
+        monto = float(request.form.get('monto'))
+        concepto_id = int(request.form.get('concepto_id'))
+        detalle_texto = request.form.get('detalle')
+        notas = request.form.get('notas')
+    except (ValueError, TypeError):
+        flash('❌ Error: Datos inválidos.', 'danger')
         return redirect(url_for('finance.gastos'))
 
-    caja.saldo_actual = float(caja.saldo_actual) - monto
+    caja = CajaEmpresa.query.get(1)
+    if not caja:
+        caja = CajaEmpresa(id=1, saldo_actual=0)
+        db.session.add(caja)
+        
+    saldo_actual = float(caja.saldo_actual)
 
+    if saldo_actual < monto:
+        flash(f'❌ Fondos insuficientes. Tienes ${saldo_actual:,.2f}', 'danger')
+        return redirect(url_for('finance.gastos'))
+
+    cat_concepto = CatConceptoFinanzas.query.get_or_404(concepto_id)
+    nombre_categoria = cat_concepto.descripcion
+
+    caja.saldo_actual = saldo_actual - monto
+
+    # Guardamos el detalle en GastoOperativo
     nuevo_gasto = GastoOperativo(
-        descripcion=descripcion,
-        categoria='EGRESO', 
+        categoria=nombre_categoria,
+        descripcion=detalle_texto,
         monto=monto,
         notas=notas,
         registrado_por_id=current_user.id
@@ -1433,14 +1709,14 @@ def registrar_gasto():
     db.session.add(nuevo_gasto)
     db.session.flush()
 
-    # GENERAR FOLIO DE TESORERÍA (El vale de salida)
     folio_tesoreria = generar_folio_tesoreria('EGRESO')
 
+    # Guardamos la transacción maestra
     transaccion = TransaccionFinanciera(
         folio=folio_tesoreria,
         tipo='EGRESO',
         monto=monto,
-        concepto=descripcion,
+        concepto=f"{nombre_categoria} - {detalle_texto}", 
         notas=notas,
         usuario_id=current_user.id,
         gasto_id=nuevo_gasto.id
@@ -1448,10 +1724,9 @@ def registrar_gasto():
     db.session.add(transaccion)
 
     db.session.commit()
-    flash(f"💸 Gasto registrado. Ticket Tesorería: {folio_tesoreria}", 'success')
+    flash(f"💸 Gasto registrado: {folio_tesoreria}", 'success')
     return redirect(url_for('finance.gastos'))
 
-# --- TICKET DE TESORERÍA ---
 @finance_bp.route('/ticket/<string:folio>')
 @login_required
 def ver_ticket(folio):
@@ -2815,8 +3090,8 @@ class Cliente(db.Model):
     
     # --- NEGOCIO ---
     nombre_negocio = db.Column(db.String(150), nullable=False)
-    rfc = db.Column(db.String(13)) # Fiscal
-    tipo_negocio = db.Column(db.String(100)) # Abarrotes, Papelería...
+    rfc = db.Column(db.String(13))
+    tipo_negocio = db.Column(db.String(100))
     img_fachada = db.Column(db.String(255))
     calificacion = db.Column(db.Integer, default=5)
 
@@ -2825,8 +3100,13 @@ class Cliente(db.Model):
     apellidos_encargado = db.Column(db.String(100))
     img_ine_frente = db.Column(db.String(255))
     img_ine_reverso = db.Column(db.String(255))
+    
+    # --- CONTACTO ---
+    telefono = db.Column(db.String(20)) # Fijo
+    celular = db.Column(db.String(20))  # WhatsApp / Móvil
+    email = db.Column(db.String(150))   # Notificaciones
 
-    # --- DOMICILIO NEGOCIO ---
+    # --- DOMICILIO ---
     calle = db.Column(db.String(100))
     num_exterior = db.Column(db.String(20))
     num_interior = db.Column(db.String(20))
@@ -2838,16 +3118,20 @@ class Cliente(db.Model):
 
     # --- FINANCIERO ---
     limite_credito = db.Column(db.Numeric(12, 2), default=0.00)
-    saldo_actual = db.Column(db.Numeric(12, 2), default=0.00) # Se actualiza vía Ledger
+    saldo_actual = db.Column(db.Numeric(12, 2), default=0.00) 
     
     # --- LOGÍSTICA ---
     ruta_id = db.Column(db.Integer, db.ForeignKey('rutas_reparto.id'))
+    
+    # Relaciones con empleados operativos
     repartidor_habitual_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
     vendedor_habitual_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
 
-    # Relaciones
+    # --- CONTROL ---
+    activo = db.Column(db.Boolean, default=True)
+
+    # Relaciones ORM
     ruta = db.relationship('RutaReparto', backref='clientes')
-    # Usamos string en foreign_keys para evitar import circular con Usuario si fuera necesario
     repartidor = db.relationship('Usuario', foreign_keys=[repartidor_habitual_id])
     vendedor = db.relationship('Usuario', foreign_keys=[vendedor_habitual_id])
 
@@ -2858,11 +3142,9 @@ class PrecioEspecialCliente(db.Model):
     
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'))
     producto_id = db.Column(db.Integer, db.ForeignKey('productos.id'))
-    
-    # FK a tu catálogo nuevo de tipos de descuento
     tipo_descuento_id = db.Column(db.Integer, db.ForeignKey('cat_tipos_descuento.id'))
     
-    valor_descuento = db.Column(db.Numeric(10, 2), nullable=False) # 10%, $5.00, etc.
+    valor_descuento = db.Column(db.Numeric(10, 2), nullable=False)
 
     cliente = db.relationship('Cliente', backref='precios_especiales')
     producto = db.relationship('Producto')
@@ -3152,6 +3434,10 @@ class Producto(db.Model):
     stock_maximo = db.Column(db.Float, default=0.0)
     stock_ideal = db.Column(db.Float, default=0.0)
 
+    # --- CONTROL DE VIDA (Sincronización) ---
+    # Esto le permite a Python ver la columna que YA EXISTE en tu BD
+    activo = db.Column(db.Boolean, default=True)
+
     # Relaciones
     categoria = db.relationship('CatCategoriaProducto')
     unidad = db.relationship('CatUnidadMedida')
@@ -3168,17 +3454,20 @@ class MateriaPrima(db.Model):
 
     # Dinero
     precio_costo_promedio = db.Column(db.Numeric(10, 2), default=0.00)
-    precio_venta_general = db.Column(db.Numeric(10, 2), default=0.00) # Requerimiento tuyo
+    precio_venta_general = db.Column(db.Numeric(10, 2), default=0.00) 
 
     # Físico
     peso_gramos = db.Column(db.Float, default=0.0)
     caducidad_dias = db.Column(db.Integer, default=0)
     imagen_materia = db.Column(db.String(255))
     
-    # Inventario Ideal (Opcional, pero bueno tenerlo)
+    # Inventario Ideal
     stock_minimo = db.Column(db.Float, default=0.0)
     stock_maximo = db.Column(db.Float, default=0.0)
     stock_ideal = db.Column(db.Float, default=0.0)
+
+    # Agregado por seguridad para futuros filtros
+    activo = db.Column(db.Boolean, default=True)
 
     categoria = db.relationship('CatCategoriaMateriaPrima')
     unidad = db.relationship('CatUnidadMedida')
@@ -3578,6 +3867,10 @@ body {
 
             <div class="nav-group-label mt-2">ADMINISTRACIÓN</div>
             
+            <a href="{{ url_for('clients.index') }}" class="nav-link py-3">
+                <i class="fa-solid fa-users me-2"></i> Cartera de Clientes
+            </a>
+            
             <a class="nav-link py-3 d-flex justify-content-between align-items-center" 
                data-bs-toggle="collapse" href="#collapseFinanzas" role="button" aria-expanded="false">
                 <span><i class="fa-solid fa-sack-dollar me-2"></i> Finanzas</span>
@@ -3588,6 +3881,11 @@ body {
                     <a class="nav-link py-2" href="{{ url_for('finance.dashboard') }}">
                         <i class="fa-solid fa-chart-pie me-2"></i> Tablero Financiero
                     </a>
+                    
+                    <a class="nav-link py-2 text-info" href="{{ url_for('finance.ingresos') }}">
+                        <i class="fa-solid fa-wallet me-2"></i> Ingresos Extra / Capital
+                    </a>
+                    
                     <a class="nav-link py-2 text-success" href="{{ url_for('finance.auditoria') }}">
                         <i class="fa-solid fa-check-double me-2"></i> Auditoría de Pagos
                     </a>
@@ -3715,6 +4013,315 @@ body {
 </body>
 </html>
 
+========================= FILE: .\app\templates\clients\form.html =========================
+{% extends 'base.html' %}
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container pb-5">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="fw-bold"><i class="fa-solid fa-store me-2"></i>{{ titulo }}</h4>
+        <a href="{{ url_for('clients.index') }}" class="btn btn-outline-secondary">Cancelar</a>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+        {{ form.hidden_tag() }}
+
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white border-bottom-0 pt-3">
+                <ul class="nav nav-tabs card-header-tabs" id="clientTabs" role="tablist">
+                    <li class="nav-item"><button class="nav-link active fw-bold" data-bs-toggle="tab" data-bs-target="#tab-identity" type="button">1. Identidad</button></li>
+                    <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#tab-logistics" type="button">2. Logística</button></li>
+                    <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#tab-finance" type="button">3. Finanzas</button></li>
+                    <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#tab-docs" type="button">4. Documentos</button></li>
+                    {% if cliente %}
+                    <li class="nav-item"><button class="nav-link fw-bold text-success" data-bs-toggle="tab" data-bs-target="#tab-prices" type="button"><i class="fa-solid fa-tags me-1"></i> Precios VIP</button></li>
+                    {% endif %}
+                </ul>
+            </div>
+
+            <div class="card-body p-4">
+                <div class="tab-content">
+                    
+                    <div class="tab-pane fade show active" id="tab-identity">
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label class="form-label fw-bold">Nombre del Negocio *</label>
+                                {{ form.nombre_negocio(class="form-control form-control-lg", placeholder="Ej: Abarrotes La Esperanza") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">RFC</label>
+                                {{ form.rfc(class="form-control", placeholder="XAXX010101000") }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Encargado *</label>
+                                {{ form.nombres_encargado(class="form-control") }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Apellidos</label>
+                                {{ form.apellidos_encargado(class="form-control") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label text-success fw-bold"><i class="fa-brands fa-whatsapp"></i> Celular</label>
+                                {{ form.celular(class="form-control border-success") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Teléfono Fijo</label>
+                                {{ form.telefono(class="form-control") }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Email</label>
+                                {{ form.email(class="form-control", placeholder="tienda@correo.com") }}
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Giro del Negocio</label>
+                                {{ form.tipo_negocio(class="form-control") }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-logistics">
+                        <h6 class="text-muted border-bottom pb-2 mb-3">Ubicación</h6>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label">Calle y Número *</label>
+                                <div class="input-group">
+                                    {{ form.calle(class="form-control", placeholder="Calle") }}
+                                    {{ form.num_exterior(class="form-control", placeholder="#") }}
+                                </div>
+                            </div>
+                            <div class="col-md-6"><label class="form-label">Colonia *</label>{{ form.colonia(class="form-control") }}</div>
+                            <div class="col-md-4"><label class="form-label">Ciudad *</label>{{ form.ciudad(class="form-control") }}</div>
+                            <div class="col-md-4"><label class="form-label">Estado</label>{{ form.estado(class="form-control", readonly=true) }}</div>
+                            <div class="col-md-4"><label class="form-label">C.P.</label>{{ form.codigo_postal(class="form-control") }}</div>
+                        </div>
+                        <h6 class="text-muted border-bottom pb-2 mb-3">Asignación Operativa</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold text-primary">Ruta *</label>
+                                {{ form.ruta_id(class="form-select border-primary") }}
+                            </div>
+                            <div class="col-md-4"><label class="form-label">Vendedor</label>{{ form.vendedor_id(class="form-select") }}</div>
+                            <div class="col-md-4"><label class="form-label">Repartidor</label>{{ form.repartidor_id(class="form-select") }}</div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-finance">
+                        <div class="row g-4 align-items-center">
+                            <div class="col-12">
+                                <label class="form-label fw-bold">Límite de Crédito Autorizado ($)</label>
+                                {{ form.limite_credito(class="form-control form-control-lg fw-bold border-dark w-50") }}
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="card bg-light border p-3 text-center">
+                                    <small class="text-muted text-uppercase fw-bold">Saldo Contable (Facturado)</small>
+                                    <h3 class="fw-bold text-secondary my-2">
+                                        ${{ "{:,.2f}".format(cliente.saldo_actual if cliente else 0) }}
+                                    </h3>
+                                    <small class="text-muted"><i class="fa-solid fa-lock me-1"></i> Solo lectura</small>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                {% if cliente %}
+                                    {% set limite = cliente.limite_credito|float %}
+                                    {% set riesgo = riesgo_total|float %}
+                                    <div class="card p-3 text-center text-white {% if riesgo > limite %}bg-danger{% elif riesgo > 0 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                        <small class="text-uppercase fw-bold opacity-75">Riesgo Total (Deuda + En Curso)</small>
+                                        <h3 class="fw-bold my-2">${{ "{:,.2f}".format(riesgo) }}</h3>
+                                        <small class="opacity-75">
+                                            {% if riesgo > limite %}
+                                            <i class="fa-solid fa-circle-exclamation me-1"></i> ¡LÍMITE EXCEDIDO!
+                                            {% else %}
+                                            <i class="fa-solid fa-check-circle me-1"></i> Crédito Disponible: ${{ "{:,.2f}".format(limite - riesgo) }}
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-info">Guarda primero para ver análisis de riesgo.</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-docs">
+                        <div class="row g-3">
+                            <div class="col-md-4 text-center">
+                                <label class="form-label fw-bold">Fachada</label>
+                                {{ form.img_fachada(class="form-control mb-2") }}
+                                {% if cliente and cliente.img_fachada %}<img src="{{ url_for('static', filename=cliente.img_fachada) }}" class="img-thumbnail" style="height:150px;">{% endif %}
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <label class="form-label fw-bold">INE Frente</label>
+                                {{ form.img_ine_frente(class="form-control mb-2") }}
+                                {% if cliente and cliente.img_ine_frente %}<img src="{{ url_for('static', filename=cliente.img_ine_frente) }}" class="img-thumbnail" style="height:150px;">{% endif %}
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <label class="form-label fw-bold">INE Reverso</label>
+                                {{ form.img_ine_reverso(class="form-control mb-2") }}
+                                {% if cliente and cliente.img_ine_reverso %}<img src="{{ url_for('static', filename=cliente.img_ine_reverso) }}" class="img-thumbnail" style="height:150px;">{% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if cliente %}
+                    <div class="tab-pane fade" id="tab-prices">
+                        <div class="card bg-light border mb-3">
+                            <div class="card-body">
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-4">
+                                        <label class="small fw-bold text-primary">Selecciona Producto</label>
+                                        <select id="new_prod" class="form-select">
+                                            {% for p in productos %}
+                                                <option value="{{ p.id }}">
+                                                    {{ p.descripcion }} (${{ "{:,.2f}".format(p.precio_venta_general) }})
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="small">Tipo Descuento</label>
+                                        <select id="new_rule" class="form-select">{% for t in tipos_descuento %}<option value="{{ t.id }}">{{ t.descripcion }}</option>{% endfor %}</select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="small">Valor</label>
+                                        <input type="number" id="new_val" class="form-control" step="0.01" placeholder="0.00">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button type="button" class="btn btn-success w-100 fw-bold" onclick="addPrice()">
+                                            <i class="fa-solid fa-plus"></i> AGREGAR
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <table class="table table-hover align-middle text-center">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="text-start">Producto</th>
+                                    <th>Precio Lista</th>
+                                    <th>Regla Aplicada</th>
+                                    <th>PRECIO FINAL</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pe in cliente.precios_especiales %}
+                                <tr>
+                                    <td class="text-start fw-bold">{{ pe.producto.descripcion }}</td>
+                                    <td class="text-muted text-decoration-line-through">${{ "{:.2f}".format(pe.producto.precio_venta_general) }}</td>
+                                    <td>
+                                        {% if pe.tipo_descuento.descripcion == 'PORCENTAJE' %}
+                                            <span class="badge bg-warning text-dark">-{{ pe.valor_descuento }}%</span>
+                                        {% else %}
+                                            <span class="badge bg-primary">FIJO</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="fw-bold text-success fs-5">
+                                        {% if pe.tipo_descuento.descripcion == 'PORCENTAJE' %}
+                                            {% set descuento = (pe.producto.precio_venta_general * pe.valor_descuento) / 100 %}
+                                            ${{ "{:.2f}".format(pe.producto.precio_venta_general - descuento) }}
+                                        {% else %}
+                                            ${{ "{:.2f}".format(pe.valor_descuento) }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end"><a href="{{ url_for('clients.del_precio', id=pe.id) }}" class="text-danger"><i class="fa-solid fa-trash"></i></a></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card-footer bg-white text-end py-3">
+                {{ form.submit(class="btn btn-primary fw-bold px-5") }}
+            </div>
+        </div>
+    </form>
+</div>
+
+{% if cliente %}
+<form id="fPrice" action="{{ url_for('clients.add_precio') }}" method="POST">
+    <input type="hidden" name="cliente_id" value="{{ cliente.id }}">
+    <input type="hidden" name="producto_id" id="h_p">
+    <input type="hidden" name="tipo_descuento_id" id="h_t">
+    <input type="hidden" name="valor" id="h_v">
+</form>
+<script>
+function addPrice() {
+    document.getElementById('h_p').value = document.getElementById('new_prod').value;
+    document.getElementById('h_t').value = document.getElementById('new_rule').value;
+    document.getElementById('h_v').value = document.getElementById('new_val').value;
+    if(document.getElementById('h_v').value) document.getElementById('fPrice').submit();
+}
+</script>
+{% endif %}
+{% endblock %}
+
+========================= FILE: .\app\templates\clients\index.html =========================
+{% extends 'base.html' %}
+{% block title %}Clientes | GelMexSys{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="fw-bold text-primary"><i class="fa-solid fa-users me-2"></i>Cartera de Clientes</h4>
+        <a href="{{ url_for('clients.create') }}" class="btn btn-primary fw-bold shadow-sm">
+            <i class="fa-solid fa-user-plus me-2"></i> NUEVO CLIENTE
+        </a>
+    </div>
+
+    <div class="card shadow border-0">
+        <div class="card-body p-0">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-3">Cliente</th>
+                        <th>Contacto</th>
+                        <th>Ruta</th>
+                        <th class="text-end">Deuda</th>
+                        <th class="text-center">Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in clientes %}
+                    <tr>
+                        <td class="ps-3 fw-bold">{{ c.nombre_negocio }}</td>
+                        <td>
+                            <div>{{ c.nombres_encargado }}</div>
+                            <small class="text-muted">{{ c.celular or c.telefono or c.email or '-' }}</small>
+                        </td>
+                        <td><span class="badge bg-light text-dark border">{{ c.ruta.descripcion }}</span></td>
+                        <td class="text-end fw-bold {{ 'text-danger' if c.saldo_actual > c.limite_credito else 'text-success' }}">
+                            ${{ "{:,.2f}".format(c.saldo_actual) }}
+                        </td>
+                        <td class="text-center">
+                            {% if c.saldo_actual > c.limite_credito %}
+                                <i class="fa-solid fa-circle text-danger" title="Crédito Excedido"></i>
+                            {% else %}
+                                <i class="fa-solid fa-circle text-success" title="OK"></i>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-3">
+                            <a href="{{ url_for('clients.edit', id=c.id) }}" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-pen"></i></a>
+                            <a href="{{ url_for('clients.delete', id=c.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Baja lógica?')"><i class="fa-solid fa-trash"></i></a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="text-center py-4">Sin clientes activos.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
 ========================= FILE: .\app\templates\finance\audit.html =========================
 {% extends 'base.html' %}
 {% block title %}Auditoría de Pagos{% endblock %}
@@ -3794,36 +4401,42 @@ body {
             <h3 class="fw-bold text-dark m-0">Centinela Financiero</h3>
             <small class="text-muted">Bitácora Maestra de Tesorería</small>
         </div>
-        <button class="btn btn-success fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalIngresoCapital">
-            <i class="fa-solid fa-circle-plus me-2"></i> INGRESO CAPITAL / EXTRA
-        </button>
     </div>
 
     <div class="row mb-4">
         <div class="col-md-4">
             <div class="card bg-success text-white shadow h-100">
-                <div class="card-body text-center">
+                <div class="card-body text-center d-flex flex-column justify-content-center">
                     <h6 class="text-uppercase opacity-75">Dinero en Bóveda</h6>
-                    <h1 class="display-4 fw-bold mb-0">${{ "{:,.2f}".format(caja.saldo_actual) }}</h1>
-                    <small>Capital Líquido Real</small>
+                    <h1 class="display-4 fw-bold mb-2">${{ "{:,.2f}".format(caja.saldo_actual) }}</h1>
+                    
+                    <a href="{{ url_for('finance.ingresos') }}" class="btn btn-light text-success fw-bold btn-sm mt-2 w-75 mx-auto shadow-sm">
+                        <i class="fa-solid fa-circle-plus me-1"></i> REGISTRAR INGRESO
+                    </a>
                 </div>
             </div>
         </div>
+
         <div class="col-md-4">
             <div class="card bg-warning text-dark shadow h-100">
-                <div class="card-body text-center">
+                <div class="card-body text-center d-flex flex-column justify-content-center">
                     <h6 class="text-uppercase opacity-75">Por Auditar (En Calle)</h6>
-                    <h1 class="display-4 fw-bold mb-0">${{ "{:,.2f}".format(en_calle) }}</h1>
-                    <a href="{{ url_for('finance.auditoria') }}" class="btn btn-sm btn-dark mt-2">Auditar Rutas <i class="fa-solid fa-arrow-right"></i></a>
+                    <h1 class="display-4 fw-bold mb-2">${{ "{:,.2f}".format(en_calle) }}</h1>
+                    <a href="{{ url_for('finance.auditoria') }}" class="btn btn-dark btn-sm mt-2 w-75 mx-auto">
+                        Auditar Rutas <i class="fa-solid fa-arrow-right ms-1"></i>
+                    </a>
                 </div>
             </div>
         </div>
+
         <div class="col-md-4">
             <div class="card bg-danger text-white shadow h-100">
-                <div class="card-body text-center">
+                <div class="card-body text-center d-flex flex-column justify-content-center">
                     <h6 class="text-uppercase opacity-75">Gastos del Mes</h6>
-                    <h1 class="display-4 fw-bold mb-0">${{ "{:,.2f}".format(gastos) }}</h1>
-                    <a href="{{ url_for('finance.gastos') }}" class="btn btn-sm btn-light mt-2 text-danger fw-bold">Registrar Salida</a>
+                    <h1 class="display-4 fw-bold mb-2">${{ "{:,.2f}".format(gastos) }}</h1>
+                    <a href="{{ url_for('finance.gastos') }}" class="btn btn-light text-danger fw-bold btn-sm mt-2 w-75 mx-auto shadow-sm">
+                        Registrar Salida <i class="fa-solid fa-arrow-right ms-1"></i>
+                    </a>
                 </div>
             </div>
         </div>
@@ -3889,44 +4502,6 @@ body {
         </div>
     </div>
 </div>
-
-<div class="modal fade" id="modalIngresoCapital" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title fw-bold">Registrar Entrada de Dinero</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <form action="{{ url_for('finance.registrar_ingreso_extra') }}" method="POST">
-                <div class="modal-body">
-                    <div class="alert alert-info small">
-                        <i class="fa-solid fa-info-circle"></i> Inversiones, Préstamos o Reembolsos.
-                    </div>
-                    <div class="mb-3">
-                        <label class="fw-bold">Monto ($):</label>
-                        <input type="number" step="0.01" name="monto" class="form-control form-control-lg text-success fw-bold" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="fw-bold">Concepto:</label>
-                        <select name="concepto_id" class="form-select" required>
-                            {% for c in conceptos_ingreso %}
-                                <option value="{{ c.id }}">{{ c.descripcion }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="fw-bold">Notas:</label>
-                        <textarea name="notas" class="form-control" rows="2"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success fw-bold">INGRESAR DINERO</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 ========================= FILE: .\app\templates\finance\expenses.html =========================
@@ -3944,26 +4519,35 @@ body {
         <div class="col-md-4 mb-4">
             <div class="card shadow-sm border-0 bg-light">
                 <div class="card-body">
-                    <h6 class="fw-bold mb-3">Registrar Nuevo Gasto</h6>
+                    <h6 class="fw-bold mb-3 text-danger">Registrar Nuevo Gasto</h6>
                     <form action="{{ url_for('finance.registrar_gasto') }}" method="POST">
                         <div class="mb-3">
-                            <label class="form-label small fw-bold">Monto ($):</label>
-                            <input type="number" step="0.01" name="monto" class="form-control form-control-lg fw-bold text-danger" placeholder="0.00" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold">Concepto:</label>
-                            <input type="text" name="concepto" class="form-control" placeholder="Ej: Gasolina Unidad 5" required>
-                        </div>
-                        <div class="mb-3">
                             <label class="form-label small fw-bold">Categoría:</label>
-                            <select name="categoria" class="form-select">
-                                <option value="OPERATIVO">Gasto Operativo (Gas, Luz)</option>
-                                <option value="NOMINA">Nómina / Sueldos</option>
-                                <option value="PROVEEDOR">Pago a Proveedor</option>
-                                <option value="MANTENIMIENTO">Mantenimiento</option>
+                            <select name="concepto_id" class="form-select border-danger" required>
+                                <option value="" selected disabled>-- Selecciona --</option>
+                                {% for c in conceptos %}
+                                    <option value="{{ c.id }}">{{ c.descripcion }}</option>
+                                {% endfor %}
                             </select>
                         </div>
-                        <button type="submit" class="btn btn-danger w-100 fw-bold">REGISTRAR SALIDA</button>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Descripción / Detalle:</label>
+                            <input type="text" name="detalle" class="form-control" placeholder="Ej: Gasolina Camioneta 5" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Monto ($):</label>
+                            <div class="input-group">
+                                <span class="input-group-text text-danger fw-bold">$</span>
+                                <input type="number" step="0.01" name="monto" class="form-control form-control-lg fw-bold text-danger" placeholder="0.00" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Notas Adicionales:</label>
+                            <textarea name="notas" class="form-control" rows="2"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-danger w-100 fw-bold shadow-sm">
+                            <i class="fa-solid fa-floppy-disk me-2"></i> REGISTRAR SALIDA
+                        </button>
                     </form>
                 </div>
             </div>
@@ -3971,27 +4555,129 @@ body {
 
         <div class="col-md-8">
             <div class="card shadow border-0">
-                <div class="card-header bg-white fw-bold">Últimos Movimientos</div>
+                <div class="card-header bg-white fw-bold text-danger">Últimos Movimientos</div>
+                <div class="card-body p-0">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr class="text-muted small text-uppercase">
+                                <th class="ps-3">Categoría / Detalle</th>
+                                <th>Fecha</th>
+                                <th class="text-end">Monto</th>
+                                <th class="text-center pe-3">Ticket</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mov in gastos %}
+                            <tr>
+                                <td class="ps-3">
+                                    {% if mov.gasto %}
+                                        <span class="badge bg-light text-dark border mb-1">{{ mov.gasto.categoria }}</span><br>
+                                        <span class="fw-bold text-dark">{{ mov.gasto.descripcion }}</span>
+                                    {% else %}
+                                        <span class="fw-bold text-dark">{{ mov.concepto }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="small text-muted">{{ mov.fecha.strftime('%d/%m %H:%M') }}</td>
+                                <td class="text-end fw-bold text-danger">-${{ "{:,.2f}".format(mov.monto) }}</td>
+                                <td class="text-center pe-3">
+                                    <a href="{{ url_for('finance.ver_ticket', folio=mov.folio) }}" target="_blank" class="btn btn-sm btn-outline-danger" title="Reimprimir Vale">
+                                        <i class="fa-solid fa-print"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="4" class="text-center py-4 text-muted">Sin gastos recientes.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+========================= FILE: .\app\templates\finance\income.html =========================
+{% extends 'base.html' %}
+{% block title %}Control de Ingresos{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="fw-bold text-success"><i class="fa-solid fa-sack-dollar me-2"></i> Entradas de Efectivo</h4>
+        <a href="{{ url_for('finance.dashboard') }}" class="btn btn-outline-dark">Volver</a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm border-0 bg-light">
+                <div class="card-body">
+                    <h6 class="fw-bold mb-3 text-success">Registrar Nuevo Ingreso</h6>
+                    <form action="{{ url_for('finance.registrar_ingreso_extra') }}" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Tipo de Ingreso:</label>
+                            <select name="concepto_id" class="form-select border-success" required>
+                                <option value="" selected disabled>-- Selecciona --</option>
+                                {% for c in conceptos %}
+                                    <option value="{{ c.id }}">{{ c.descripcion }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Detalle / Referencia:</label>
+                            <input type="text" name="detalle" class="form-control" placeholder="Ej: Aportación Socio 1..." required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Monto ($):</label>
+                            <div class="input-group">
+                                <span class="input-group-text text-success fw-bold">$</span>
+                                <input type="number" step="0.01" name="monto" class="form-control form-control-lg fw-bold text-success" placeholder="0.00" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Notas Adicionales:</label>
+                            <textarea name="notas" class="form-control" rows="2"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100 fw-bold shadow-sm">
+                            <i class="fa-solid fa-circle-plus me-2"></i> REGISTRAR INGRESO
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card shadow border-0">
+                <div class="card-header bg-white fw-bold text-success">Últimos Ingresos Registrados</div>
                 <div class="card-body p-0">
                     <table class="table table-sm align-middle mb-0">
                         <thead>
                             <tr class="text-muted small text-uppercase">
                                 <th class="ps-3">Concepto</th>
-                                <th>Categoría</th>
                                 <th>Fecha</th>
-                                <th class="text-end pe-3">Monto</th>
+                                <th class="text-end">Monto</th>
+                                <th class="text-center pe-3">Ticket</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for g in gastos %}
+                            {% for mov in ultimos_ingresos %}
                             <tr>
-                                <td class="ps-3 fw-bold text-dark">{{ g.descripcion }}</td>
-                                <td><span class="badge bg-light text-secondary border">{{ g.categoria }}</span></td>
-                                <td class="small text-muted">{{ g.fecha_registro.strftime('%d/%m %H:%M') }}</td>
-                                <td class="text-end fw-bold text-danger pe-3">-${{ "{:,.2f}".format(g.monto) }}</td>
+                                <td class="ps-3">
+                                    <span class="fw-bold text-dark d-block">{{ mov.concepto }}</span>
+                                    {% if mov.notas %}
+                                    <small class="text-muted fst-italic">{{ mov.notas }}</small>
+                                    {% endif %}
+                                </td>
+                                <td class="small text-muted">{{ mov.fecha.strftime('%d/%m %H:%M') }}</td>
+                                <td class="text-end fw-bold text-success">+${{ "{:,.2f}".format(mov.monto) }}</td>
+                                <td class="text-center pe-3">
+                                    <a href="{{ url_for('finance.ver_ticket', folio=mov.folio) }}" target="_blank" class="btn btn-sm btn-outline-success" title="Imprimir Comprobante">
+                                        <i class="fa-solid fa-print"></i>
+                                    </a>
+                                </td>
                             </tr>
                             {% else %}
-                            <tr><td colspan="4" class="text-center py-4 text-muted">Sin gastos recientes.</td></tr>
+                            <tr><td colspan="4" class="text-center py-4 text-muted">Sin ingresos recientes.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>

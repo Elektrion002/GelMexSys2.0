@@ -59,5 +59,8 @@ def create_app(config_name='default'):
     # NUEVO: Módulo de Finanzas
     from app.blueprints.finance import finance_bp
     app.register_blueprint(finance_bp)
-    
+
+    from app.blueprints.clients import clients_bp
+    app.register_blueprint(clients_bp)
+
     return app

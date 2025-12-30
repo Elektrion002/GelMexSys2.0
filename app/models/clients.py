@@ -8,8 +8,8 @@ class Cliente(db.Model):
     
     # --- NEGOCIO ---
     nombre_negocio = db.Column(db.String(150), nullable=False)
-    rfc = db.Column(db.String(13)) # Fiscal
-    tipo_negocio = db.Column(db.String(100)) # Abarrotes, Papelería...
+    rfc = db.Column(db.String(13))
+    tipo_negocio = db.Column(db.String(100))
     img_fachada = db.Column(db.String(255))
     calificacion = db.Column(db.Integer, default=5)
 
@@ -18,8 +18,13 @@ class Cliente(db.Model):
     apellidos_encargado = db.Column(db.String(100))
     img_ine_frente = db.Column(db.String(255))
     img_ine_reverso = db.Column(db.String(255))
+    
+    # --- CONTACTO ---
+    telefono = db.Column(db.String(20)) # Fijo
+    celular = db.Column(db.String(20))  # WhatsApp / Móvil
+    email = db.Column(db.String(150))   # Notificaciones
 
-    # --- DOMICILIO NEGOCIO ---
+    # --- DOMICILIO ---
     calle = db.Column(db.String(100))
     num_exterior = db.Column(db.String(20))
     num_interior = db.Column(db.String(20))
@@ -31,16 +36,20 @@ class Cliente(db.Model):
 
     # --- FINANCIERO ---
     limite_credito = db.Column(db.Numeric(12, 2), default=0.00)
-    saldo_actual = db.Column(db.Numeric(12, 2), default=0.00) # Se actualiza vía Ledger
+    saldo_actual = db.Column(db.Numeric(12, 2), default=0.00) 
     
     # --- LOGÍSTICA ---
     ruta_id = db.Column(db.Integer, db.ForeignKey('rutas_reparto.id'))
+    
+    # Relaciones con empleados operativos
     repartidor_habitual_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
     vendedor_habitual_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
 
-    # Relaciones
+    # --- CONTROL ---
+    activo = db.Column(db.Boolean, default=True)
+
+    # Relaciones ORM
     ruta = db.relationship('RutaReparto', backref='clientes')
-    # Usamos string en foreign_keys para evitar import circular con Usuario si fuera necesario
     repartidor = db.relationship('Usuario', foreign_keys=[repartidor_habitual_id])
     vendedor = db.relationship('Usuario', foreign_keys=[vendedor_habitual_id])
 
@@ -51,11 +60,9 @@ class PrecioEspecialCliente(db.Model):
     
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'))
     producto_id = db.Column(db.Integer, db.ForeignKey('productos.id'))
-    
-    # FK a tu catálogo nuevo de tipos de descuento
     tipo_descuento_id = db.Column(db.Integer, db.ForeignKey('cat_tipos_descuento.id'))
     
-    valor_descuento = db.Column(db.Numeric(10, 2), nullable=False) # 10%, $5.00, etc.
+    valor_descuento = db.Column(db.Numeric(10, 2), nullable=False)
 
     cliente = db.relationship('Cliente', backref='precios_especiales')
     producto = db.relationship('Producto')

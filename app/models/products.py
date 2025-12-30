@@ -26,6 +26,10 @@ class Producto(db.Model):
     stock_maximo = db.Column(db.Float, default=0.0)
     stock_ideal = db.Column(db.Float, default=0.0)
 
+    # --- CONTROL DE VIDA (Sincronización) ---
+    # Esto le permite a Python ver la columna que YA EXISTE en tu BD
+    activo = db.Column(db.Boolean, default=True)
+
     # Relaciones
     categoria = db.relationship('CatCategoriaProducto')
     unidad = db.relationship('CatUnidadMedida')
@@ -42,17 +46,20 @@ class MateriaPrima(db.Model):
 
     # Dinero
     precio_costo_promedio = db.Column(db.Numeric(10, 2), default=0.00)
-    precio_venta_general = db.Column(db.Numeric(10, 2), default=0.00) # Requerimiento tuyo
+    precio_venta_general = db.Column(db.Numeric(10, 2), default=0.00) 
 
     # Físico
     peso_gramos = db.Column(db.Float, default=0.0)
     caducidad_dias = db.Column(db.Integer, default=0)
     imagen_materia = db.Column(db.String(255))
     
-    # Inventario Ideal (Opcional, pero bueno tenerlo)
+    # Inventario Ideal
     stock_minimo = db.Column(db.Float, default=0.0)
     stock_maximo = db.Column(db.Float, default=0.0)
     stock_ideal = db.Column(db.Float, default=0.0)
+
+    # Agregado por seguridad para futuros filtros
+    activo = db.Column(db.Boolean, default=True)
 
     categoria = db.relationship('CatCategoriaMateriaPrima')
     unidad = db.relationship('CatUnidadMedida')
