@@ -1,0 +1,222 @@
+{% extends 'base.html' %}
+{% block title %}Entrega {{ orden.folio }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid pb-5">
+    
+    <div class="card bg-dark text-white shadow mb-3 border-0">
+        <div class="card-body d-flex justify-content-between align-items-center py-2">
+            <div>
+                <small class="opacity-75 text-uppercase fw-bold">Total a Bajar</small>
+                <div class="fs-3 fw-bold text-warning"><i class="fa-solid fa-dolly me-2"></i>{{ total_piezas|int }} Piezas</div>
+            </div>
+            <div class="text-end">
+                <small class="opacity-75">Orden</small>
+                <div class="fw-bold">{{ orden.folio }}</div>
+            </div>
+        </div>
+    </div>
+
+    {% if saldo_global_previo > 0 %}
+    <div class="alert alert-danger shadow-sm d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <span class="fw-bold"><i class="fa-solid fa-circle-exclamation me-2"></i>TIENE DEUDA VIEJA</span>
+        </div>
+        <div class="fw-bold fs-5">${{ "{:,.2f}".format(saldo_global_previo) }}</div>
+    </div>
+    {% endif %}
+
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body bg-light border-start border-primary border-5">
+            <h5 class="fw-bold m-0 text-primary">{{ orden.cliente.nombre_negocio }}</h5>
+            <div class="d-flex justify-content-between mt-2">
+                <span class="badge bg-white text-dark border">{{ orden.metodo_pago_esperado }}</span>
+                <span class="fs-4 fw-bold text-dark" id="displayTotal">${{ "{:,.2f}".format(orden.total_venta) }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-header bg-white fw-bold">📦 Confirmar Productos</div>
+        <div class="card-body p-0">
+            <table class="table table-striped mb-0 align-middle">
+                <thead>
+                    <tr class="small text-muted text-uppercase">
+                        <th class="ps-3">Item</th>
+                        <th class="text-center" width="90">Bajar</th>
+                        <th class="text-center" width="50"><i class="fa-solid fa-check"></i></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr data-id="{{ item.detalle_id }}" data-precio="{{ item.precio }}">
+                        <td class="ps-3">
+                            <div class="fw-bold text-truncate" style="max-width: 180px;">{{ item.producto }}</div>
+                            <small class="text-muted">Traes: <strong>{{ item.surtida|int }}</strong></small>
+                        </td>
+                        <td class="p-2">
+                            <input type="number" 
+                                   class="form-control text-center fw-bold input-qty"
+                                   value="{{ item.sugerida|int }}" 
+                                   min="0" max="{{ item.surtida|int }}"
+                                   oninput="validarMaximo(this); calcularTotal();">
+                        </td>
+                        <td class="text-center">
+                            <input type="checkbox" class="form-check-input border-2 border-dark item-check" 
+                                   style="width: 25px; height: 25px;"
+                                   onchange="validarFormulario()">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white fw-bold">💰 Pago Contra-Entrega</div>
+        <div class="card-body">
+            
+            <label class="small text-muted fw-bold mb-1">Monto a Cobrar:</label>
+            <div class="input-group mb-3">
+                <span class="input-group-text bg-light">$</span>
+                <input type="number" id="inputAbono" class="form-control form-control-lg fw-bold text-success" 
+                       value="{% if orden.metodo_pago_esperado == 'Contado' %}{{ orden.total_venta }}{% endif %}"
+                       placeholder="0.00" oninput="calcularCambio()">
+            </div>
+
+            <div class="row g-2 mb-3">
+                <div class="col-6">
+                    <label class="small text-muted fw-bold mb-1">Recibido:</label>
+                    <input type="number" id="inputRecibido" class="form-control" placeholder="$$$" oninput="calcularCambio()">
+                </div>
+                <div class="col-6">
+                    <label class="small text-muted fw-bold mb-1">Cambio:</label>
+                    <input type="text" id="displayCambio" class="form-control bg-light fw-bold text-secondary" readonly value="$0.00">
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="small text-muted fw-bold mb-1">Método de Pago:</label>
+                <select id="selectMetodo" class="form-select fw-bold text-dark">
+                    {% for metodo in metodos_pago %}
+                        <option value="{{ metodo.id }}">{{ metodo.descripcion|replace('_', ' ') }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="mb-2">
+                <label class="small text-muted fw-bold mb-1">Notas (Min 15 letras):</label>
+                <textarea id="inputNotas" class="form-control" rows="2" 
+                          placeholder="Ej: Entrega completa, pagado..." 
+                          oninput="validarFormulario()"></textarea>
+                <div class="text-end"><small id="charCount" class="text-danger fw-bold">0/15</small></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-grid pb-5">
+        <button id="btnFinalizar" onclick="enviarEntrega()" class="btn btn-secondary btn-lg py-3 fw-bold shadow" disabled>
+            <i class="fa-solid fa-lock me-2"></i> COMPLETAR CHECKS Y NOTAS
+        </button>
+    </div>
+
+</div>
+
+<script>
+    function validarMaximo(input) {
+        if(parseInt(input.value) > parseInt(input.max)) input.value = input.max;
+        if(parseInt(input.value) < 0) input.value = 0;
+    }
+
+    function calcularTotal() {
+        let nuevoTotal = 0;
+        document.querySelectorAll('.input-qty').forEach(input => {
+            const row = input.closest('tr');
+            nuevoTotal += (parseFloat(row.dataset.precio) * (parseFloat(input.value) || 0));
+        });
+        document.getElementById('displayTotal').innerText = '$' + nuevoTotal.toFixed(2);
+    }
+
+    function calcularCambio() {
+        const abono = parseFloat(document.getElementById('inputAbono').value) || 0;
+        const recibido = parseFloat(document.getElementById('inputRecibido').value) || 0;
+        const cambio = recibido - abono;
+        
+        const elCambio = document.getElementById('displayCambio');
+        if (cambio < 0) {
+            elCambio.value = "FALTA: $" + Math.abs(cambio).toFixed(2);
+            elCambio.classList.add('text-danger');
+        } else {
+            elCambio.value = '$' + cambio.toFixed(2);
+            elCambio.classList.remove('text-danger');
+        }
+    }
+
+    function validarFormulario() {
+        const notas = document.getElementById('inputNotas').value.trim();
+        const checks = document.querySelectorAll('.item-check');
+        let checksOk = true;
+        checks.forEach(c => { if(!c.checked) checksOk = false; });
+
+        document.getElementById('charCount').innerText = notas.length + "/15";
+        document.getElementById('charCount').className = notas.length >= 15 ? 'text-success fw-bold' : 'text-danger fw-bold';
+
+        const btn = document.getElementById('btnFinalizar');
+        if (checksOk && notas.length >= 15) {
+            btn.disabled = false;
+            btn.classList.replace('btn-secondary', 'btn-success');
+            btn.innerHTML = '<i class="fa-solid fa-print me-2"></i> TERMINAR E IMPRIMIR';
+        } else {
+            btn.disabled = true;
+            btn.classList.replace('btn-success', 'btn-secondary');
+            btn.innerHTML = '<i class="fa-solid fa-lock me-2"></i> COMPLETAR CHECKS Y NOTAS';
+        }
+    }
+
+    async function enviarEntrega() {
+        if (!confirm("¿Cerrar entrega y generar ticket?")) return;
+
+        const items = [];
+        document.querySelectorAll('.input-qty').forEach(input => {
+            items.push({
+                detalle_id: input.closest('tr').dataset.id,
+                cant_real: input.value
+            });
+        });
+
+        const abono = document.getElementById('inputAbono').value;
+        const recibido = document.getElementById('inputRecibido').value;
+        const cambioVal = document.getElementById('displayCambio').value.replace('$','').replace('FALTA: ','-');
+
+        const payload = {
+            orden_id: {{ orden.id }},
+            items: items,
+            notas: document.getElementById('inputNotas').value,
+            pago: {
+                monto: abono || 0,
+                recibido: recibido || 0,
+                cambio: parseFloat(cambioVal) || 0,
+                tipo_id: document.getElementById('selectMetodo').value
+            }
+        };
+
+        try {
+            const res = await fetch("{{ url_for('logistics.confirmar_entrega') }}", {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                window.location.href = "/logistica/ticket/" + data.orden_id;
+            } else {
+                alert("❌ ERROR: " + data.message);
+            }
+        } catch (e) {
+            alert("Error de conexión");
+        }
+    }
+</script>
+{% endblock %}

@@ -63,7 +63,7 @@ def api_cliente(id):
         "precios_especiales": precios
     })
 
-# --- 3. CREAR PEDIDO (CON REGLA DE 15 CARACTERES) ---
+# --- 3. CREAR PEDIDO (PARCHEADO) ---
 @sales_bp.route('/crear-pedido', methods=['POST'])
 @login_required
 def crear_pedido():
@@ -73,12 +73,12 @@ def crear_pedido():
         return jsonify({"status": "error", "message": "El pedido está vacío"}), 400
 
     try:
-        # 1. VALIDACIÓN DE NOTA OBLIGATORIA (CULTURA FINANCIERA)
+        # 1. VALIDACIÓN DE NOTA
         notas = data.get('notas', '').strip()
         if len(notas) < 15:
             return jsonify({
                 "status": "error", 
-                "message": "⚠️ Escribe una nota detallada (mínimo 15 letras). Explica condiciones de pago o entrega."
+                "message": "⚠️ Escribe una nota detallada (mínimo 15 letras)."
             }), 400
 
         # 2. VALIDACIÓN DE CRÉDITO
@@ -110,7 +110,7 @@ def crear_pedido():
             metodo_pago_esperado = data['metodo_pago'],
             total_venta = 0, 
             estado = 'CONFIRMADA',
-            notas_vendedor = notas # Ya validada
+            notas_vendedor = notas
         )
         
         db.session.add(nueva_orden)
@@ -131,7 +131,10 @@ def crear_pedido():
             )
             db.session.add(detalle)
 
+        # PARCHE: Inicializar Deuda
         nueva_orden.total_venta = total_calculado
+        nueva_orden.saldo_pendiente = total_calculado 
+        
         db.session.commit()
         
         return jsonify({

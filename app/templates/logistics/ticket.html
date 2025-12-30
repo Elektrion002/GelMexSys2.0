@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket {{ orden.folio }}</title>
+    <style>
+        body { font-family: 'Courier New', Courier, monospace; font-size: 13px; margin: 0; padding: 10px; background: #eee; }
+        .ticket { max-width: 300px; margin: 0 auto; background: white; padding: 15px; border: 1px dashed #999; }
+        .center { text-align: center; }
+        .bold { font-weight: bold; }
+        .line { border-bottom: 1px dashed black; margin: 8px 0; }
+        .row { display: flex; justify-content: space-between; }
+        .total-row { font-size: 15px; font-weight: bold; margin-top: 5px; }
+        .btn-print { display: block; width: 100%; padding: 12px; background: #212529; color: white; border: none; font-size: 16px; margin-top: 20px; font-weight: bold; border-radius: 5px;}
+        .btn-back { display: block; width: 100%; padding: 10px; text-align: center; text-decoration: none; color: #555; margin-top: 10px; }
+        @media print { .btn-print, .btn-back { display: none; } body { background: white; } .ticket { border: none; margin: 0; padding: 0; } }
+    </style>
+</head>
+<body>
+
+<div class="ticket">
+    <div class="center">
+        <h3 style="margin:0;">GELMEXSYS</h3>
+        <small>Helados y Paletas Finas</small><br>
+        <small>{{ orden.fecha_promesa_entrega.strftime('%d/%m/%Y') }}</small>
+    </div>
+    
+    <div class="line"></div>
+    
+    <div class="row"><span>Cliente:</span> <span class="bold">{{ orden.cliente.nombre_negocio[:20] }}</span></div>
+    <div class="row"><span>Folio:</span> <span>{{ orden.folio }}</span></div>
+
+    <div class="line"></div>
+    
+    <div class="bold" style="margin-bottom: 5px;">PRODUCTOS ENTREGADOS:</div>
+    {% for item in orden.items %}
+        {% if item.cantidad_entregada and item.cantidad_entregada > 0 %}
+        <div class="row">
+            <span>{{ item.cantidad_entregada|int }} x {{ item.producto.descripcion[:16] }}</span>
+            <span>${{ "{:,.2f}".format(item.subtotal or 0) }}</span>
+        </div>
+        {% endif %}
+    {% endfor %}
+
+    <div class="line"></div>
+
+    <div class="row bold">
+        <span>TOTAL NOTA:</span>
+        <span>${{ "{:,.2f}".format(orden.total_venta or 0) }}</span>
+    </div>
+
+    {% if pago %}
+        <div class="row"><span>PAGO CONTRA-ENTREGA:</span> <span>- ${{ "{:,.2f}".format(pago.monto_pago or 0) }}</span></div>
+        <div class="line"></div>
+        <div class="center bold">DETALLE EFECTIVO/TRANSF</div>
+        <div class="row"><span>Recibido:</span> <span>${{ "{:,.2f}".format(pago.dinero_recibido or 0) }}</span></div>
+        <div class="row"><span>Cambio:</span> <span>${{ "{:,.2f}".format(pago.cambio_devuelto or 0) }}</span></div>
+    {% else %}
+        <div class="center bold" style="margin-top: 5px;">(CRÉDITO / SIN PAGO)</div>
+    {% endif %}
+
+    <div class="line"></div>
+
+    <div class="center bold">ESTADO DE CUENTA</div>
+    <div class="row"><span>Resta esta Nota:</span> <span>${{ "{:,.2f}".format(orden.saldo_pendiente or 0) }}</span></div>
+    <div class="row total-row">
+        <span>DEUDA TOTAL:</span>
+        <span>${{ "{:,.2f}".format(orden.cliente.saldo_actual or 0) }}</span>
+    </div>
+
+    <div class="line"></div>
+    <div class="center" style="font-size: 11px;">
+        {{ pago.notas if pago and pago.notas else '' }}
+    </div>
+    
+    <br>
+    <div class="center">*** GRACIAS ***</div>
+</div>
+
+<button class="btn-print" onclick="window.print()">🖨️ IMPRIMIR</button>
+<a href="{{ url_for('logistics.index') }}" class="btn-back">⬅️ Volver a Ruta</a>
+
+</body>
+</html>

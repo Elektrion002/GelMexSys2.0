@@ -1,8 +1,7 @@
-# app/__init__.py
 from flask import Flask
 from config import config
 from app.extensions import db
-from flask_login import LoginManager # <--- 1. Importar
+from flask_login import LoginManager 
 
 def create_app(config_name='default'):
     app = Flask(__name__)
@@ -10,9 +9,9 @@ def create_app(config_name='default'):
 
     db.init_app(app)
 
-    # --- CONFIGURACIÓN DE LOGIN (NUEVO) ---
+    # --- CONFIGURACIÓN DE LOGIN ---
     login_manager = LoginManager()
-    login_manager.login_view = 'auth.login' # A dónde ir si no estás logueado
+    login_manager.login_view = 'auth.login'
     login_manager.login_message = "Debes iniciar sesión para acceder a este sistema."
     login_manager.login_message_category = "warning"
     login_manager.init_app(app)
@@ -25,7 +24,8 @@ def create_app(config_name='default'):
     # --------------------------------------
 
     with app.app_context():
-        from app.models import catalogs, users, infrastructure, products, clients, stock, orders 
+        # AQUÍ AGREGAMOS 'payments' PARA QUE DETECTE LA TABLA NUEVA
+        from app.models import catalogs, users, infrastructure, products, clients, stock, orders, payments
         db.create_all()
 
     # --- REGISTRO DE BLUEPRINTS ---
@@ -52,5 +52,8 @@ def create_app(config_name='default'):
 
     from app.blueprints.shipping import shipping_bp
     app.register_blueprint(shipping_bp)
+    
+    from app.blueprints.logistics import logistics_bp
+    app.register_blueprint(logistics_bp)
    
     return app
