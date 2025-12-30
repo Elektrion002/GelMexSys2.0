@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket {{ mov.folio }}</title>
+    <style>
+        body { 
+            font-family: 'Courier New', Courier, monospace; 
+            font-size: 12px; 
+            margin: 0; 
+            padding: 15px; 
+            max-width: 300px; 
+            background: #fff; 
+            color: #000;
+        }
+        .text-center { text-align: center; }
+        .text-end { text-align: right; }
+        .fw-bold { font-weight: bold; }
+        .line { border-bottom: 1px dashed #000; margin: 8px 0; }
+        .mega { font-size: 16px; font-weight: bold; }
+        .box { border: 1px solid #000; padding: 5px; margin: 5px 0; }
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body onload="window.print()">
+    <div class="text-center">
+        <h3 style="margin:0;">GELMEX SYS</h3>
+        <p style="margin:2px 0;">TESORERIA Y FINANZAS</p>
+        <div class="line"></div>
+        
+        <p class="fw-bold mega" style="margin:5px 0;">
+            {{ 'COMPROBANTE DE INGRESO' if mov.tipo == 'INGRESO' else 'VALE DE SALIDA (GASTO)' }}
+        </p>
+        
+        <p style="margin:0;">FOLIO: <strong>{{ mov.folio }}</strong></p>
+        <p style="margin:0;">{{ mov.fecha.strftime('%d/%m/%Y %H:%M:%S') }}</p>
+    </div>
+
+    <div class="line"></div>
+
+    <div style="margin-bottom: 10px;">
+        <span class="fw-bold">CONCEPTO:</span><br>
+        <span>{{ mov.concepto }}</span>
+    </div>
+
+    {% if mov.notas %}
+    <div style="margin-bottom: 10px;">
+        <span class="fw-bold">DETALLES / NOTAS:</span><br>
+        <span style="font-style: italic;">{{ mov.notas }}</span>
+    </div>
+    {% endif %}
+
+    <div class="line"></div>
+
+    <div class="text-center">
+        <p style="margin:0;">MONTO DE LA OPERACIÓN</p>
+        <h2 class="mega" style="margin: 5px 0;">${{ "{:,.2f}".format(mov.monto) }}</h2>
+    </div>
+
+    <div class="line"></div>
+
+    <div>
+        <small>Registrado por:</small><br>
+        <strong>{{ mov.usuario.nombres }}</strong>
+    </div>
+
+    {% if mov.pago_origen %}
+    <div style="margin-top:5px;">
+        <small>Referencia Origen:</small><br>
+        Recibo Chofer: {{ mov.pago_origen.folio_recibo }}
+    </div>
+    {% endif %}
+
+    <div style="margin-top: 20px; text-align: center; border-top: 1px solid #000; padding-top: 5px;">
+        Firma de Conformidad
+    </div>
+
+    <div class="text-center" style="margin-top: 20px;">
+        <small>Este documento es un comprobante interno de control financiero.</small>
+    </div>
+
+    <button class="no-print" onclick="window.close()" style="width:100%; padding: 10px; margin-top: 20px; cursor: pointer;">CERRAR VENTANA</button>
+</body>
+</html>

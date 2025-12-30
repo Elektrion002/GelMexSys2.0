@@ -24,8 +24,8 @@ def create_app(config_name='default'):
     # --------------------------------------
 
     with app.app_context():
-        # AQUÍ AGREGAMOS 'payments' PARA QUE DETECTE LA TABLA NUEVA
-        from app.models import catalogs, users, infrastructure, products, clients, stock, orders, payments
+        # IMPORTANTE: Agregamos 'finance' para que detecte los modelos financieros
+        from app.models import catalogs, users, infrastructure, products, clients, stock, orders, payments, finance
         db.create_all()
 
     # --- REGISTRO DE BLUEPRINTS ---
@@ -55,5 +55,9 @@ def create_app(config_name='default'):
     
     from app.blueprints.logistics import logistics_bp
     app.register_blueprint(logistics_bp)
-   
+
+    # NUEVO: Módulo de Finanzas
+    from app.blueprints.finance import finance_bp
+    app.register_blueprint(finance_bp)
+    
     return app

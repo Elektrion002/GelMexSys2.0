@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Auditoría de Pagos{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="fw-bold"><i class="fa-solid fa-sack-dollar text-warning me-2"></i> Recepción de Efectivo</h4>
+        <a href="{{ url_for('finance.dashboard') }}" class="btn btn-outline-dark">Volver</a>
+    </div>
+
+    <div class="card shadow border-0">
+        <div class="card-body p-0">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-3">Folio Pago</th>
+                        <th>Chofer / Vendedor</th>
+                        <th>Origen</th>
+                        <th class="text-end">Monto</th>
+                        <th class="text-center">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if not pagos %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-check-double fs-1 mb-2"></i><br>
+                            Todo al día. No hay choferes con dinero pendiente de entrega.
+                        </td>
+                    </tr>
+                    {% else %}
+                    {% for p in pagos %}
+                    <tr>
+                        <td class="ps-3 fw-bold text-primary">{{ p.folio_recibo }}<br>
+                            <small class="text-muted fw-normal">{{ p.fecha_registro.strftime('%d/%m %H:%M') }}</small>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-user-tie text-secondary"></i> {{ p.cobrador.nombre or 'Chofer' }}
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-dark border">Orden: {{ p.orden.folio }}</span><br>
+                            <small>{{ p.cliente.nombre_negocio }}</small>
+                        </td>
+                        <td class="text-end fs-5 fw-bold text-success">
+                            ${{ "{:,.2f}".format(p.monto_pago) }}
+                        </td>
+                        <td class="text-center">
+                            <form action="{{ url_for('finance.confirmar_ingreso') }}" method="POST" class="d-inline">
+                                <input type="hidden" name="pago_id" value="{{ p.id }}">
+                                <button type="submit" name="accion" value="AUDITAR" class="btn btn-success btn-sm fw-bold shadow-sm">
+                                    <i class="fa-solid fa-check"></i> CONFIRMAR
+                                </button>
+                                <button type="submit" name="accion" value="RECHAZAR" class="btn btn-outline-danger btn-sm" title="Rechazar (Faltante)">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

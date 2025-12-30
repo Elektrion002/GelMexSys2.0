@@ -115,7 +115,31 @@
             </a>
 
             <div class="nav-group-label mt-2">ADMINISTRACIÓN</div>
-            <a href="#" class="nav-link py-3"><i class="fa-solid fa-sack-dollar me-2"></i> Finanzas</a>
+            
+            <a class="nav-link py-3 d-flex justify-content-between align-items-center" 
+               data-bs-toggle="collapse" href="#collapseFinanzas" role="button" aria-expanded="false">
+                <span><i class="fa-solid fa-sack-dollar me-2"></i> Finanzas</span>
+                <i class="fa-solid fa-chevron-down small"></i>
+            </a>
+            <div class="collapse" id="collapseFinanzas">
+                <div class="submenu-dark shadow-inner">
+                    <a class="nav-link py-2" href="{{ url_for('finance.dashboard') }}">
+                        <i class="fa-solid fa-chart-pie me-2"></i> Tablero Financiero
+                    </a>
+                    
+                    <a class="nav-link py-2 text-info" href="{{ url_for('finance.ingresos') }}">
+                        <i class="fa-solid fa-wallet me-2"></i> Ingresos Extra / Capital
+                    </a>
+                    
+                    <a class="nav-link py-2 text-success" href="{{ url_for('finance.auditoria') }}">
+                        <i class="fa-solid fa-check-double me-2"></i> Auditoría de Pagos
+                    </a>
+                    <a class="nav-link py-2 text-danger" href="{{ url_for('finance.gastos') }}">
+                        <i class="fa-solid fa-money-bill-transfer me-2"></i> Gastos y Salidas
+                    </a>
+                </div>
+            </div>
+
             <a href="#" class="nav-link py-3"><i class="fa-solid fa-users-gear me-2"></i> Configuración</a>
         </div>
     </nav>

@@ -1,6 +1,6 @@
 ============================================================
  GELMEXSYS 2.0 - REPORTE DE CONTEXTO TÉCNICO (PostgreSQL)
- FECHA: 2025-12-29 10:09:01
+ FECHA: 2025-12-30 08:17:13
 ============================================================
 
 ------------------------------
@@ -26,18 +26,24 @@ ESTRUCTURA DE DIRECTORIOS:
         [blueprints/]
             api_test.py
             auth.py
+            finance.py
             home.py
             inventory.py
+            logistics.py
             production.py
             reception.py
             sales.py
+            shipping.py
         [models/]
             catalogs.py
             clients.py
+            finance.py
             infrastructure.py
             orders.py
+            payments.py
             production.py
             products.py
+            shipping.py
             stock.py
             users.py
             __init__.py
@@ -49,12 +55,23 @@ ESTRUCTURA DE DIRECTORIOS:
             base.html
             [auth/]
                 login.html
+            [finance/]
+                audit.html
+                dashboard.html
+                expenses.html
+                ticket_movement.html
             [home/]
                 index.html
             [inventory/]
                 catalog_list.html
                 form.html
                 movements.html
+            [logistics/]
+                collection_client.html
+                collection_search.html
+                delivery_handover.html
+                route_dashboard.html
+                ticket.html
             [production/]
                 dashboard.html
                 orders_list.html
@@ -62,6 +79,10 @@ ESTRUCTURA DE DIRECTORIOS:
                 reception_dock.html
             [sales/]
                 console.html
+            [shipping/]
+                dashboard.html
+                labels.html
+                picking.html
     [db_seeds/]
         data_catalogs.py
         data_clients.py
@@ -318,133 +339,46 @@ Para el archivo `db_seeds.py`, seguiremos este orden estricto de llenado para ev
 5.  **Nivel 4 (Usuarios):** Crear al "Super Admin" (Dios) y un Vendedor demo.
 
 ========================= FILE: .\audit_system.py =========================
-import os
 from app import create_app
 from app.extensions import db
-from sqlalchemy import text, inspect
+from sqlalchemy import inspect
 
-# Configuración de colores para la consola
-class Colors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
+app = create_app()
 
-def check_table_health(inspector, table_name, required_cols=None):
-    """Verifica si la tabla existe y tiene columnas críticas."""
-    if not inspector.has_table(table_name):
-        print(f"   {Colors.FAIL}[CRÍTICO] La tabla '{table_name}' NO EXISTE.{Colors.ENDC}")
-        return False
-    
-    if required_cols:
-        cols = [c['name'] for c in inspector.get_columns(table_name)]
-        missing = [rc for rc in required_cols if rc not in cols]
-        if missing:
-            print(f"   {Colors.FAIL}[ERROR] Tabla '{table_name}' incompleta. Faltan columnas: {missing}{Colors.ENDC}")
-            return False
-        else:
-            print(f"   [OK] Tabla '{table_name}' estructuralmente correcta.")
-            # Imprimir columnas clave encontradas para validación visual
-            found_keys = [c for c in cols if c in required_cols]
-            print(f"        -> Columnas validadas: {found_keys}")
-    
-    return True
-
-def count_records(table_name):
-    """Cuenta registros reales usando SQL directo."""
-    try:
-        sql = text(f"SELECT COUNT(*) FROM {table_name}")
-        count = db.session.execute(sql).scalar()
-        color = Colors.OKGREEN if count > 0 else Colors.WARNING
-        print(f"   {color}Registros en '{table_name}': {count}{Colors.ENDC}")
-        return count
-    except Exception as e:
-        print(f"   {Colors.FAIL}Error leyendo '{table_name}': {e}{Colors.ENDC}")
-        return 0
-
-def audit_database():
-    app = create_app()
+def audit_schema():
     with app.app_context():
-        print(f"\n{Colors.HEADER}{'='*70}")
-        print(f" AUDITORÍA MCP (MODEL CONTEXT PROTOCOL) - GELMEXSYS 2.0")
-        print(f"{'='*70}{Colors.ENDC}\n")
-
         inspector = inspect(db.engine)
+        print("=== AUDITORÍA DE ESTRUCTURA ACTUAL ===\n")
 
-        # ---------------------------------------------------------
-        # FASE 1: INFRAESTRUCTURA DE ALMACÉN (El terreno del Almacenista)
-        # ---------------------------------------------------------
-        print(f"{Colors.BOLD}FASE 1: PREPARACIÓN DE ALMACENES (Infraestructura){Colors.ENDC}")
+        # 1. REVISAR ORDENES DE VENTA
+        print("--- TABLA: ordenes_venta ---")
+        columns = inspector.get_columns('ordenes_venta')
+        for col in columns:
+            print(f"- {col['name']} ({col['type']})")
         
-        # Validar si existen almacenes y, más importante, UBICACIONES (Pasillos/Racks)
-        # Sin ubicaciones, el almacenista no puede "ubicar" el producto.
-        if check_table_health(inspector, 'almacenes') and check_table_health(inspector, 'ubicaciones_almacen', ['codigo', 'almacen_id']):
-            cnt_alm = count_records('almacenes')
-            cnt_ubi = count_records('ubicaciones_almacen')
-            
-            if cnt_alm > 0 and cnt_ubi == 0:
-                print(f"   {Colors.FAIL}>>> ALERTA DE PROCESO: Tienes almacenes pero NO tienes ubicaciones.{Colors.ENDC}")
-                print("       El Almacenista no podrá guardar nada porque no hay 'Pasillos' definidos.")
+        # 2. REVISAR DETALLES (Vital para ver si tenemos cantidad_entregada)
+        print("\n--- TABLA: orden_venta_detalles ---")
+        columns = inspector.get_columns('orden_venta_detalles')
+        for col in columns:
+            print(f"- {col['name']} ({col['type']})")
 
-        # ---------------------------------------------------------
-        # FASE 2: MODELO DE INVENTARIO (La divergencia detectada)
-        # ---------------------------------------------------------
-        print(f"\n{Colors.BOLD}FASE 2: MODELO DE INVENTARIO (Validación de Nombres){Colors.ENDC}")
-        
-        # Aquí validamos si postgres tiene 'cantidad_actual' o 'cantidad_fisica'
-        inv_cols = [c['name'] for c in inspector.get_columns('inventario_productos')] if inspector.has_table('inventario_productos') else []
-        
-        print(f"   Columnas en DB Real: {inv_cols}")
-        if 'cantidad_actual' in inv_cols:
-            print(f"   {Colors.OKGREEN}✓ PostgreSQL usa 'cantidad_actual'. (Asegúrate que stock.py coincida){Colors.ENDC}")
-        elif 'cantidad_fisica' in inv_cols:
-            print(f"   {Colors.OKGREEN}✓ PostgreSQL usa 'cantidad_fisica'. (Asegúrate que stock.py coincida){Colors.ENDC}")
+        # 3. REVISAR CLIENTES (Vital para saldos y créditos)
+        print("\n--- TABLA: clientes ---")
+        columns = inspector.get_columns('clientes')
+        for col in columns:
+            print(f"- {col['name']} ({col['type']})")
+
+        # 4. CHECAR SI YA EXISTE PAGOS (Para no duplicar)
+        if inspector.has_table('pagos'):
+            print("\n--- TABLA: pagos (YA EXISTE) ---")
+            columns = inspector.get_columns('pagos')
+            for col in columns:
+                print(f"- {col['name']} ({col['type']})")
         else:
-            print(f"   {Colors.FAIL}❌ NO SE ENCONTRÓ COLUMNA DE CANTIDAD. El sistema tronará.{Colors.ENDC}")
+            print("\n--- TABLA: pagos (NO EXISTE AÚN) ---")
 
-        # Revisamos si hay Kárdex para auditoría
-        check_table_health(inspector, 'historial_movimientos', ['tipo_movimiento', 'cantidad', 'usuario_id', 'referencia'])
-
-        # ---------------------------------------------------------
-        # FASE 3: LOGÍSTICA (El terreno del Repartidor)
-        # ---------------------------------------------------------
-        print(f"\n{Colors.BOLD}FASE 3: LOGÍSTICA Y RUTAS (Preparación para Entrega){Colors.ENDC}")
-        
-        # El proceso dice que el repartidor sube cajas según su ruta. ¿Hay rutas?
-        check_table_health(inspector, 'rutas_reparto', ['descripcion'])
-        count_records('rutas_reparto')
-        
-        check_table_health(inspector, 'vehiculos', ['placas', 'asignado'])
-        count_records('vehiculos')
-
-        # ---------------------------------------------------------
-        # FASE 4: SIMULACIÓN DE FLUJO DE DATOS (Data Flow)
-        # ---------------------------------------------------------
-        print(f"\n{Colors.BOLD}FASE 4: DIAGNÓSTICO DE FLUJO{Colors.ENDC}")
-        
-        # Revisamos estados de órdenes para ver si el "Programador" tiene chamba
-        try:
-            sql = text("SELECT estado, COUNT(*) FROM ordenes_venta GROUP BY estado")
-            res = db.session.execute(sql).fetchall()
-            if res:
-                print("   Estado de las Órdenes:")
-                for r in res:
-                    print(f"   - {r[0]}: {r[1]}")
-            else:
-                print(f"   {Colors.WARNING}No hay órdenes activas.{Colors.ENDC}")
-        except:
-            pass
-
-        print(f"\n{Colors.HEADER}CONCLUSIÓN DEL PROTOCOLO:{Colors.ENDC}")
-        print("Si FASE 1 tiene Almacenes pero 0 Ubicaciones -> Bloqueante para Módulo Almacén.")
-        print("Si FASE 2 muestra nombres distintos a tu código Python -> Error 500 seguro.")
-        print("Si FASE 3 tiene 0 Rutas -> El módulo de Ventas no podrá asignar clientes correctamente.")
-
-if __name__ == "__main__":
-    audit_database()
+if __name__ == '__main__':
+    audit_schema()
 
 ========================= FILE: .\check_columns.py =========================
 from app import create_app
@@ -1143,11 +1077,10 @@ class ProductoForm(FlaskForm):
     submit = SubmitField('Guardar Producto')
 
 ========================= FILE: .\app\__init__.py =========================
-# app/__init__.py
 from flask import Flask
 from config import config
 from app.extensions import db
-from flask_login import LoginManager # <--- 1. Importar
+from flask_login import LoginManager 
 
 def create_app(config_name='default'):
     app = Flask(__name__)
@@ -1155,9 +1088,9 @@ def create_app(config_name='default'):
 
     db.init_app(app)
 
-    # --- CONFIGURACIÓN DE LOGIN (NUEVO) ---
+    # --- CONFIGURACIÓN DE LOGIN ---
     login_manager = LoginManager()
-    login_manager.login_view = 'auth.login' # A dónde ir si no estás logueado
+    login_manager.login_view = 'auth.login'
     login_manager.login_message = "Debes iniciar sesión para acceder a este sistema."
     login_manager.login_message_category = "warning"
     login_manager.init_app(app)
@@ -1170,7 +1103,8 @@ def create_app(config_name='default'):
     # --------------------------------------
 
     with app.app_context():
-        from app.models import catalogs, users, infrastructure, products, clients, stock, orders 
+        # IMPORTANTE: Agregamos 'finance' para que detecte los modelos financieros
+        from app.models import catalogs, users, infrastructure, products, clients, stock, orders, payments, finance
         db.create_all()
 
     # --- REGISTRO DE BLUEPRINTS ---
@@ -1194,7 +1128,17 @@ def create_app(config_name='default'):
 
     from app.blueprints.production import production_bp
     app.register_blueprint(production_bp)
-   
+
+    from app.blueprints.shipping import shipping_bp
+    app.register_blueprint(shipping_bp)
+    
+    from app.blueprints.logistics import logistics_bp
+    app.register_blueprint(logistics_bp)
+
+    # NUEVO: Módulo de Finanzas
+    from app.blueprints.finance import finance_bp
+    app.register_blueprint(finance_bp)
+    
     return app
 
 ========================= FILE: .\app\blueprints\api_test.py =========================
@@ -1296,6 +1240,223 @@ def logout():
     logout_user()
     flash('Has cerrado sesión correctamente.', 'info')
     return redirect(url_for('auth.login'))
+
+========================= FILE: .\app\blueprints\finance.py =========================
+import random
+import string
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from flask_login import login_required, current_user
+from datetime import datetime
+from sqlalchemy import func, desc
+from sqlalchemy.exc import IntegrityError
+from app.extensions import db
+
+# Modelos
+from app.models.finance import CajaEmpresa, TransaccionFinanciera, GastoOperativo
+from app.models.payments import Pago
+from app.models.orders import OrdenVenta
+
+# --- CORRECCIÓN AQUÍ: Importamos la clase en SINGULAR como está en tu catalogs.py ---
+from app.models.catalogs import CatConceptoFinanzas
+
+finance_bp = Blueprint('finance', __name__, url_prefix='/finanzas')
+
+# --- UTILIDAD: GENERADOR DE FOLIOS DE TESORERÍA ---
+def generar_folio_tesoreria(tipo):
+    # Formato: TES-ING-AAMMDD-XXXX o TES-EGR-AAMMDD-XXXX
+    prefijo = "ING" if tipo == 'INGRESO' else "EGR"
+    fecha = datetime.now().strftime('%y%m%d')
+    sufijo = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+    return f"TES-{prefijo}-{fecha}-{sufijo}"
+
+@finance_bp.route('/')
+@login_required
+def dashboard():
+    caja = CajaEmpresa.query.get(1)
+    if not caja:
+        caja = CajaEmpresa(id=1, saldo_actual=0)
+        db.session.add(caja)
+        db.session.commit()
+
+    # Totales para tarjetas
+    dinero_en_calle = db.session.query(func.sum(Pago.monto_pago))\
+        .filter(Pago.estado == 'POR_AUDITAR').scalar() or 0.0
+
+    mes_actual = datetime.now().month
+    gastos_mes = db.session.query(func.sum(GastoOperativo.monto))\
+        .filter(func.extract('month', GastoOperativo.fecha_registro) == mes_actual).scalar() or 0.0
+
+    # Usamos CatConceptoFinanzas (Singular)
+    conceptos_ingreso = CatConceptoFinanzas.query.filter(
+        CatConceptoFinanzas.tipo_flujo == 'INGRESO',
+        CatConceptoFinanzas.activo == True,
+        CatConceptoFinanzas.id != 1, 
+        CatConceptoFinanzas.id != 2 
+    ).all()
+
+    # --- HISTORIAL DE ÚLTIMOS 30 MOVIMIENTOS ---
+    ultimos_movimientos = TransaccionFinanciera.query\
+        .order_by(desc(TransaccionFinanciera.fecha))\
+        .limit(30).all()
+
+    return render_template('finance/dashboard.html', 
+                           caja=caja, 
+                           en_calle=dinero_en_calle,
+                           gastos=gastos_mes,
+                           conceptos_ingreso=conceptos_ingreso,
+                           movimientos=ultimos_movimientos)
+
+# --- INGRESOS DE CAPITAL ---
+@finance_bp.route('/registrar-ingreso-extra', methods=['POST'])
+@login_required
+def registrar_ingreso_extra():
+    monto = float(request.form.get('monto'))
+    concepto_id = request.form.get('concepto_id')
+    notas = request.form.get('notas')
+
+    # Corrección: Singular
+    cat_concepto = CatConceptoFinanzas.query.get(concepto_id)
+    descripcion = cat_concepto.descripcion if cat_concepto else "Ingreso Extra"
+
+    caja = CajaEmpresa.query.get(1)
+    caja.saldo_actual = float(caja.saldo_actual) + monto
+
+    # Generamos Folio Único
+    folio = generar_folio_tesoreria('INGRESO')
+
+    transaccion = TransaccionFinanciera(
+        folio=folio,
+        tipo='INGRESO',
+        monto=monto,
+        concepto=descripcion,
+        notas=notas,
+        usuario_id=current_user.id
+    )
+    db.session.add(transaccion)
+    db.session.commit()
+
+    flash(f"💰 Ingreso registrado. Folio: {folio}", 'success')
+    return redirect(url_for('finance.dashboard'))
+
+# --- AUDITORÍA DE PAGOS ---
+@finance_bp.route('/auditoria')
+@login_required
+def auditoria():
+    pagos_pendientes = Pago.query.filter_by(estado='POR_AUDITAR')\
+        .order_by(Pago.fecha_registro.desc()).all()
+    return render_template('finance/audit.html', pagos=pagos_pendientes)
+
+@finance_bp.route('/confirmar-ingreso', methods=['POST'])
+@login_required
+def confirmar_ingreso():
+    pago_id = request.form.get('pago_id')
+    accion = request.form.get('accion') 
+
+    pago = Pago.query.get_or_404(pago_id)
+    caja = CajaEmpresa.query.get(1)
+
+    if accion == 'AUDITAR':
+        pago.estado = 'AUDITADO'
+        pago.auditado_por_id = current_user.id
+        pago.fecha_auditoria = datetime.now()
+
+        # Sumar a caja
+        caja.saldo_actual = float(caja.saldo_actual) + float(pago.monto_pago)
+
+        # GENERAR FOLIO DE TESORERÍA (El espejo financiero)
+        folio_tesoreria = generar_folio_tesoreria('INGRESO')
+
+        transaccion = TransaccionFinanciera(
+            folio=folio_tesoreria,
+            tipo='INGRESO',
+            monto=pago.monto_pago,
+            concepto=f"Corte Caja - Pago Chofer {pago.folio_recibo}",
+            notas=f"Orden: {pago.orden.folio}. Cliente: {pago.cliente.nombre_negocio}",
+            usuario_id=current_user.id,
+            pago_origen_id=pago.id
+        )
+        db.session.add(transaccion)
+
+        orden = OrdenVenta.query.get(pago.orden_id)
+        if orden.estado == 'SINAUDITARPAGO':
+            orden.estado = 'PAGADO'
+
+        msg = f"✅ Auditado correctamente. Generado Ticket Tesorería: {folio_tesoreria}"
+
+    elif accion == 'RECHAZAR':
+        pago.estado = 'RECHAZADO'
+        pago.notas = (pago.notas or '') + " | RECHAZADO POR FINANZAS."
+        msg = "⚠️ Pago rechazado."
+
+    db.session.commit()
+    flash(msg, 'success' if accion == 'AUDITAR' else 'warning')
+    return redirect(url_for('finance.auditoria'))
+
+# --- GASTOS ---
+@finance_bp.route('/gastos')
+@login_required
+def gastos():
+    # Corrección: Singular
+    conceptos_egreso = CatConceptoFinanzas.query.filter_by(tipo_flujo='EGRESO', activo=True).all()
+    ultimos_gastos = GastoOperativo.query.order_by(GastoOperativo.id.desc()).limit(20).all()
+    
+    return render_template('finance/expenses.html', 
+                           gastos=ultimos_gastos,
+                           conceptos=conceptos_egreso)
+
+@finance_bp.route('/registrar-gasto', methods=['POST'])
+@login_required
+def registrar_gasto():
+    monto = float(request.form.get('monto'))
+    concepto_id = request.form.get('concepto_id')
+    notas = request.form.get('notas')
+
+    # Corrección: Singular
+    cat_concepto = CatConceptoFinanzas.query.get(concepto_id)
+    descripcion = cat_concepto.descripcion if cat_concepto else "Gasto General"
+
+    caja = CajaEmpresa.query.get(1)
+
+    if float(caja.saldo_actual) < monto:
+        flash('❌ Error: No hay fondos suficientes.', 'danger')
+        return redirect(url_for('finance.gastos'))
+
+    caja.saldo_actual = float(caja.saldo_actual) - monto
+
+    nuevo_gasto = GastoOperativo(
+        descripcion=descripcion,
+        categoria='EGRESO', 
+        monto=monto,
+        notas=notas,
+        registrado_por_id=current_user.id
+    )
+    db.session.add(nuevo_gasto)
+    db.session.flush()
+
+    # GENERAR FOLIO DE TESORERÍA (El vale de salida)
+    folio_tesoreria = generar_folio_tesoreria('EGRESO')
+
+    transaccion = TransaccionFinanciera(
+        folio=folio_tesoreria,
+        tipo='EGRESO',
+        monto=monto,
+        concepto=descripcion,
+        notas=notas,
+        usuario_id=current_user.id,
+        gasto_id=nuevo_gasto.id
+    )
+    db.session.add(transaccion)
+
+    db.session.commit()
+    flash(f"💸 Gasto registrado. Ticket Tesorería: {folio_tesoreria}", 'success')
+    return redirect(url_for('finance.gastos'))
+
+# --- TICKET DE TESORERÍA ---
+@finance_bp.route('/ticket/<string:folio>')
+@login_required
+def ver_ticket(folio):
+    movimiento = TransaccionFinanciera.query.filter_by(folio=folio).first_or_404()
+    return render_template('finance/ticket_movement.html', mov=movimiento)
 
 ========================= FILE: .\app\blueprints\home.py =========================
 # app/blueprints/home.py
@@ -1468,6 +1629,283 @@ def movimientos():
                            ubicaciones=ubicaciones,
                            tipos_movimiento=tipos_movimiento,
                            now=datetime.now())
+
+========================= FILE: .\app\blueprints\logistics.py =========================
+import random
+import string
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from flask_login import login_required, current_user
+from datetime import datetime
+from sqlalchemy import func, or_, desc
+from sqlalchemy.exc import IntegrityError
+from app.extensions import db
+
+# --- IMPORTACIÓN DE MODELOS ---
+from app.models.orders import OrdenVenta, OrdenVentaDetalle
+from app.models.payments import Pago
+from app.models.clients import Cliente
+from app.models.catalogs import CatTipoMovimientoFinanzas 
+
+logistics_bp = Blueprint('logistics', __name__, url_prefix='/logistica')
+
+# ==========================================
+#  SECCIÓN 1: OPERATIVA DE REPARTO
+# ==========================================
+
+@logistics_bp.route('/')
+@login_required
+def index():
+    pendientes = OrdenVenta.query.filter(
+        OrdenVenta.estado.in_(['LISTO_RUTA', 'EN_RUTA'])
+    ).order_by(OrdenVenta.fecha_promesa_entrega.asc()).all()
+
+    terminadas = OrdenVenta.query.filter(
+        OrdenVenta.estado.in_(['ENTREGADA', 'PAGADO', 'SINAUDITARPAGO'])
+    ).order_by(OrdenVenta.id.desc()).limit(10).all()
+
+    return render_template('logistics/route_dashboard.html', 
+                           ordenes=pendientes, 
+                           terminadas=terminadas)
+
+@logistics_bp.route('/cargar/<int:orden_id>')
+@login_required
+def cargar_orden(orden_id):
+    orden = OrdenVenta.query.get_or_404(orden_id)
+    if orden.estado == 'LISTO_RUTA':
+        orden.estado = 'EN_RUTA'
+        db.session.commit()
+        flash(f'📦 Orden {orden.folio} cargada.', 'success')
+    return redirect(url_for('logistics.index'))
+
+@logistics_bp.route('/entrega/<int:orden_id>')
+@login_required
+def entrega_cliente(orden_id):
+    orden = OrdenVenta.query.get_or_404(orden_id)
+    metodos_pago = CatTipoMovimientoFinanzas.query.filter_by(activo=True).all()
+    
+    deuda_historica = float(orden.cliente.saldo_actual or 0)
+    ventas_en_curso = db.session.query(func.sum(OrdenVenta.total_venta))\
+        .filter(OrdenVenta.cliente_id == orden.cliente_id)\
+        .filter(OrdenVenta.id != orden.id)\
+        .filter(OrdenVenta.estado.in_(['CONFIRMADA', 'EN_RUTA', 'EN_PRODUCCION', 'EMPACADO', 'ENTREGADA', 'SINAUDITARPAGO']))\
+        .scalar() or 0.0
+    saldo_global_previo = deuda_historica + float(ventas_en_curso)
+
+    items_data = []
+    total_piezas_bajar = 0
+    for item in orden.items:
+        cant_sugerida = item.cantidad_surtida if item.cantidad_surtida > 0 else item.cantidad_pedida
+        total_piezas_bajar += cant_sugerida
+        items_data.append({
+            'detalle_id': item.id,
+            'producto': item.producto.descripcion,
+            'sku': item.producto.sku,
+            'pedida': item.cantidad_pedida,
+            'surtida': item.cantidad_surtida,
+            'precio': float(item.precio_unitario),
+            'sugerida': cant_sugerida
+        })
+        
+    return render_template('logistics/delivery_handover.html', 
+                           orden=orden, 
+                           items=items_data,
+                           total_piezas=total_piezas_bajar, 
+                           saldo_global_previo=saldo_global_previo,
+                           metodos_pago=metodos_pago)
+
+@logistics_bp.route('/confirmar-entrega', methods=['POST'])
+@login_required
+def confirmar_entrega():
+    # --- BLOQUE DE SEGURIDAD CONTRA COLISIONES ---
+    intentos = 0
+    max_intentos = 5
+    
+    while intentos < max_intentos:
+        try:
+            data = request.json
+            orden_id = data.get('orden_id')
+            items_ajuste = data.get('items') 
+            info_pago = data.get('pago')     
+            notas = data.get('notas')
+
+            orden = OrdenVenta.query.get_or_404(orden_id)
+            
+            # 1. Ajuste de inventario
+            nuevo_total_venta = 0
+            for item_data in items_ajuste:
+                detalle = OrdenVentaDetalle.query.get(int(item_data['detalle_id']))
+                if item_data.get('cant_real'):
+                    cant_real = float(item_data['cant_real'])
+                    detalle.cantidad_entregada = cant_real
+                    detalle.subtotal = cant_real * detalle.precio_unitario
+                    nuevo_total_venta += detalle.subtotal
+                
+            if nuevo_total_venta > 0:
+                orden.total_venta = nuevo_total_venta
+                if orden.estado not in ['ENTREGADA', 'PAGADO', 'SINAUDITARPAGO']:
+                    orden.saldo_pendiente = nuevo_total_venta 
+            
+            # 2. Registrar Pago
+            monto_abono = float(info_pago.get('monto', 0))
+            pago_id = None
+            
+            if monto_abono > 0:
+                # --- GENERADOR DE FOLIO ROBUSTO ---
+                fecha_server = datetime.now().strftime('%y%m%d')
+                sufijo_random = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+                folio_pago = f"PAG-{fecha_server}-{sufijo_random}"
+                
+                nuevo_pago = Pago(
+                    folio_recibo=folio_pago,
+                    cliente_id=orden.cliente_id,
+                    orden_id=orden.id,
+                    tipo_movimiento_id=int(info_pago.get('tipo_id')), 
+                    cobrado_por_id=current_user.id,
+                    monto_pago=monto_abono,
+                    dinero_recibido=float(info_pago.get('recibido', 0)),
+                    cambio_devuelto=float(info_pago.get('cambio', 0)),
+                    estado='POR_AUDITAR', 
+                    notas=notas
+                )
+                db.session.add(nuevo_pago)
+                db.session.flush() # Aquí validamos unicidad
+                pago_id = nuevo_pago.id
+                
+                # Descuento de saldo (safe float)
+                saldo_actual_safe = float(orden.saldo_pendiente or 0)
+                orden.saldo_pendiente = saldo_actual_safe - monto_abono
+
+            # 3. Saldos Globales
+            deuda_previa = float(orden.cliente.saldo_actual or 0)
+            if nuevo_total_venta > 0 and orden.estado not in ['ENTREGADA', 'PAGADO', 'SINAUDITARPAGO']:
+                orden.cliente.saldo_actual = deuda_previa + nuevo_total_venta - monto_abono
+            else:
+                orden.cliente.saldo_actual = deuda_previa - monto_abono
+
+            # 4. Estados
+            if float(orden.saldo_pendiente) <= 0.5:
+                orden.saldo_pendiente = 0 
+                orden.estado = 'SINAUDITARPAGO' 
+            else:
+                orden.estado = 'ENTREGADA' 
+
+            db.session.commit()
+            return jsonify({'status': 'success', 'message': 'Operación procesada.', 'orden_id': orden.id, 'pago_id': pago_id})
+
+        except IntegrityError:
+            db.session.rollback()
+            intentos += 1
+            print(f"⚠️ Colisión de Folio detectada. Reintentando ({intentos}/5)...")
+            continue
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error Logistica: {e}")
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+    
+    return jsonify({'status': 'error', 'message': 'El sistema está saturado, intenta de nuevo.'}), 500
+
+@logistics_bp.route('/ticket/<int:orden_id>')
+@login_required
+def ver_ticket(orden_id):
+    orden = OrdenVenta.query.get_or_404(orden_id)
+    # Traemos TODOS los pagos para el historial en el ticket
+    todos_los_pagos = Pago.query.filter_by(orden_id=orden.id).order_by(Pago.fecha_registro.asc()).all()
+    return render_template('logistics/ticket.html', orden=orden, pagos=todos_los_pagos)
+
+
+# ==========================================
+#  SECCIÓN 2: COBRANZA
+# ==========================================
+
+@logistics_bp.route('/cobranza')
+@login_required
+def cobranza_buscar():
+    deudores = Cliente.query.filter(
+        Cliente.saldo_actual > 1.0
+    ).order_by(desc(Cliente.saldo_actual)).limit(100).all()
+
+    return render_template('logistics/collection_search.html', deudores=deudores)
+
+@logistics_bp.route('/api/buscar-deudores')
+@login_required
+def api_buscar_deudores():
+    q = request.args.get('q', '').strip()
+    if not q or len(q) < 3: return jsonify([])
+
+    resultados = Cliente.query.filter(
+        or_(
+            Cliente.nombre_negocio.ilike(f'%{q}%'),
+            Cliente.nombres_encargado.ilike(f'%{q}%'),
+            Cliente.apellidos_encargado.ilike(f'%{q}%'),
+            Cliente.calle.ilike(f'%{q}%'),
+            Cliente.colonia.ilike(f'%{q}%')
+        )
+    ).limit(20).all()
+
+    data = []
+    for c in resultados:
+        nombre_completo = f"{c.nombres_encargado or ''} {c.apellidos_encargado or ''}".strip()
+        direccion_full = f"{c.calle or ''} {c.num_exterior or ''}, {c.colonia or ''}".strip()
+        if direccion_full.startswith(','): direccion_full = direccion_full[1:].strip()
+
+        data.append({
+            'id': c.id,
+            'negocio': c.nombre_negocio,
+            'contacto': nombre_completo if nombre_completo else '---',
+            'direccion': direccion_full if direccion_full else '---',
+            'saldo': float(c.saldo_actual or 0)
+        })
+    
+    return jsonify(data)
+
+@logistics_bp.route('/cobranza/cliente/<int:cliente_id>')
+@login_required
+def cobranza_cliente(cliente_id):
+    cliente = Cliente.query.get_or_404(cliente_id)
+    
+    candidatos = OrdenVenta.query.filter(
+        OrdenVenta.cliente_id == cliente.id,
+        OrdenVenta.estado.in_(['ENTREGADA', 'PAGADO', 'SINAUDITARPAGO']), 
+        OrdenVenta.estado != 'CANCELADA'
+    ).order_by(OrdenVenta.fecha_registro.asc()).all()
+
+    ordenes_reales = []
+
+    for orden in candidatos:
+        pagos_registrados = db.session.query(func.sum(Pago.monto_pago))\
+            .filter(Pago.orden_id == orden.id)\
+            .scalar() or 0.0
+        
+        deuda_operativa = float(orden.total_venta) - float(pagos_registrados)
+
+        if deuda_operativa > 0.5:
+            orden.saldo_pendiente = deuda_operativa 
+            ordenes_reales.append(orden)
+
+    return render_template('logistics/collection_client.html', 
+                           cliente=cliente, 
+                           ordenes=ordenes_reales)
+
+# NUEVA API PARA EL HISTORIAL DE PAGOS DEL CLIENTE
+@logistics_bp.route('/api/historial-pagos/<int:cliente_id>')
+@login_required
+def api_historial_pagos(cliente_id):
+    # Últimos 20 pagos
+    pagos = Pago.query.filter_by(cliente_id=cliente_id)\
+        .order_by(Pago.fecha_registro.desc())\
+        .limit(20).all()
+    
+    data = []
+    for p in pagos:
+        data.append({
+            'folio': p.folio_recibo,
+            'fecha': p.fecha_registro.strftime('%d/%m/%Y %H:%M'),
+            'monto': float(p.monto_pago),
+            'orden': p.orden.folio,
+            'orden_id': p.orden_id
+        })
+    return jsonify(data)
 
 ========================= FILE: .\app\blueprints\production.py =========================
 import os
@@ -1902,7 +2340,7 @@ def api_cliente(id):
         "precios_especiales": precios
     })
 
-# --- 3. CREAR PEDIDO (CON REGLA DE 15 CARACTERES) ---
+# --- 3. CREAR PEDIDO (PARCHEADO) ---
 @sales_bp.route('/crear-pedido', methods=['POST'])
 @login_required
 def crear_pedido():
@@ -1912,12 +2350,12 @@ def crear_pedido():
         return jsonify({"status": "error", "message": "El pedido está vacío"}), 400
 
     try:
-        # 1. VALIDACIÓN DE NOTA OBLIGATORIA (CULTURA FINANCIERA)
+        # 1. VALIDACIÓN DE NOTA
         notas = data.get('notas', '').strip()
         if len(notas) < 15:
             return jsonify({
                 "status": "error", 
-                "message": "⚠️ Escribe una nota detallada (mínimo 15 letras). Explica condiciones de pago o entrega."
+                "message": "⚠️ Escribe una nota detallada (mínimo 15 letras)."
             }), 400
 
         # 2. VALIDACIÓN DE CRÉDITO
@@ -1949,7 +2387,7 @@ def crear_pedido():
             metodo_pago_esperado = data['metodo_pago'],
             total_venta = 0, 
             estado = 'CONFIRMADA',
-            notas_vendedor = notas # Ya validada
+            notas_vendedor = notas
         )
         
         db.session.add(nueva_orden)
@@ -1970,7 +2408,10 @@ def crear_pedido():
             )
             db.session.add(detalle)
 
+        # PARCHE: Inicializar Deuda
         nueva_orden.total_venta = total_calculado
+        nueva_orden.saldo_pendiente = total_calculado 
+        
         db.session.commit()
         
         return jsonify({
@@ -1983,6 +2424,255 @@ def crear_pedido():
         db.session.rollback()
         print(f"Error ventas: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+========================= FILE: .\app\blueprints\shipping.py =========================
+from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask_login import login_required, current_user
+from datetime import datetime
+from app.extensions import db
+from sqlalchemy import desc
+
+# Modelos
+from app.models.orders import OrdenVenta, OrdenVentaDetalle
+from app.models.stock import InventarioProducto, HistorialMovimiento
+from app.models.infrastructure import UbicacionAlmacen, Almacen
+from app.models.shipping import OrdenPaquete
+
+shipping_bp = Blueprint('shipping', __name__, url_prefix='/envios')
+
+# --- 1. DASHBOARD DE SURTIDO ---
+@shipping_bp.route('/')
+@login_required
+def index():
+    # 1. PEDIDOS ACTIVOS (Pendientes de trabajo)
+    pendientes = OrdenVenta.query.filter(
+        OrdenVenta.estado.in_(['CONFIRMADA', 'EN_PRODUCCION', 'EMPACADO'])
+    ).order_by(OrdenVenta.fecha_promesa_entrega.asc()).all()
+    
+    # 2. PEDIDOS LISTOS (Historial reciente para referencia)
+    terminados = OrdenVenta.query.filter(
+        OrdenVenta.estado.in_(['LISTO_RUTA', 'EN_RUTA'])
+    ).order_by(desc(OrdenVenta.fecha_promesa_entrega)).limit(10).all()
+    
+    return render_template('shipping/dashboard.html', pendientes=pendientes, terminados=terminados)
+
+# --- 2. PANTALLA DE TRABAJO (PICKING) ---
+@shipping_bp.route('/surtir/<int:orden_id>')
+@login_required
+def picking(orden_id):
+    orden = OrdenVenta.query.get_or_404(orden_id)
+    ids_productos = [item.producto_id for item in orden.items]
+    
+    # Consulta de Stock optimizada para evitar errores de ORM
+    stock_data = db.session.query(InventarioProducto, UbicacionAlmacen, Almacen)\
+        .select_from(InventarioProducto)\
+        .join(UbicacionAlmacen, InventarioProducto.ubicacion_id == UbicacionAlmacen.id)\
+        .join(Almacen, UbicacionAlmacen.almacen_id == Almacen.id)\
+        .filter(InventarioProducto.producto_id.in_(ids_productos))\
+        .filter(InventarioProducto.cantidad_actual > 0)\
+        .order_by(Almacen.descripcion, UbicacionAlmacen.codigo)\
+        .all()
+
+    # Estructuramos datos para los Comboboxes (Selectores)
+    stock_por_producto = {}
+    for inv, ubi, alm in stock_data:
+        if inv.producto_id not in stock_por_producto:
+            stock_por_producto[inv.producto_id] = []
+        stock_por_producto[inv.producto_id].append({
+            'inv_id': inv.id,
+            'almacen_id': alm.id,
+            'almacen_nombre': alm.descripcion,
+            'ubicacion_codigo': ubi.codigo,
+            'cantidad': int(inv.cantidad_actual)
+        })
+    
+    return render_template('shipping/picking.html', orden=orden, stock_por_producto=stock_por_producto)
+
+# --- 3. CONFIRMAR PICKING (CON CANDADO DE SEGURIDAD) ---
+@shipping_bp.route('/confirmar-picking', methods=['POST'])
+@login_required
+def confirmar_picking():
+    try:
+        detalle_id = int(request.form.get('detalle_id'))
+        inventario_id = int(request.form.get('inventario_id')) 
+        cantidad = float(request.form.get('cantidad'))
+        
+        detalle = OrdenVentaDetalle.query.get_or_404(detalle_id)
+        
+        # --- CANDADO DE SEGURIDAD ---
+        # Si la orden ya está cerrada, impedimos cualquier movimiento
+        if detalle.orden.estado in ['LISTO_RUTA', 'EN_RUTA', 'ENTREGADA', 'CANCELADA']:
+            flash('⛔ ACCIÓN DENEGADA: Esta orden ya fue finalizada. No se puede modificar el inventario.', 'danger')
+            return redirect(url_for('shipping.picking', orden_id=detalle.orden_id))
+        # ----------------------------
+
+        inv = InventarioProducto.query.get(inventario_id)
+        
+        # Validaciones de Inventario
+        if not inv:
+            flash('❌ Error: El registro de inventario ya no existe o cambió.', 'danger')
+            return redirect(url_for('shipping.picking', orden_id=detalle.orden_id))
+            
+        if inv.cantidad_actual < cantidad:
+            flash(f'❌ Stock Insuficiente: Solo quedan {inv.cantidad_actual} pzas disponibles ahí.', 'danger')
+            return redirect(url_for('shipping.picking', orden_id=detalle.orden_id))
+            
+        # 1. Ejecutar Descuento (Salida de Almacén)
+        inv.cantidad_actual -= cantidad
+        
+        # 2. Actualizar Detalle Orden
+        detalle.cantidad_surtida = (detalle.cantidad_surtida or 0) + cantidad
+        
+        # 3. Registrar en Kárdex
+        mov = HistorialMovimiento(
+            producto_id=detalle.producto_id,
+            ubicacion_id=inv.ubicacion_id,
+            tipo_movimiento='SALIDA_VENTA',
+            cantidad=cantidad,
+            usuario_id=current_user.id,
+            fecha=datetime.now(),
+            referencia=f"Pedido {detalle.orden.folio}",
+            notas=f"Surtido para: {detalle.orden.cliente.nombre_negocio}"
+        )
+        db.session.add(mov)
+        
+        # Actualizar estado si es el primer movimiento
+        if detalle.orden.estado == 'CONFIRMADA':
+            detalle.orden.estado = 'EN_PRODUCCION'
+            
+        db.session.commit()
+        flash(f'✅ Tomadas {cantidad} pzas correctamente.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error técnico: {str(e)}', 'danger')
+        
+    return redirect(url_for('shipping.picking', orden_id=detalle.orden_id))
+
+# --- 4. GENERAR ETIQUETAS MASIVAS (CON CANDADO) ---
+@shipping_bp.route('/generar-etiquetas', methods=['POST'])
+@login_required
+def generar_etiquetas():
+    try:
+        orden_id = int(request.form.get('orden_id'))
+        total_cajas = int(request.form.get('total_cajas'))
+        contenido = request.form.get('contenido', '')
+        
+        orden = OrdenVenta.query.get_or_404(orden_id)
+        
+        # --- CANDADO DE SEGURIDAD ---
+        if orden.estado in ['LISTO_RUTA', 'EN_RUTA', 'ENTREGADA', 'CANCELADA']:
+            flash('⛔ ERROR: La orden está cerrada. Solo puedes reimprimir etiquetas, no generar nuevas.', 'danger')
+            return redirect(url_for('shipping.picking', orden_id=orden.id))
+        # ----------------------------
+
+        # Limpiar etiquetas previas para regenerar
+        OrdenPaquete.query.filter_by(orden_id=orden.id).delete()
+        
+        ruta_str = orden.cliente.ruta.descripcion.split(':')[0] if orden.cliente.ruta else "SR"
+        folio_clean = orden.folio.replace('PV-', '')
+        
+        for i in range(1, total_cajas + 1):
+            # Formato QR: #FOLIO_RUTA_CajaX/Y
+            codigo_qr = f"#{folio_clean}_{ruta_str}_C{i}/{total_cajas}"
+            
+            paq = OrdenPaquete(
+                orden_id=orden.id,
+                codigo_etiqueta=codigo_qr,
+                numero_caja=i,
+                total_cajas_orden=total_cajas,
+                descripcion_contenido=contenido if contenido else f"Caja {i} de {total_cajas}",
+                creado_por_id=current_user.id
+            )
+            db.session.add(paq)
+        
+        orden.estado = 'EMPACADO'
+        db.session.commit()
+        
+        flash(f'✅ {total_cajas} etiquetas de caja generadas.', 'success')
+        return redirect(url_for('shipping.imprimir_etiquetas', orden_id=orden.id))
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error generando etiquetas: {str(e)}', 'danger')
+        return redirect(url_for('shipping.picking', orden_id=orden_id))
+
+# --- 5. VISTA DE IMPRESIÓN (SIN CANDADO, SIEMPRE ACCESIBLE) ---
+@shipping_bp.route('/imprimir/<int:orden_id>')
+@login_required
+def imprimir_etiquetas(orden_id):
+    orden = OrdenVenta.query.get_or_404(orden_id)
+    return render_template('shipping/labels.html', orden=orden)
+
+# --- 6. GENERAR CAJA MANUAL (CON CANDADO) ---
+@shipping_bp.route('/generar-caja', methods=['POST'])
+@login_required
+def generar_caja():
+    try:
+        orden_id = int(request.form.get('orden_id'))
+        num_caja = int(request.form.get('num_caja'))
+        total_cajas = int(request.form.get('total_cajas'))
+        contenido = request.form.get('contenido')
+        
+        orden = OrdenVenta.query.get_or_404(orden_id)
+
+        # --- CANDADO DE SEGURIDAD ---
+        if orden.estado in ['LISTO_RUTA', 'EN_RUTA', 'ENTREGADA', 'CANCELADA']:
+            flash('⛔ ERROR: Orden cerrada.', 'danger')
+            return redirect(url_for('shipping.picking', orden_id=orden.id))
+        # ----------------------------
+
+        codigo = f"PAQ-{orden.folio}-C{num_caja}"
+        
+        paq = OrdenPaquete(
+            orden_id=orden.id,
+            codigo_etiqueta=codigo,
+            numero_caja=num_caja,
+            total_cajas_orden=total_cajas,
+            descripcion_contenido=contenido,
+            creado_por_id=current_user.id
+        )
+        db.session.add(paq)
+        
+        if num_caja == total_cajas:
+            orden.estado = 'EN_RUTA' # Opcional, o esperar a finalizar
+        else:
+            orden.estado = 'EMPACADO'
+            
+        db.session.commit()
+        flash(f'📦 Caja {num_caja} registrada.', 'info')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error: {str(e)}', 'danger')
+        
+    return redirect(url_for('shipping.picking', orden_id=orden_id))
+
+# --- 7. FINALIZAR ORDEN (CIERRE DEFINITIVO) ---
+@shipping_bp.route('/finalizar/<int:orden_id>', methods=['POST'])
+@login_required
+def finalizar_orden(orden_id):
+    try:
+        orden = OrdenVenta.query.get_or_404(orden_id)
+        
+        # Si ya estaba cerrada, no hacemos nada (idempotencia)
+        if orden.estado == 'LISTO_RUTA':
+            flash('Esta orden ya estaba finalizada.', 'info')
+            return redirect(url_for('shipping.index'))
+
+        if not orden.paquetes:
+            flash('⚠️ Advertencia: Finalizaste la orden sin generar etiquetas de caja.', 'warning')
+            
+        orden.estado = 'LISTO_RUTA'
+        db.session.commit()
+        
+        flash(f'🚀 Orden {orden.folio} finalizada correctamente y enviada a Logística.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al finalizar: {str(e)}', 'danger')
+        
+    return redirect(url_for('shipping.index'))
 
 ========================= FILE: .\app\models\catalogs.py =========================
 # app/models/catalogs.py
@@ -2178,6 +2868,63 @@ class PrecioEspecialCliente(db.Model):
     producto = db.relationship('Producto')
     tipo_descuento = db.relationship('CatTipoDescuento')
 
+========================= FILE: .\app\models\finance.py =========================
+from app.extensions import db
+from datetime import datetime
+
+class CajaEmpresa(db.Model):
+    __tablename__ = 'caja_empresa'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    saldo_actual = db.Column(db.Numeric(10, 2), default=0.00)
+    ultima_actualizacion = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+    def __repr__(self):
+        return f'<Caja ${self.saldo_actual}>'
+
+class TransaccionFinanciera(db.Model):
+    # ESTA ES LA TABLA MAESTRA DE TESORERÍA (EL HISTORIAL)
+    __tablename__ = 'transacciones_financieras'
+
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # NUEVO: FOLIO ÚNICO DE TESORERÍA (Ej: TES-ING-251230-ABCD)
+    folio = db.Column(db.String(50), unique=True, nullable=False)
+    
+    tipo = db.Column(db.String(20))  # 'INGRESO' o 'EGRESO'
+    monto = db.Column(db.Numeric(10, 2), nullable=False)
+    concepto = db.Column(db.String(255)) 
+    notas = db.Column(db.Text, nullable=True) # Para detalles extra
+    fecha = db.Column(db.DateTime, default=datetime.now)
+    
+    # Relación con quien hizo el movimiento (Admin Finanzas)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id')) 
+    usuario = db.relationship('Usuario', backref=db.backref('transacciones', lazy=True))
+    
+    # RASTREABILIDAD (De dónde vino esto)
+    # Si viene de un pago de chofer:
+    pago_origen_id = db.Column(db.Integer, db.ForeignKey('pagos.id'), nullable=True)
+    pago_origen = db.relationship('Pago', backref='transaccion_tesoreria')
+    
+    # Si viene de un gasto operativo:
+    gasto_id = db.Column(db.Integer, db.ForeignKey('gastos_operativos.id'), nullable=True)
+    gasto = db.relationship('GastoOperativo', backref='transaccion_tesoreria')
+
+class GastoOperativo(db.Model):
+    __tablename__ = 'gastos_operativos'
+
+    id = db.Column(db.Integer, primary_key=True)
+    categoria = db.Column(db.String(50)) 
+    descripcion = db.Column(db.String(255))
+    monto = db.Column(db.Numeric(10, 2), nullable=False)
+    notas = db.Column(db.Text, nullable=True)
+    fecha_registro = db.Column(db.DateTime, default=datetime.now)
+    
+    registrado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    registrado_por = db.relationship('Usuario', backref='gastos_registrados')
+    
+    proveedor_id = db.Column(db.Integer, nullable=True)
+
 ========================= FILE: .\app\models\infrastructure.py =========================
 # app/models/infrastructure.py
 from app.extensions import db
@@ -2241,7 +2988,6 @@ class ActivoFrio(db.Model):
     asignado = db.Column(db.Boolean, default=False)
 
 ========================= FILE: .\app\models\orders.py =========================
-# app/models/orders.py
 from app.extensions import db
 from datetime import datetime
 
@@ -2251,26 +2997,32 @@ class OrdenVenta(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     folio = db.Column(db.String(20), unique=True, nullable=False)
     
-    # Actores
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), nullable=False)
     vendedor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
     
-    # Fechas
-    fecha_registro = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_registro = db.Column(db.DateTime, default=datetime.now)
     fecha_promesa_entrega = db.Column(db.Date, nullable=False)
     
-    # Estados: BORRADOR, CONFIRMADA, EN_EMPAQUE, EN_RUTA, ENTREGADA, CANCELADA
-    estado = db.Column(db.String(25), default='BORRADOR')
+    # Estados: 'CONFIRMADA', 'PRODUCCION', 'LISTO_RUTA', 'EN_RUTA', 'ENTREGADA', 'PAGADO', 'CANCELADA'
+    estado = db.Column(db.String(25), default='CONFIRMADA')
     
-    # Condiciones
-    metodo_pago_esperado = db.Column(db.String(20)) # CREDITO / CONTADO
-    total_venta = db.Column(db.Float, default=0.0)
+    metodo_pago_esperado = db.Column(db.String(20)) # 'Contado', 'Credito'
+    
+    # Dineros
+    total_venta = db.Column(db.Float, default=0.0)    
+    
+    # Esta es la columna que faltaba y hacía tronar el ticket
+    saldo_pendiente = db.Column(db.Numeric(12, 2), default=0.00) 
+    # -----------------------------------
+
     notas_vendedor = db.Column(db.Text)
 
     # Relaciones
+    cliente = db.relationship('Cliente', backref='ordenes')
+    vendedor = db.relationship('Usuario', backref='ventas_realizadas')
     items = db.relationship('OrdenVentaDetalle', backref='orden', cascade="all, delete-orphan")
-    cliente = db.relationship('Cliente', backref='historial_pedidos')
-    vendedor = db.relationship('Usuario', backref='preventas_realizadas')
+    
+    # Relación con pagos (definida en el modelo Payment, pero accesible aquí por backref 'pagos_registrados')
 
 class OrdenVentaDetalle(db.Model):
     __tablename__ = 'orden_venta_detalles'
@@ -2279,16 +3031,57 @@ class OrdenVentaDetalle(db.Model):
     orden_id = db.Column(db.Integer, db.ForeignKey('ordenes_venta.id'), nullable=False)
     producto_id = db.Column(db.Integer, db.ForeignKey('productos.id'), nullable=False)
     
-    # Cantidades para trazabilidad total
     cantidad_pedida = db.Column(db.Float, nullable=False)
-    cantidad_surtida = db.Column(db.Float, default=0.0)
-    cantidad_entregada = db.Column(db.Float, default=0.0)
+    cantidad_surtida = db.Column(db.Float, default=0)   # Lo que salió de almacén
+    cantidad_entregada = db.Column(db.Float, default=0) # Lo que recibió el cliente
     
-    # Costos en el momento de la venta
     precio_unitario = db.Column(db.Float, nullable=False)
     subtotal = db.Column(db.Float, nullable=False)
-    
+
     producto = db.relationship('Producto')
+
+========================= FILE: .\app\models\payments.py =========================
+from app.extensions import db
+from datetime import datetime
+
+class Pago(db.Model):
+    __tablename__ = 'pagos'
+
+    id = db.Column(db.Integer, primary_key=True)
+    folio_recibo = db.Column(db.String(50), unique=True, nullable=False)
+    
+    # FKs OBLIGATORIAS
+    cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), nullable=False)
+    orden_id = db.Column(db.Integer, db.ForeignKey('ordenes_venta.id'), nullable=False)
+    tipo_movimiento_id = db.Column(db.Integer, db.ForeignKey('cat_tipos_movimiento_finanzas.id'), nullable=False)
+    
+    # RESPONSABLES
+    cobrado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    auditado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True) # Puede ser Null al inicio
+    
+    # DINERO
+    monto_pago = db.Column(db.Numeric(12, 2), nullable=False)
+    dinero_recibido = db.Column(db.Numeric(12, 2))
+    cambio_devuelto = db.Column(db.Numeric(12, 2))
+    
+    referencia = db.Column(db.String(100))
+    estado = db.Column(db.String(20), default='POR_AUDITAR')
+    
+    fecha_registro = db.Column(db.DateTime, default=datetime.now)
+    fecha_auditoria = db.Column(db.DateTime)
+    notas = db.Column(db.Text)
+
+    # RELACIONES
+    cliente = db.relationship('Cliente', backref='historial_pagos')
+    orden = db.relationship('OrdenVenta', backref='pagos_registrados')
+    
+    # Relación al catálogo (para saber si fue Efectivo o Transferencia)
+    # Asumimos que el modelo CatTipoMovimientoFinanzas ya existe en tus catálogos.
+    # Si te da error de import, asegúrate de importarlo aquí o definirlo.
+    
+    # RELACIONES CON USUARIOS
+    cobrador = db.relationship('Usuario', foreign_keys=[cobrado_por_id], backref='cobros_realizados')
+    auditor = db.relationship('Usuario', foreign_keys=[auditado_por_id], backref='cobros_auditados')
 
 ========================= FILE: .\app\models\production.py =========================
 from app.extensions import db
@@ -2389,6 +3182,30 @@ class MateriaPrima(db.Model):
 
     categoria = db.relationship('CatCategoriaMateriaPrima')
     unidad = db.relationship('CatUnidadMedida')
+
+========================= FILE: .\app\models\shipping.py =========================
+from app.extensions import db
+from datetime import datetime
+
+class OrdenPaquete(db.Model):
+    __tablename__ = 'orden_paquetes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    orden_id = db.Column(db.Integer, db.ForeignKey('ordenes_venta.id'), nullable=False)
+    
+    codigo_etiqueta = db.Column(db.String(50), unique=True)
+    numero_caja = db.Column(db.Integer)
+    total_cajas_orden = db.Column(db.Integer)
+    
+    descripcion_contenido = db.Column(db.Text)
+    peso_kg = db.Column(db.Float, default=0.0)
+    
+    creado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    fecha_creacion = db.Column(db.DateTime, default=datetime.now)
+
+    # Relación inversa: orden.paquetes
+    orden = db.relationship('OrdenVenta', backref='paquetes')
+    usuario = db.relationship('Usuario')
 
 ========================= FILE: .\app\models\stock.py =========================
 # app/models/stock.py
@@ -2733,6 +3550,9 @@ body {
                     <a class="nav-link py-2 text-warning" href="{{ url_for('reception.index') }}">
                         <i class="fa-solid fa-dolly me-2"></i> Recepción Producción
                     </a>
+                    <a class="nav-link py-2 text-info" href="{{ url_for('shipping.index') }}">
+                        <i class="fa-solid fa-box-open me-2"></i> Surtido y Empaque
+                    </a>
                 </div>
             </div>
 
@@ -2752,10 +3572,31 @@ body {
                 </div>
             </div>
 
-            <a href="#" class="nav-link py-3"><i class="fa-solid fa-truck-fast me-2"></i> Logística y Rutas</a>
+            <a href="{{ url_for('logistics.index') }}" class="nav-link py-3">
+                <i class="fa-solid fa-truck-fast me-2"></i> Logística y Rutas
+            </a>
 
             <div class="nav-group-label mt-2">ADMINISTRACIÓN</div>
-            <a href="#" class="nav-link py-3"><i class="fa-solid fa-sack-dollar me-2"></i> Finanzas</a>
+            
+            <a class="nav-link py-3 d-flex justify-content-between align-items-center" 
+               data-bs-toggle="collapse" href="#collapseFinanzas" role="button" aria-expanded="false">
+                <span><i class="fa-solid fa-sack-dollar me-2"></i> Finanzas</span>
+                <i class="fa-solid fa-chevron-down small"></i>
+            </a>
+            <div class="collapse" id="collapseFinanzas">
+                <div class="submenu-dark shadow-inner">
+                    <a class="nav-link py-2" href="{{ url_for('finance.dashboard') }}">
+                        <i class="fa-solid fa-chart-pie me-2"></i> Tablero Financiero
+                    </a>
+                    <a class="nav-link py-2 text-success" href="{{ url_for('finance.auditoria') }}">
+                        <i class="fa-solid fa-check-double me-2"></i> Auditoría de Pagos
+                    </a>
+                    <a class="nav-link py-2 text-danger" href="{{ url_for('finance.gastos') }}">
+                        <i class="fa-solid fa-money-bill-transfer me-2"></i> Gastos y Salidas
+                    </a>
+                </div>
+            </div>
+
             <a href="#" class="nav-link py-3"><i class="fa-solid fa-users-gear me-2"></i> Configuración</a>
         </div>
     </nav>
@@ -2871,6 +3712,380 @@ body {
         </div>
     </div>
 
+</body>
+</html>
+
+========================= FILE: .\app\templates\finance\audit.html =========================
+{% extends 'base.html' %}
+{% block title %}Auditoría de Pagos{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="fw-bold"><i class="fa-solid fa-sack-dollar text-warning me-2"></i> Recepción de Efectivo</h4>
+        <a href="{{ url_for('finance.dashboard') }}" class="btn btn-outline-dark">Volver</a>
+    </div>
+
+    <div class="card shadow border-0">
+        <div class="card-body p-0">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-3">Folio Pago</th>
+                        <th>Chofer / Vendedor</th>
+                        <th>Origen</th>
+                        <th class="text-end">Monto</th>
+                        <th class="text-center">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if not pagos %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-check-double fs-1 mb-2"></i><br>
+                            Todo al día. No hay choferes con dinero pendiente de entrega.
+                        </td>
+                    </tr>
+                    {% else %}
+                    {% for p in pagos %}
+                    <tr>
+                        <td class="ps-3 fw-bold text-primary">{{ p.folio_recibo }}<br>
+                            <small class="text-muted fw-normal">{{ p.fecha_registro.strftime('%d/%m %H:%M') }}</small>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-user-tie text-secondary"></i> {{ p.cobrador.nombre or 'Chofer' }}
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-dark border">Orden: {{ p.orden.folio }}</span><br>
+                            <small>{{ p.cliente.nombre_negocio }}</small>
+                        </td>
+                        <td class="text-end fs-5 fw-bold text-success">
+                            ${{ "{:,.2f}".format(p.monto_pago) }}
+                        </td>
+                        <td class="text-center">
+                            <form action="{{ url_for('finance.confirmar_ingreso') }}" method="POST" class="d-inline">
+                                <input type="hidden" name="pago_id" value="{{ p.id }}">
+                                <button type="submit" name="accion" value="AUDITAR" class="btn btn-success btn-sm fw-bold shadow-sm">
+                                    <i class="fa-solid fa-check"></i> CONFIRMAR
+                                </button>
+                                <button type="submit" name="accion" value="RECHAZAR" class="btn btn-outline-danger btn-sm" title="Rechazar (Faltante)">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+========================= FILE: .\app\templates\finance\dashboard.html =========================
+{% extends 'base.html' %}
+{% block title %}Finanzas Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold text-dark m-0">Centinela Financiero</h3>
+            <small class="text-muted">Bitácora Maestra de Tesorería</small>
+        </div>
+        <button class="btn btn-success fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalIngresoCapital">
+            <i class="fa-solid fa-circle-plus me-2"></i> INGRESO CAPITAL / EXTRA
+        </button>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-success text-white shadow h-100">
+                <div class="card-body text-center">
+                    <h6 class="text-uppercase opacity-75">Dinero en Bóveda</h6>
+                    <h1 class="display-4 fw-bold mb-0">${{ "{:,.2f}".format(caja.saldo_actual) }}</h1>
+                    <small>Capital Líquido Real</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-warning text-dark shadow h-100">
+                <div class="card-body text-center">
+                    <h6 class="text-uppercase opacity-75">Por Auditar (En Calle)</h6>
+                    <h1 class="display-4 fw-bold mb-0">${{ "{:,.2f}".format(en_calle) }}</h1>
+                    <a href="{{ url_for('finance.auditoria') }}" class="btn btn-sm btn-dark mt-2">Auditar Rutas <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-danger text-white shadow h-100">
+                <div class="card-body text-center">
+                    <h6 class="text-uppercase opacity-75">Gastos del Mes</h6>
+                    <h1 class="display-4 fw-bold mb-0">${{ "{:,.2f}".format(gastos) }}</h1>
+                    <a href="{{ url_for('finance.gastos') }}" class="btn btn-sm btn-light mt-2 text-danger fw-bold">Registrar Salida</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow border-0">
+        <div class="card-header bg-white py-3">
+            <h6 class="m-0 fw-bold text-primary"><i class="fa-solid fa-list-ul me-2"></i> Últimos 30 Movimientos de Bóveda</h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light text-secondary text-uppercase small">
+                        <tr>
+                            <th class="ps-4">Fecha / Folio</th>
+                            <th>Tipo</th>
+                            <th>Concepto</th>
+                            <th>Usuario</th>
+                            <th class="text-end">Monto</th>
+                            <th class="text-center">Ticket</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if not movimientos %}
+                        <tr><td colspan="6" class="text-center py-5 text-muted">Aún no hay movimientos registrados.</td></tr>
+                        {% else %}
+                        {% for mov in movimientos %}
+                        <tr>
+                            <td class="ps-4">
+                                <span class="d-block fw-bold text-dark">{{ mov.fecha.strftime('%d/%m/%Y %H:%M') }}</span>
+                                <small class="text-muted font-monospace">{{ mov.folio }}</small>
+                            </td>
+                            <td>
+                                {% if mov.tipo == 'INGRESO' %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success">ENTRADA</span>
+                                {% else %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger">SALIDA</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="fw-bold">{{ mov.concepto }}</span>
+                                {% if mov.notas %}
+                                <br><small class="text-muted fst-italic">{{ mov.notas[:50] }}...</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <i class="fa-regular fa-user-circle me-1"></i> {{ mov.usuario.nombres }}
+                            </td>
+                            <td class="text-end fw-bold fs-6 {{ 'text-success' if mov.tipo == 'INGRESO' else 'text-danger' }}">
+                                {{ '+' if mov.tipo == 'INGRESO' else '-' }} ${{ "{:,.2f}".format(mov.monto) }}
+                            </td>
+                            <td class="text-center">
+                                <a href="{{ url_for('finance.ver_ticket', folio=mov.folio) }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="Reimprimir Ticket">
+                                    <i class="fa-solid fa-print"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalIngresoCapital" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold">Registrar Entrada de Dinero</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('finance.registrar_ingreso_extra') }}" method="POST">
+                <div class="modal-body">
+                    <div class="alert alert-info small">
+                        <i class="fa-solid fa-info-circle"></i> Inversiones, Préstamos o Reembolsos.
+                    </div>
+                    <div class="mb-3">
+                        <label class="fw-bold">Monto ($):</label>
+                        <input type="number" step="0.01" name="monto" class="form-control form-control-lg text-success fw-bold" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="fw-bold">Concepto:</label>
+                        <select name="concepto_id" class="form-select" required>
+                            {% for c in conceptos_ingreso %}
+                                <option value="{{ c.id }}">{{ c.descripcion }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="fw-bold">Notas:</label>
+                        <textarea name="notas" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success fw-bold">INGRESAR DINERO</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+========================= FILE: .\app\templates\finance\expenses.html =========================
+{% extends 'base.html' %}
+{% block title %}Control de Gastos{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="fw-bold text-danger"><i class="fa-solid fa-money-bill-transfer me-2"></i> Salidas de Efectivo</h4>
+        <a href="{{ url_for('finance.dashboard') }}" class="btn btn-outline-dark">Volver</a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm border-0 bg-light">
+                <div class="card-body">
+                    <h6 class="fw-bold mb-3">Registrar Nuevo Gasto</h6>
+                    <form action="{{ url_for('finance.registrar_gasto') }}" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Monto ($):</label>
+                            <input type="number" step="0.01" name="monto" class="form-control form-control-lg fw-bold text-danger" placeholder="0.00" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Concepto:</label>
+                            <input type="text" name="concepto" class="form-control" placeholder="Ej: Gasolina Unidad 5" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Categoría:</label>
+                            <select name="categoria" class="form-select">
+                                <option value="OPERATIVO">Gasto Operativo (Gas, Luz)</option>
+                                <option value="NOMINA">Nómina / Sueldos</option>
+                                <option value="PROVEEDOR">Pago a Proveedor</option>
+                                <option value="MANTENIMIENTO">Mantenimiento</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-danger w-100 fw-bold">REGISTRAR SALIDA</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card shadow border-0">
+                <div class="card-header bg-white fw-bold">Últimos Movimientos</div>
+                <div class="card-body p-0">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr class="text-muted small text-uppercase">
+                                <th class="ps-3">Concepto</th>
+                                <th>Categoría</th>
+                                <th>Fecha</th>
+                                <th class="text-end pe-3">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for g in gastos %}
+                            <tr>
+                                <td class="ps-3 fw-bold text-dark">{{ g.descripcion }}</td>
+                                <td><span class="badge bg-light text-secondary border">{{ g.categoria }}</span></td>
+                                <td class="small text-muted">{{ g.fecha_registro.strftime('%d/%m %H:%M') }}</td>
+                                <td class="text-end fw-bold text-danger pe-3">-${{ "{:,.2f}".format(g.monto) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="4" class="text-center py-4 text-muted">Sin gastos recientes.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+========================= FILE: .\app\templates\finance\ticket_movement.html =========================
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket {{ mov.folio }}</title>
+    <style>
+        body { 
+            font-family: 'Courier New', Courier, monospace; 
+            font-size: 12px; 
+            margin: 0; 
+            padding: 15px; 
+            max-width: 300px; 
+            background: #fff; 
+            color: #000;
+        }
+        .text-center { text-align: center; }
+        .text-end { text-align: right; }
+        .fw-bold { font-weight: bold; }
+        .line { border-bottom: 1px dashed #000; margin: 8px 0; }
+        .mega { font-size: 16px; font-weight: bold; }
+        .box { border: 1px solid #000; padding: 5px; margin: 5px 0; }
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body onload="window.print()">
+    <div class="text-center">
+        <h3 style="margin:0;">GELMEX SYS</h3>
+        <p style="margin:2px 0;">TESORERIA Y FINANZAS</p>
+        <div class="line"></div>
+        
+        <p class="fw-bold mega" style="margin:5px 0;">
+            {{ 'COMPROBANTE DE INGRESO' if mov.tipo == 'INGRESO' else 'VALE DE SALIDA (GASTO)' }}
+        </p>
+        
+        <p style="margin:0;">FOLIO: <strong>{{ mov.folio }}</strong></p>
+        <p style="margin:0;">{{ mov.fecha.strftime('%d/%m/%Y %H:%M:%S') }}</p>
+    </div>
+
+    <div class="line"></div>
+
+    <div style="margin-bottom: 10px;">
+        <span class="fw-bold">CONCEPTO:</span><br>
+        <span>{{ mov.concepto }}</span>
+    </div>
+
+    {% if mov.notas %}
+    <div style="margin-bottom: 10px;">
+        <span class="fw-bold">DETALLES / NOTAS:</span><br>
+        <span style="font-style: italic;">{{ mov.notas }}</span>
+    </div>
+    {% endif %}
+
+    <div class="line"></div>
+
+    <div class="text-center">
+        <p style="margin:0;">MONTO DE LA OPERACIÓN</p>
+        <h2 class="mega" style="margin: 5px 0;">${{ "{:,.2f}".format(mov.monto) }}</h2>
+    </div>
+
+    <div class="line"></div>
+
+    <div>
+        <small>Registrado por:</small><br>
+        <strong>{{ mov.usuario.nombres }}</strong>
+    </div>
+
+    {% if mov.pago_origen %}
+    <div style="margin-top:5px;">
+        <small>Referencia Origen:</small><br>
+        Recibo Chofer: {{ mov.pago_origen.folio_recibo }}
+    </div>
+    {% endif %}
+
+    <div style="margin-top: 20px; text-align: center; border-top: 1px solid #000; padding-top: 5px;">
+        Firma de Conformidad
+    </div>
+
+    <div class="text-center" style="margin-top: 20px;">
+        <small>Este documento es un comprobante interno de control financiero.</small>
+    </div>
+
+    <button class="no-print" onclick="window.close()" style="width:100%; padding: 10px; margin-top: 20px; cursor: pointer;">CERRAR VENTANA</button>
 </body>
 </html>
 
@@ -3193,6 +4408,842 @@ function filtrarUbicaciones() {
 }
 </script>
 {% endblock %}
+
+========================= FILE: .\app\templates\logistics\collection_client.html =========================
+{% extends 'base.html' %}
+{% block title %}Cobranza: {{ cliente.nombre_negocio }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid pb-5">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <a href="{{ url_for('logistics.cobranza_buscar') }}" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left"></i> Atrás</a>
+        <div class="text-end">
+            <small class="text-muted d-block">DEUDA TOTAL</small>
+            <h2 class="fw-bold text-danger m-0">${{ "{:,.2f}".format(cliente.saldo_actual) }}</h2>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4 bg-light">
+        <div class="card-body d-flex align-items-center">
+            <div class="bg-white p-3 rounded-circle shadow-sm me-3 text-primary">
+                <i class="fa-solid fa-store fs-3"></i>
+            </div>
+            <div>
+                <h4 class="fw-bold m-0">{{ cliente.nombre_negocio }}</h4>
+                <small class="text-muted">{{ cliente.direccion }} | {{ cliente.nombre_contacto or cliente.nombres_encargado }}</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold text-secondary m-0"><i class="fa-solid fa-file-invoice-dollar me-2"></i>Notas Pendientes</h5>
+        <button class="btn btn-outline-primary btn-sm fw-bold" onclick="abrirHistorial()">
+            <i class="fa-solid fa-clock-rotate-left me-1"></i> HISTORIAL PAGOS
+        </button>
+    </div>
+
+    {% if not ordenes %}
+    <div class="alert alert-success shadow-sm">
+        <i class="fa-solid fa-check-circle me-2"></i> Este cliente está al corriente.
+    </div>
+    {% else %}
+    
+    <div class="row">
+        {% for orden in ordenes %}
+        <div class="col-12 col-md-6 mb-3">
+            <div class="card shadow-sm border-0 border-top border-4 border-warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h5 class="fw-bold mb-1">{{ orden.folio }}</h5>
+                            <small class="text-muted"><i class="fa-solid fa-calendar me-1"></i> {{ orden.fecha_registro.strftime('%d/%m/%Y') }}</small>
+                        </div>
+                        <div class="text-end">
+                             <small class="text-muted d-block" style="font-size: 0.7rem;">SALDO PENDIENTE</small>
+                             <span class="fs-4 fw-bold text-dark">${{ "{:,.2f}".format(orden.saldo_pendiente or 0) }}</span>
+                        </div>
+                    </div>
+
+                    <hr class="my-2 border-secondary opacity-10">
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Total Nota: ${{ "{:,.2f}".format(orden.total_venta) }}</small>
+                        
+                        <button class="btn btn-success fw-bold btn-sm px-3" 
+                                onclick="abrirModalAbono({{ orden.id }}, '{{ orden.folio }}', {{ orden.saldo_pendiente or 0 }})">
+                            <i class="fa-solid fa-money-bill-wave me-1"></i> ABONAR
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<div class="modal fade" id="modalAbono" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold">Abonar a Nota</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h5 class="text-center fw-bold mb-1" id="lblFolio">---</h5>
+                <p class="text-center text-muted mb-4">Saldo: <span id="lblSaldo" class="fw-bold text-dark">---</span></p>
+
+                <div class="mb-3">
+                    <label class="fw-bold small">Monto a Pagar:</label>
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text bg-light">$</span>
+                        <input type="number" id="inputMonto" class="form-control fw-bold text-success" placeholder="0.00">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="fw-bold small">Método de Pago:</label>
+                    <select id="selectMetodoCobranza" class="form-select">
+                        <option value="2">EFECTIVO</option>
+                        <option value="3">TRANSFERENCIA</option>
+                        <option value="4">TARJETA</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="fw-bold small">Notas:</label>
+                    <textarea id="txtNotasCobranza" class="form-control" rows="2" placeholder="Opcional..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btnRegistrarPago" class="btn btn-success fw-bold w-50" onclick="confirmarAbono()">REGISTRAR PAGO</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalHistorial" tabindex="-1">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold">Últimos Pagos</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="listaHistorial" class="list-group list-group-flush">
+                    </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentOrdenId = null;
+
+    function abrirModalAbono(id, folio, saldo) {
+        currentOrdenId = id;
+        document.getElementById('lblFolio').innerText = folio;
+        document.getElementById('lblSaldo').innerText = '$' + saldo.toFixed(2);
+        
+        document.getElementById('inputMonto').value = saldo.toFixed(2); 
+        document.getElementById('txtNotasCobranza').value = '';
+        
+        const btn = document.getElementById('btnRegistrarPago');
+        btn.disabled = false;
+        btn.innerText = "REGISTRAR PAGO";
+        
+        const modal = new bootstrap.Modal(document.getElementById('modalAbono'));
+        modal.show();
+    }
+
+    async function confirmarAbono() {
+        const inputMonto = document.getElementById('inputMonto');
+        const btn = document.getElementById('btnRegistrarPago');
+        const monto = parseFloat(inputMonto.value);
+
+        if (!monto || monto <= 0) {
+            alert("Monto inválido.");
+            return;
+        }
+
+        // BLOQUEAR BOTÓN
+        btn.disabled = true;
+        btn.innerText = "Procesando...";
+
+        const payload = {
+            orden_id: currentOrdenId,
+            items: [], 
+            notas: "COBRANZA: " + document.getElementById('txtNotasCobranza').value,
+            pago: {
+                monto: monto,
+                recibido: monto,
+                cambio: 0,
+                tipo_id: document.getElementById('selectMetodoCobranza').value
+            }
+        };
+
+        try {
+            const res = await fetch("{{ url_for('logistics.confirmar_entrega') }}", {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                const modalEl = document.getElementById('modalAbono');
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if(modalInstance) modalInstance.hide();
+
+                // ABRIR TICKET NUEVA PESTAÑA
+                window.open("/logistica/ticket/" + currentOrdenId, '_blank');
+
+                // RECARGAR PAGINA
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+
+            } else {
+                alert("Error: " + data.message);
+                btn.disabled = false;
+                btn.innerText = "REGISTRAR PAGO";
+            }
+        } catch(e) {
+            alert("Error de conexión.");
+            console.error(e);
+            btn.disabled = false;
+            btn.innerText = "REGISTRAR PAGO";
+        }
+    }
+
+    async function abrirHistorial() {
+        const modal = new bootstrap.Modal(document.getElementById('modalHistorial'));
+        modal.show();
+        
+        const lista = document.getElementById('listaHistorial');
+        lista.innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary"></div><p>Cargando...</p></div>';
+
+        try {
+            const res = await fetch("{{ url_for('logistics.api_historial_pagos', cliente_id=cliente.id) }}");
+            const pagos = await res.json();
+
+            if(pagos.length === 0) {
+                lista.innerHTML = '<div class="p-4 text-center text-muted">No hay pagos recientes.</div>';
+                return;
+            }
+
+            let html = '';
+            pagos.forEach(p => {
+                html += `
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="fw-bold text-dark">$${p.monto.toFixed(2)}</div>
+                        <small class="text-muted">${p.fecha}</small><br>
+                        <small class="text-primary" style="font-size:0.75em">${p.folio}</small>
+                    </div>
+                    <div class="text-end">
+                        <small class="d-block text-muted mb-1">Nota: ${p.orden}</small>
+                        <a href="/logistica/ticket/${p.orden_id}" target="_blank" class="btn btn-sm btn-light border shadow-sm">
+                            <i class="fa-solid fa-print"></i>
+                        </a>
+                    </div>
+                </div>
+                `;
+            });
+            lista.innerHTML = html;
+
+        } catch(e) {
+            console.error(e);
+            lista.innerHTML = '<div class="p-4 text-center text-danger">Error al cargar historial.</div>';
+        }
+    }
+</script>
+{% endblock %}
+
+========================= FILE: .\app\templates\logistics\collection_search.html =========================
+{% extends 'base.html' %}
+{% block title %}Cartera de Cobranza{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div class="d-flex align-items-center">
+            <a href="{{ url_for('logistics.index') }}" class="btn btn-outline-dark me-3"><i class="fa-solid fa-arrow-left"></i></a>
+            <div>
+                <h4 class="fw-bold m-0 text-danger">Cartera Vencida</h4>
+                <small class="text-muted">Lista de Deudores</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body p-2">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-0"><i class="fa-solid fa-filter text-secondary"></i></span>
+                <input type="text" id="inputFiltro" class="form-control border-0 fw-bold" 
+                       placeholder="Filtrar por nombre, calle o colonia..." 
+                       onkeyup="filtrarTabla()">
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="tablaCobranza">
+                    <thead class="bg-light text-secondary small text-uppercase">
+                        <tr>
+                            <th class="ps-3" style="cursor:pointer" onclick="ordenarTabla(0)">Negocio <i class="fa-solid fa-sort ms-1"></i></th>
+                            <th class="d-none d-md-table-cell">Dirección</th>
+                            <th class="text-end" style="cursor:pointer" onclick="ordenarTabla(2)">Deuda <i class="fa-solid fa-sort ms-1"></i></th>
+                            <th class="text-center">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyDeudores">
+                        {% if not deudores %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5 text-muted">
+                                <i class="fa-solid fa-check-circle fs-1 mb-3 text-success"></i><br>
+                                ¡Excelente! No hay clientes con deuda pendiente mayor a $1.
+                            </td>
+                        </tr>
+                        {% else %}
+                        {% for c in deudores %}
+                        <tr class="fila-deudor">
+                            <td class="ps-3 py-3">
+                                <div class="fw-bold text-dark">{{ c.nombre_negocio }}</div>
+                                <small class="text-muted d-md-none">{{ c.calle or '' }} {{ c.num_exterior or '' }}</small>
+                                <small class="text-primary d-block" style="font-size: 0.75rem;">
+                                    <i class="fa-solid fa-user"></i> {{ c.nombres_encargado or '' }} {{ c.apellidos_encargado or '' }}
+                                </small>
+                            </td>
+                            <td class="d-none d-md-table-cell text-muted small">
+                                {{ c.calle or '' }} {{ c.num_exterior or '' }}, {{ c.colonia or '' }}
+                            </td>
+                            <td class="text-end fw-bold text-danger fs-5">
+                                ${{ "{:,.2f}".format(c.saldo_actual) }}
+                            </td>
+                            <td class="text-center">
+                                <a href="{{ url_for('logistics.cobranza_cliente', cliente_id=c.id) }}" 
+                                   class="btn btn-sm btn-outline-danger fw-bold shadow-sm">
+                                    <i class="fa-solid fa-hand-holding-dollar"></i> VER
+                                </a>
+                            </td>
+                            <td style="display:none;">{{ c.colonia }} {{ c.calle }} {{ c.nombres_encargado }} {{ c.apellidos_encargado }}</td> 
+                        </tr>
+                        {% endfor %}
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="text-center mt-3 text-muted small">
+        Mostrando clientes con Saldo Pendiente.
+    </div>
+</div>
+
+<script>
+    // 1. FILTRADO EN VIVO (CLIENT SIDE)
+    function filtrarTabla() {
+        const input = document.getElementById("inputFiltro");
+        const filter = input.value.toUpperCase();
+        const table = document.getElementById("tablaCobranza");
+        const tr = table.getElementsByTagName("tr");
+
+        // Empezamos en 1 para no ocultar el encabezado
+        for (let i = 1; i < tr.length; i++) {
+            const rowContent = tr[i].textContent || tr[i].innerText;
+            if (rowContent.toUpperCase().indexOf(filter) > -1) {
+                tr[i].style.display = "";
+            } else {
+                tr[i].style.display = "none";
+            }
+        }
+    }
+
+    // 2. ORDENAMIENTO DE COLUMNAS
+    function ordenarTabla(n) {
+        var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+        table = document.getElementById("tablaCobranza");
+        switching = true;
+        dir = "asc"; 
+        
+        while (switching) {
+            switching = false;
+            rows = table.rows;
+            for (i = 1; i < (rows.length - 1); i++) {
+                shouldSwitch = false;
+                x = rows[i].getElementsByTagName("TD")[n];
+                y = rows[i + 1].getElementsByTagName("TD")[n];
+                
+                let xVal = x.innerText.toLowerCase();
+                let yVal = y.innerText.toLowerCase();
+                
+                // Si es la columna de dinero (índice 2), limpiar símbolos para ordenar numéricamente
+                if(n === 2) {
+                    xVal = parseFloat(xVal.replace(/[^0-9.-]+/g,""));
+                    yVal = parseFloat(yVal.replace(/[^0-9.-]+/g,""));
+                }
+
+                if (dir == "asc") {
+                    if (xVal > yVal) { shouldSwitch = true; break; }
+                } else if (dir == "desc") {
+                    if (xVal < yVal) { shouldSwitch = true; break; }
+                }
+            }
+            if (shouldSwitch) {
+                rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                switching = true;
+                switchcount ++;      
+            } else {
+                if (switchcount == 0 && dir == "asc") {
+                    dir = "desc";
+                    switching = true;
+                }
+            }
+        }
+    }
+</script>
+{% endblock %}
+
+========================= FILE: .\app\templates\logistics\delivery_handover.html =========================
+{% extends 'base.html' %}
+{% block title %}Entrega {{ orden.folio }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid pb-5">
+    
+    <div class="card bg-dark text-white shadow mb-3 border-0">
+        <div class="card-body d-flex justify-content-between align-items-center py-2">
+            <div>
+                <small class="opacity-75 text-uppercase fw-bold">Total a Bajar</small>
+                <div class="fs-3 fw-bold text-warning"><i class="fa-solid fa-dolly me-2"></i>{{ total_piezas|int }} Piezas</div>
+            </div>
+            <div class="text-end">
+                <small class="opacity-75">Orden</small>
+                <div class="fw-bold">{{ orden.folio }}</div>
+            </div>
+        </div>
+    </div>
+
+    {% if saldo_global_previo > 0 %}
+    <div class="alert alert-danger shadow-sm d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <span class="fw-bold"><i class="fa-solid fa-circle-exclamation me-2"></i>TIENE DEUDA VIEJA</span>
+        </div>
+        <div class="fw-bold fs-5">${{ "{:,.2f}".format(saldo_global_previo) }}</div>
+    </div>
+    {% endif %}
+
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body bg-light border-start border-primary border-5">
+            <h5 class="fw-bold m-0 text-primary">{{ orden.cliente.nombre_negocio }}</h5>
+            <div class="d-flex justify-content-between mt-2">
+                <span class="badge bg-white text-dark border">{{ orden.metodo_pago_esperado }}</span>
+                <span class="fs-4 fw-bold text-dark" id="displayTotal">${{ "{:,.2f}".format(orden.total_venta) }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-header bg-white fw-bold">📦 Confirmar Productos</div>
+        <div class="card-body p-0">
+            <table class="table table-striped mb-0 align-middle">
+                <thead>
+                    <tr class="small text-muted text-uppercase">
+                        <th class="ps-3">Item</th>
+                        <th class="text-center" width="90">Bajar</th>
+                        <th class="text-center" width="50"><i class="fa-solid fa-check"></i></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr data-id="{{ item.detalle_id }}" data-precio="{{ item.precio }}">
+                        <td class="ps-3">
+                            <div class="fw-bold text-truncate" style="max-width: 180px;">{{ item.producto }}</div>
+                            <small class="text-muted">Traes: <strong>{{ item.surtida|int }}</strong></small>
+                        </td>
+                        <td class="p-2">
+                            <input type="number" 
+                                   class="form-control text-center fw-bold input-qty"
+                                   value="{{ item.sugerida|int }}" 
+                                   min="0" max="{{ item.surtida|int }}"
+                                   oninput="validarMaximo(this); calcularTotal();">
+                        </td>
+                        <td class="text-center">
+                            <input type="checkbox" class="form-check-input border-2 border-dark item-check" 
+                                   style="width: 25px; height: 25px;"
+                                   onchange="validarFormulario()">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white fw-bold">💰 Pago Contra-Entrega</div>
+        <div class="card-body">
+            
+            <label class="small text-muted fw-bold mb-1">Monto a Cobrar:</label>
+            <div class="input-group mb-3">
+                <span class="input-group-text bg-light">$</span>
+                <input type="number" id="inputAbono" class="form-control form-control-lg fw-bold text-success" 
+                       value="{% if orden.metodo_pago_esperado == 'Contado' %}{{ orden.total_venta }}{% endif %}"
+                       placeholder="0.00" oninput="calcularCambio()">
+            </div>
+
+            <div class="row g-2 mb-3">
+                <div class="col-6">
+                    <label class="small text-muted fw-bold mb-1">Recibido:</label>
+                    <input type="number" id="inputRecibido" class="form-control" placeholder="$$$" oninput="calcularCambio()">
+                </div>
+                <div class="col-6">
+                    <label class="small text-muted fw-bold mb-1">Cambio:</label>
+                    <input type="text" id="displayCambio" class="form-control bg-light fw-bold text-secondary" readonly value="$0.00">
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="small text-muted fw-bold mb-1">Método de Pago:</label>
+                <select id="selectMetodo" class="form-select fw-bold text-dark">
+                    {% for metodo in metodos_pago %}
+                        <option value="{{ metodo.id }}">{{ metodo.descripcion|replace('_', ' ') }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="mb-2">
+                <label class="small text-muted fw-bold mb-1">Notas (Min 15 letras):</label>
+                <textarea id="inputNotas" class="form-control" rows="2" 
+                          placeholder="Ej: Entrega completa, pagado..." 
+                          oninput="validarFormulario()"></textarea>
+                <div class="text-end"><small id="charCount" class="text-danger fw-bold">0/15</small></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-grid pb-5">
+        <button id="btnFinalizar" onclick="enviarEntrega()" class="btn btn-secondary btn-lg py-3 fw-bold shadow" disabled>
+            <i class="fa-solid fa-lock me-2"></i> COMPLETAR CHECKS Y NOTAS
+        </button>
+    </div>
+
+</div>
+
+<script>
+    function validarMaximo(input) {
+        if(parseInt(input.value) > parseInt(input.max)) input.value = input.max;
+        if(parseInt(input.value) < 0) input.value = 0;
+    }
+
+    function calcularTotal() {
+        let nuevoTotal = 0;
+        document.querySelectorAll('.input-qty').forEach(input => {
+            const row = input.closest('tr');
+            nuevoTotal += (parseFloat(row.dataset.precio) * (parseFloat(input.value) || 0));
+        });
+        document.getElementById('displayTotal').innerText = '$' + nuevoTotal.toFixed(2);
+    }
+
+    function calcularCambio() {
+        const abono = parseFloat(document.getElementById('inputAbono').value) || 0;
+        const recibido = parseFloat(document.getElementById('inputRecibido').value) || 0;
+        const cambio = recibido - abono;
+        
+        const elCambio = document.getElementById('displayCambio');
+        if (cambio < 0) {
+            elCambio.value = "FALTA: $" + Math.abs(cambio).toFixed(2);
+            elCambio.classList.add('text-danger');
+        } else {
+            elCambio.value = '$' + cambio.toFixed(2);
+            elCambio.classList.remove('text-danger');
+        }
+    }
+
+    function validarFormulario() {
+        const notas = document.getElementById('inputNotas').value.trim();
+        const checks = document.querySelectorAll('.item-check');
+        let checksOk = true;
+        checks.forEach(c => { if(!c.checked) checksOk = false; });
+
+        document.getElementById('charCount').innerText = notas.length + "/15";
+        document.getElementById('charCount').className = notas.length >= 15 ? 'text-success fw-bold' : 'text-danger fw-bold';
+
+        const btn = document.getElementById('btnFinalizar');
+        if (checksOk && notas.length >= 15) {
+            btn.disabled = false;
+            btn.classList.replace('btn-secondary', 'btn-success');
+            btn.innerHTML = '<i class="fa-solid fa-print me-2"></i> TERMINAR E IMPRIMIR';
+        } else {
+            btn.disabled = true;
+            btn.classList.replace('btn-success', 'btn-secondary');
+            btn.innerHTML = '<i class="fa-solid fa-lock me-2"></i> COMPLETAR CHECKS Y NOTAS';
+        }
+    }
+
+    async function enviarEntrega() {
+        if (!confirm("¿Cerrar entrega y generar ticket?")) return;
+
+        const items = [];
+        document.querySelectorAll('.input-qty').forEach(input => {
+            items.push({
+                detalle_id: input.closest('tr').dataset.id,
+                cant_real: input.value
+            });
+        });
+
+        const abono = document.getElementById('inputAbono').value;
+        const recibido = document.getElementById('inputRecibido').value;
+        const cambioVal = document.getElementById('displayCambio').value.replace('$','').replace('FALTA: ','-');
+
+        const payload = {
+            orden_id: {{ orden.id }},
+            items: items,
+            notas: document.getElementById('inputNotas').value,
+            pago: {
+                monto: abono || 0,
+                recibido: recibido || 0,
+                cambio: parseFloat(cambioVal) || 0,
+                tipo_id: document.getElementById('selectMetodo').value
+            }
+        };
+
+        try {
+            const res = await fetch("{{ url_for('logistics.confirmar_entrega') }}", {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                window.location.href = "/logistica/ticket/" + data.orden_id;
+            } else {
+                alert("❌ ERROR: " + data.message);
+            }
+        } catch (e) {
+            alert("Error de conexión");
+        }
+    }
+</script>
+{% endblock %}
+
+========================= FILE: .\app\templates\logistics\route_dashboard.html =========================
+{% extends 'base.html' %}
+{% block title %}Mi Ruta | GelMexSys{% endblock %}
+
+{% block content %}
+<div class="container-fluid pb-5">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold text-primary m-0"><i class="fa-solid fa-truck-fast me-2"></i>Mi Ruta</h4>
+            <small class="text-muted">{{ ordenes|length }} entregas pendientes</small>
+        </div>
+        
+        <a href="{{ url_for('logistics.cobranza_buscar') }}" class="btn btn-dark shadow-sm fw-bold">
+            <i class="fa-solid fa-hand-holding-dollar me-2"></i> COBRANZA
+        </a>
+    </div>
+
+    {% if not ordenes %}
+    <div class="alert alert-success shadow-sm mb-5 border-0 border-start border-5 border-success">
+        <i class="fa-solid fa-check-circle me-2"></i> ¡Excelente! No tienes entregas pendientes en tu ruta.
+    </div>
+    {% endif %}
+
+    <div class="row mb-5">
+        {% for orden in ordenes %}
+        <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <div class="card shadow-sm border-0 h-100 {% if orden.estado == 'EN_RUTA' %}border-start border-primary border-5{% else %}border-start border-warning border-5{% endif %}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="fw-bold m-0 text-truncate">{{ orden.cliente.nombre_negocio }}</h5>
+                        <span class="badge {% if orden.estado == 'EN_RUTA' %}bg-primary{% else %}bg-warning text-dark{% endif %}">
+                            {{ orden.estado }}
+                        </span>
+                    </div>
+                    <p class="text-muted small mb-1"><i class="fa-solid fa-map-marker-alt me-1"></i> {{ orden.cliente.direccion or 'Sin dirección' }}</p>
+                    <p class="text-muted small mb-2"><i class="fa-solid fa-barcode me-1"></i> {{ orden.folio }}</p>
+                    
+                    <div class="d-flex justify-content-between bg-light rounded p-2 mb-3">
+                        <div class="text-center px-2">
+                            <small class="d-block text-muted" style="font-size: 0.7rem;">TOTAL</small>
+                            <span class="fw-bold">${{ "{:,.2f}".format(orden.total_venta) }}</span>
+                        </div>
+                        <div class="text-center px-2 border-start">
+                            <small class="d-block text-muted" style="font-size: 0.7rem;">PAGO</small>
+                            <span class="fw-bold">{{ orden.metodo_pago_esperado }}</span>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        {% if orden.estado == 'LISTO_RUTA' %}
+                        <a href="{{ url_for('logistics.cargar_orden', orden_id=orden.id) }}" class="btn btn-secondary fw-bold">
+                            <i class="fa-solid fa-dolly me-2"></i> SUBIR AL CAMIÓN
+                        </a>
+                        {% else %}
+                        <a href="{{ url_for('logistics.entrega_cliente', orden_id=orden.id) }}" class="btn btn-primary fw-bold py-2">
+                            <i class="fa-solid fa-box-open me-2"></i> REALIZAR ENTREGA
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if terminadas %}
+    <h5 class="fw-bold text-secondary mb-3 border-top pt-4"><i class="fa-solid fa-clock-rotate-left me-2"></i>Historial de Hoy (Reimprimir Tickets)</h5>
+    <div class="row">
+        {% for orden in terminadas %}
+        <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <div class="card shadow-sm border-0 h-100 bg-light">
+                <div class="card-body d-flex justify-content-between align-items-center p-3">
+                    <div style="max-width: 60%;">
+                        <h6 class="fw-bold m-0 text-dark text-truncate">{{ orden.cliente.nombre_negocio }}</h6>
+                        <small class="text-muted">{{ orden.folio }}</small>
+                    </div>
+                    
+                    <div class="text-end">
+                        <div class="mb-1">
+                            {% if orden.estado == 'PAGADO' %}
+                                <span class="badge bg-success"><i class="fa-solid fa-check"></i> PAGADO</span>
+                            {% else %}
+                                <span class="badge bg-info text-dark"><i class="fa-solid fa-clock"></i> CRÉDITO</span>
+                            {% endif %}
+                        </div>
+                        <a href="{{ url_for('logistics.ver_ticket', orden_id=orden.id) }}" class="btn btn-outline-dark btn-sm fw-bold">
+                            <i class="fa-solid fa-print"></i> TICKET
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+========================= FILE: .\app\templates\logistics\ticket.html =========================
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket #{{ orden.folio }}</title>
+    <style>
+        body { font-family: 'Courier New', Courier, monospace; font-size: 12px; margin: 0; padding: 10px; max-width: 300px; background: #fff; }
+        .text-center { text-align: center; }
+        .text-end { text-align: right; }
+        .text-start { text-align: left; }
+        .fw-bold { font-weight: bold; }
+        .line { border-bottom: 1px dashed #000; margin: 5px 0; }
+        .big { font-size: 14px; }
+        .mega { font-size: 18px; font-weight: bold; }
+        .table { width: 100%; border-collapse: collapse; }
+        .table td { vertical-align: top; }
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body onload="window.print()">
+    <div class="text-center">
+        <h3 class="margin:0;">GELMEX SYS</h3>
+        <p>Nota de Remisión</p>
+        <p class="fw-bold">{{ orden.folio }}</p>
+        <p>{{ orden.fecha_registro.strftime('%d/%m/%Y %H:%M') }}</p>
+    </div>
+    
+    <div class="line"></div>
+    
+    <div>
+        <strong>Cliente:</strong> {{ orden.cliente.nombre_negocio }}<br>
+        <small>{{ orden.cliente.direccion }}</small>
+    </div>
+
+    <div class="line"></div>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th class="text-start">Cant</th>
+                <th class="text-start">Prod</th>
+                <th class="text-end">$$</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in orden.items %}
+            {% if item.cantidad_entregada > 0 %}
+            <tr>
+                <td>{{ item.cantidad_entregada|int }}</td>
+                <td>{{ item.producto.descripcion[:15] }}</td>
+                <td class="text-end">${{ "{:,.0f}".format(item.subtotal) }}</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="line"></div>
+
+    <table style="width: 100%;">
+        <tr>
+            <td class="text-end fw-bold big">TOTAL NOTA:</td>
+            <td class="text-end fw-bold big">${{ "{:,.2f}".format(orden.total_venta) }}</td>
+        </tr>
+    </table>
+
+    <div class="line"></div>
+
+    <div class="text-start mb-2">
+        <small class="fw-bold">HISTORIAL DE ABONOS:</small>
+        <table class="table table-sm mt-1" style="font-size: 11px;">
+            {% for p in pagos %}
+            <tr>
+                <td>{{ p.fecha_registro.strftime('%d/%m') }}</td>
+                <td>{{ p.folio_recibo[-4:] }}</td> 
+                <td class="text-end fw-bold">${{ "{:,.2f}".format(p.monto_pago) }}</td>
+            </tr>
+            {% endfor %}
+            {% if not pagos %}
+            <tr><td colspan="3" class="text-muted text-center">- Sin abonos -</td></tr>
+            {% endif %}
+        </table>
+    </div>
+    
+    <div class="line"></div>
+
+    <div class="text-center mt-2">
+        {% if orden.estado == 'PAGADO' or orden.estado == 'SINAUDITARPAGO' %}
+            <span class="mega">*** PAGADO ***</span>
+            <p class="small">SALDO: $0.00</p>
+        {% else %}
+            <span class="mega">*** RESTAN ***</span>
+            <p class="fw-bold big">SALDO PENDIENTE: ${{ "{:,.2f}".format(orden.saldo_pendiente or 0) }}</p>
+        {% endif %}
+    </div>
+
+    <div class="line"></div>
+    <div class="text-center">
+        <p>¡Gracias por su compra!</p>
+        <small>Este comprobante es informativo.</small>
+    </div>
+
+    <button class="no-print" onclick="window.close()" style="width:100%; padding: 10px; margin-top: 20px; font-size: 16px;">CERRAR</button>
+</body>
+</html>
 
 ========================= FILE: .\app\templates\production\dashboard.html =========================
 {% extends 'base.html' %}
@@ -3972,6 +6023,638 @@ document.addEventListener("DOMContentLoaded", function() {
         if (!e.target.closest('#wrapperCliente')) sugCli.style.display = 'none';
         if (!e.target.closest('#wrapperProducto')) sugProd.style.display = 'none';
     });
+</script>
+{% endblock %}
+
+========================= FILE: .\app\templates\shipping\dashboard.html =========================
+{% extends 'base.html' %}
+{% block title %}Despacho | GelMexSys{% endblock %}
+{% block page_header %}Tablero de Surtido y Embarque{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="text-primary fw-bold"><i class="fa-solid fa-clipboard-list me-2"></i>Cola de Trabajo (Pendientes)</h5>
+        <span class="badge bg-primary fs-6">{{ pendientes|length }} Órdenes</span>
+    </div>
+    
+    <div class="row">
+        {% for orden in pendientes %}
+        <div class="col-12 col-md-6 col-xl-4 mb-4">
+            <div class="card h-100 shadow-sm border-0 border-start border-4 {% if orden.estado == 'EMPACADO' %}border-warning{% else %}border-primary{% endif %}">
+                <div class="card-header bg-white border-bottom-0 pt-3 pb-0 d-flex justify-content-between">
+                    <span class="badge bg-light text-dark border">{{ orden.folio }}</span>
+                    {% if orden.estado == 'CONFIRMADA' %}
+                        <span class="badge bg-secondary">POR INICIAR</span>
+                    {% elif orden.estado == 'EN_PRODUCCION' %}
+                        <span class="badge bg-info text-dark">SURTIENDO</span>
+                    {% elif orden.estado == 'EMPACADO' %}
+                        <span class="badge bg-warning text-dark">EMPACANDO</span>
+                    {% endif %}
+                </div>
+                
+                <div class="card-body">
+                    <h5 class="card-title fw-bold text-dark mb-1">{{ orden.cliente.nombre_negocio }}</h5>
+                    <p class="text-muted small mb-3">
+                        <i class="fa-solid fa-route me-1"></i> 
+                        {{ orden.cliente.ruta.descripcion if orden.cliente.ruta else 'Sin Ruta' }}
+                    </p>
+                    
+                    <div class="d-flex align-items-center justify-content-between bg-light rounded p-2 mb-2">
+                        <div class="text-center px-2">
+                            <small class="text-muted d-block" style="font-size: 0.7rem;">ÍTEMS</small>
+                            <strong>{{ orden.items|length }}</strong>
+                        </div>
+                        <div class="text-center px-2 border-start border-end">
+                            <small class="text-muted d-block" style="font-size: 0.7rem;">ENTREGA</small>
+                            <strong>{{ orden.fecha_promesa_entrega.strftime('%d/%m') }}</strong>
+                        </div>
+                        <div class="text-center px-2">
+                            <small class="text-muted d-block" style="font-size: 0.7rem;">VENDEDOR</small>
+                            <strong>{{ orden.vendedor.nombres.split()[0] }}</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-footer bg-white border-top-0 pb-3 pt-0">
+                    <a href="{{ url_for('shipping.picking', orden_id=orden.id) }}" class="btn btn-primary w-100 fw-bold shadow-sm">
+                        {% if orden.estado == 'CONFIRMADA' %}
+                            INICIAR <i class="fa-solid fa-play ms-2"></i>
+                        {% else %}
+                            CONTINUAR <i class="fa-solid fa-arrow-right ms-2"></i>
+                        {% endif %}
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12 text-center py-4 bg-light rounded mb-4">
+            <h4 class="text-muted m-0">🎉 No hay pedidos pendientes por ahora.</h4>
+        </div>
+        {% endfor %}
+    </div>
+
+    <hr class="my-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="text-success fw-bold"><i class="fa-solid fa-truck-ramp-box me-2"></i>Listos para Ruta (Últimos Empacados)</h5>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle bg-white shadow-sm rounded">
+            <thead class="table-light">
+                <tr>
+                    <th>Folio</th>
+                    <th>Cliente</th>
+                    <th>Ruta</th>
+                    <th>Cajas</th>
+                    <th>Fecha Entrega</th>
+                    <th>Estatus</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for orden in terminados %}
+                <tr>
+                    <td class="fw-bold">{{ orden.folio }}</td>
+                    <td>{{ orden.cliente.nombre_negocio }}</td>
+                    <td>{{ orden.cliente.ruta.descripcion if orden.cliente.ruta else 'S/R' }}</td>
+                    <td><span class="badge bg-dark">{{ orden.paquetes|length }} Cajas</span></td>
+                    <td>{{ orden.fecha_promesa_entrega.strftime('%d/%m/%Y') }}</td>
+                    <td><span class="badge bg-success">LISTO PARA RUTA</span></td>
+                    <td>
+                        <a href="{{ url_for('shipping.picking', orden_id=orden.id) }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fa-solid fa-eye"></i> Ver / Reimprimir
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-3">No has terminado ninguna orden recientemente.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+{% endblock %}
+
+========================= FILE: .\app\templates\shipping\labels.html =========================
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Etiquetas - {{ orden.folio }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body { background: #525659; }
+        .page-break { page-break-after: always; }
+        .label-container {
+            background: white;
+            width: 100mm;
+            height: 150mm;
+            margin: 20px auto;
+            padding: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        @media print {
+            body { background: white; margin: 0; }
+            .label-container {
+                box-shadow: none;
+                margin: 0;
+                width: 100%;
+                height: 100vh;
+                border: none;
+            }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container-fluid py-3 no-print bg-dark text-white shadow fixed-top">
+        <div class="d-flex justify-content-between align-items-center px-4">
+            <div class="d-flex align-items-center">
+                <h5 class="m-0 me-3"><i class="fa-solid fa-print me-2"></i>Vista de Impresión</h5>
+                <span class="badge bg-secondary">{{ orden.paquetes|length }} Etiquetas</span>
+            </div>
+            <div class="d-flex gap-2">
+                <button onclick="window.print()" class="btn btn-warning fw-bold">
+                    <i class="fa-solid fa-print me-2"></i> IMPRIMIR
+                </button>
+                <a href="{{ url_for('shipping.picking', orden_id=orden.id) }}" class="btn btn-danger fw-bold">
+                    <i class="fa-solid fa-xmark me-2"></i> CERRAR
+                </a>
+            </div>
+        </div>
+    </div>
+    <div style="height: 80px;" class="no-print"></div>
+
+    {% for p in orden.paquetes %}
+    <div class="label-container page-break">
+        
+        <div class="text-center border-bottom pb-2 mb-2">
+            <h2 class="fw-bold mb-0 text-uppercase">GelMex</h2>
+            <small class="text-muted fw-bold letter-spacing-1">LOGÍSTICA Y DISTRIBUCIÓN</small>
+        </div>
+
+        <div class="row mt-2">
+            <div class="col-12 mb-3">
+                <label class="small text-muted fw-bold text-uppercase">Cliente / Destino:</label>
+                <div class="fs-4 fw-bold lh-1">{{ orden.cliente.nombre_negocio }}</div>
+                <div class="small text-muted mt-1">
+                    <i class="fa-solid fa-location-dot me-1"></i>
+                    {{ orden.cliente.ciudad }}, {{ orden.cliente.estado }}
+                </div>
+            </div>
+            
+            <div class="col-6">
+                <label class="small text-muted fw-bold text-uppercase">Ruta:</label>
+                <div class="fs-1 fw-bold text-center border border-3 border-dark rounded">
+                    {{ orden.cliente.ruta.descripcion.split(':')[0] if orden.cliente.ruta else 'S/R' }}
+                </div>
+            </div>
+            <div class="col-6 text-end">
+                <label class="small text-muted fw-bold text-uppercase">CAJA:</label>
+                <div class="fs-1 fw-bold">{{ p.numero_caja }} <span class="fs-4 text-muted">/ {{ p.total_cajas_orden }}</span></div>
+            </div>
+        </div>
+
+        <div class="mt-3 border-top border-bottom py-2 bg-light px-2 rounded">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="d-block small fw-bold text-muted">FOLIO ORDEN</span>
+                    <span class="fs-5 fw-bold">{{ orden.folio }}</span>
+                </div>
+                <div class="text-end">
+                    <span class="d-block small fw-bold text-muted">VALOR</span>
+                    <span class="fs-5 fw-bold">${{ "{:,.2f}".format(orden.total_venta) }}</span>
+                </div>
+            </div>
+            <div class="mt-2 small text-muted fst-italic border-top pt-1">
+                <strong>Contenido:</strong> {{ p.descripcion_contenido }}
+            </div>
+        </div>
+
+        <div class="text-center mt-auto flex-grow-1 d-flex flex-column align-items-center justify-content-center pt-4">
+            <div id="qrcode-{{ p.id }}" class="p-2 bg-white border"></div>
+            <div class="mt-2 font-monospace small fw-bold text-break">{{ p.codigo_etiqueta }}</div>
+        </div>
+
+        <div class="text-center small text-muted mt-3 border-top pt-2">
+            Salida: <strong>{{ orden.fecha_promesa_entrega.strftime('%d/%m/%Y') }}</strong> | 
+            Empacó: {{ p.usuario.nombres if p.usuario else 'Sistema' }}
+        </div>
+    </div>
+
+    <script>
+        try {
+            new QRCode(document.getElementById("qrcode-{{ p.id }}"), {
+                text: "{{ p.codigo_etiqueta }}",
+                width: 150,
+                height: 150,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.M
+            });
+        } catch (e) { console.error(e); }
+    </script>
+    {% endfor %}
+</body>
+</html>
+
+========================= FILE: .\app\templates\shipping\picking.html =========================
+{% extends 'base.html' %}
+{% block title %}Surtido {{ orden.folio }}{% endblock %}
+{% block page_header %}Mesa de Surtido{% endblock %}
+
+{% block content %}
+
+{# --- LÓGICA DE MODO LECTURA --- #}
+{% set orden_cerrada = orden.estado in ['LISTO_RUTA', 'EN_RUTA', 'ENTREGADA', 'CANCELADA'] %}
+
+<div class="container-fluid">
+    <div class="card shadow-sm mb-4 border-primary">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="fw-bold m-0 text-primary">{{ orden.folio }}</h4>
+                <span class="text-muted fs-5">{{ orden.cliente.nombre_negocio }}</span>
+                <div class="text-muted small mt-1">
+                    <i class="fa-solid fa-truck me-1"></i> {{ orden.cliente.ruta.descripcion if orden.cliente.ruta else 'Sin Ruta' }}
+                </div>
+            </div>
+            <div class="text-end">
+                <span class="badge bg-warning text-dark fs-5 shadow-sm">{{ orden.estado }}</span>
+                <br>
+                <small class="text-muted">Entrega: {{ orden.fecha_promesa_entrega.strftime('%d/%m') }}</small>
+            </div>
+        </div>
+        
+        {% if orden_cerrada %}
+        <div class="card-footer bg-secondary text-white fw-bold text-center">
+            <i class="fa-solid fa-lock me-2"></i> MODO HISTÓRICO: ORDEN FINALIZADA Y CERRADA
+        </div>
+        {% elif orden.notas_vendedor %}
+        <div class="card-footer bg-warning bg-opacity-25 border-top-0">
+            <i class="fa-solid fa-triangle-exclamation me-2"></i><strong>Nota:</strong> {{ orden.notas_vendedor }}
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0 mb-3">
+                <div class="card-header bg-dark text-white d-flex justify-content-between">
+                    <h5 class="m-0"><i class="fa-solid fa-list-check me-2"></i>Lista de Productos</h5>
+                    <span class="badge bg-light text-dark">{{ orden.items|length }} Ítems</span>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="table-light text-secondary text-uppercase small">
+                            <tr>
+                                <th style="width: 40%;">Producto</th>
+                                <th class="text-center">Progreso</th>
+                                <th class="text-center">Falta</th>
+                                <th class="text-end">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in orden.items %}
+                            {% set pedido = item.cantidad_pedida | int %}
+                            {% set surtido = item.cantidad_surtida | int %}
+                            {% set faltante = pedido - surtido %}
+                            {% set porcentaje = (surtido / pedido * 100) | int %}
+                            
+                            <tr class="{% if faltante <= 0 %}table-success bg-opacity-25{% endif %}">
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="me-3">
+                                            {% if faltante <= 0 %}
+                                                <i class="fa-solid fa-circle-check text-success fa-2x"></i>
+                                            {% else %}
+                                                <div class="bg-light rounded-circle d-flex align-items-center justify-content-center text-muted border" style="width:40px; height:40px;">
+                                                    <i class="fa-solid fa-box"></i>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <strong>{{ item.producto.descripcion }}</strong>
+                                            <br>
+                                            <span class="badge bg-secondary">{{ item.producto.sku }}</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                
+                                <td class="align-middle">
+                                    <div class="d-flex justify-content-between small mb-1 fw-bold">
+                                        <span>{{ surtido }} / {{ pedido }}</span>
+                                        <span>{{ porcentaje }}%</span>
+                                    </div>
+                                    <div class="progress" style="height: 10px;">
+                                        <div class="progress-bar {% if faltante <= 0 %}bg-success{% else %}bg-primary progress-bar-striped{% endif %}" 
+                                             role="progressbar" style="width: {{ porcentaje }}%"></div>
+                                    </div>
+                                </td>
+
+                                <td class="text-center fw-bold fs-5">
+                                    {% if faltante > 0 %}
+                                        <span class="text-danger">{{ faltante }}</span>
+                                    {% else %}
+                                        <span class="text-success">OK</span>
+                                    {% endif %}
+                                </td>
+
+                                <td class="text-end">
+                                    {% if orden_cerrada %}
+                                        <span class="text-muted"><i class="fa-solid fa-lock"></i></span>
+                                    {% else %}
+                                        {% if faltante > 0 %}
+                                        <button class="btn btn-primary fw-bold shadow-sm" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#modalPick{{ item.id }}">
+                                            <i class="fa-solid fa-hand-holding-box"></i> TOMAR
+                                        </button>
+                                        {% else %}
+                                        <button class="btn btn-outline-success disabled border-0">
+                                            <i class="fa-solid fa-check"></i> LISTO
+                                        </button>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                            </tr>
+
+                            {% if not orden_cerrada %}
+                            <div class="modal fade" id="modalPick{{ item.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content border-0">
+                                        <div class="modal-header bg-primary text-white">
+                                            <div>
+                                                <h5 class="modal-title fw-bold">Surtir: {{ item.producto.descripcion }}</h5>
+                                                <small>Te faltan: <span class="badge bg-warning text-dark fs-6">{{ faltante }} pzas</span></small>
+                                            </div>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        
+                                        <form action="{{ url_for('shipping.confirmar_picking') }}" method="POST">
+                                            <div class="modal-body bg-light">
+                                                <input type="hidden" name="detalle_id" value="{{ item.id }}">
+                                                
+                                                {% set stock_info = stock_por_producto.get(item.producto_id, []) %}
+                                                
+                                                {% if stock_info %}
+                                                    <div class="mb-3 bg-white p-3 rounded border">
+                                                        <label class="fw-bold mb-2 text-primary small text-uppercase">1. Selecciona Almacén</label>
+                                                        <select id="selectAlmacen{{ item.id }}" class="form-select form-select-lg" 
+                                                                onchange="filtrarUbicaciones('{{ item.id }}')">
+                                                            <option value="">-- Elige un Almacén --</option>
+                                                            {% set almacenes_vistos = [] %}
+                                                            {% for s in stock_info %}
+                                                                {% if s.almacen_id not in almacenes_vistos %}
+                                                                    <option value="{{ s.almacen_id }}">{{ s.almacen_nombre }}</option>
+                                                                    {% set _ = almacenes_vistos.append(s.almacen_id) %}
+                                                                {% endif %}
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+
+                                                    <div class="mb-3 bg-white p-3 rounded border">
+                                                        <label class="fw-bold mb-2 text-primary small text-uppercase">2. Ubicación Exacta</label>
+                                                        <select id="selectUbicacion{{ item.id }}" name="inventario_id" 
+                                                                class="form-select form-select-lg" 
+                                                                disabled required 
+                                                                onchange="actualizarInputCantidad('{{ item.id }}', {{ faltante }})">
+                                                            <option value="">-- Esperando Almacén --</option>
+                                                            {% for s in stock_info %}
+                                                                <option value="{{ s.inv_id }}" 
+                                                                        data-almacen="{{ s.almacen_id }}" 
+                                                                        data-stock="{{ s.cantidad }}"
+                                                                        style="display:none;">
+                                                                    {{ s.ubicacion_codigo }} (Disponible: {{ s.cantidad }})
+                                                                </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+
+                                                    <div class="row g-3 align-items-center bg-white p-3 rounded border">
+                                                        <div class="col-6 text-end">
+                                                            <label class="fw-bold fs-5">Cantidad a Tomar:</label>
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <input type="number" 
+                                                                   id="inputCant{{ item.id }}"
+                                                                   name="cantidad" 
+                                                                   class="form-control form-control-lg text-center fw-bold border-success" 
+                                                                   value="{{ faltante }}" 
+                                                                   min="0.1" 
+                                                                   step="0.01"
+                                                                   required
+                                                                   disabled
+                                                                   oninput="validarBoton('{{ item.id }}')">
+                                                        </div>
+                                                        <div class="col-12 text-end">
+                                                            <span class="form-text text-muted" id="msgStock{{ item.id }}">Selecciona ubicación primero...</span>
+                                                        </div>
+                                                    </div>
+
+                                                {% else %}
+                                                    <div class="alert alert-danger m-0">
+                                                        <i class="fa-solid fa-triangle-exclamation"></i> <strong>SIN STOCK:</strong> No se encontró inventario disponible.
+                                                    </div>
+                                                {% endif %}
+
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                <button type="submit" 
+                                                        id="btnSubmit{{ item.id }}"
+                                                        class="btn btn-primary fw-bold px-4" 
+                                                        disabled>
+                                                    <i class="fa-solid fa-check me-2"></i> CONFIRMAR RETIRO
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="sticky-top" style="top: 20px; z-index: 100;">
+                
+                {% if not orden_cerrada %}
+                <div class="card shadow-sm border-0 bg-warning bg-opacity-10 mb-3">
+                    <div class="card-header bg-warning text-dark border-0">
+                        <h5 class="m-0"><i class="fa-solid fa-print me-2"></i>Generar Guías</h5>
+                    </div>
+                    <div class="card-body">
+                        <form action="{{ url_for('shipping.generar_etiquetas') }}" method="POST">
+                            <input type="hidden" name="orden_id" value="{{ orden.id }}">
+                            <div class="text-center mb-3">
+                                <i class="fa-solid fa-boxes-stacked fa-3x text-muted opacity-50"></i>
+                            </div>
+                            <label class="fw-bold mb-2">¿Total de Cajas?</label>
+                            <div class="input-group input-group-lg mb-3">
+                                <span class="input-group-text bg-white"><i class="fa-solid fa-hashtag"></i></span>
+                                <input type="number" name="total_cajas" class="form-control fw-bold text-center" 
+                                       value="{{ orden.paquetes|length if orden.paquetes else 1 }}" min="1" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="small fw-bold text-muted">Contenido (Opcional):</label>
+                                <textarea name="contenido" class="form-control" rows="2" placeholder="Ej: Solo congelado..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-dark w-100 fw-bold py-3 shadow-sm">
+                                <i class="fa-solid fa-barcode me-2"></i> GENERAR Y IMPRIMIR
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if orden.paquetes %}
+                <div class="card shadow-sm border-0 mb-3">
+                    <div class="card-header bg-white border-bottom fw-bold d-flex justify-content-between align-items-center">
+                        <span><i class="fa-solid fa-tags me-2"></i>Etiquetas</span>
+                        <a href="{{ url_for('shipping.imprimir_etiquetas', orden_id=orden.id) }}" target="_blank" class="btn btn-sm btn-outline-dark fw-bold">
+                            <i class="fa-solid fa-print"></i> REIMPRIMIR
+                        </a>
+                    </div>
+                    <ul class="list-group list-group-flush small">
+                        {% for p in orden.paquetes %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span class="badge bg-dark font-monospace">{{ p.codigo_etiqueta }}</span>
+                            <small class="text-muted">Caja {{ p.numero_caja }}</small>
+                            <i class="fa-solid fa-check-circle text-success"></i>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                {% if not orden_cerrada %}
+                <div class="card shadow-lg border-0 bg-success text-white">
+                    <div class="card-body text-center p-4">
+                        <h5 class="fw-bold mb-3">¿Terminaste Todo?</h5>
+                        <p class="small text-white-50 mb-3">Si ya surtiste y pegaste las etiquetas, manda la orden a reparto.</p>
+                        
+                        <form action="{{ url_for('shipping.finalizar_orden', orden_id=orden.id) }}" method="POST">
+                            <button type="submit" class="btn btn-light text-success w-100 fw-bold py-3 fs-5 shadow-sm" 
+                                    onclick="return confirm('¿Seguro que quieres finalizar esta orden?')">
+                                <i class="fa-solid fa-check-double me-2"></i> FINALIZAR ORDEN
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endif %}
+                
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 1. FILTRAR UBICACIONES (Reset total al cambiar almacén)
+function filtrarUbicaciones(itemId) {
+    const almacenSelect = document.getElementById('selectAlmacen' + itemId);
+    const ubicacionSelect = document.getElementById('selectUbicacion' + itemId);
+    const inputCant = document.getElementById('inputCant' + itemId);
+    const btnSubmit = document.getElementById('btnSubmit' + itemId); // Botón
+    const idAlmacenSeleccionado = almacenSelect.value;
+    
+    // Reseteo Total
+    ubicacionSelect.value = "";
+    ubicacionSelect.disabled = true;
+    inputCant.disabled = true; // Deshabilitar input
+    btnSubmit.disabled = true; // Deshabilitar botón
+    
+    const opciones = ubicacionSelect.querySelectorAll('option');
+    let hayOpciones = false;
+    
+    opciones.forEach(op => {
+        if (op.value === "") return;
+        const perteneceAlmacen = op.getAttribute('data-almacen') === idAlmacenSeleccionado;
+        if (perteneceAlmacen) {
+            op.style.display = 'block';
+            hayOpciones = true;
+        } else {
+            op.style.display = 'none';
+        }
+    });
+    
+    if (hayOpciones) {
+        ubicacionSelect.disabled = false;
+        ubicacionSelect.options[0].text = "-- Selecciona Ubicación --";
+    } else if (idAlmacenSeleccionado) {
+        ubicacionSelect.options[0].text = "⚠️ No hay ubicaciones con stock aquí";
+    }
+}
+
+// 2. ACTUALIZAR CANTIDAD (Habilita input y llama a validar)
+function actualizarInputCantidad(itemId, faltanteGlobal) {
+    const ubicacionSelect = document.getElementById('selectUbicacion' + itemId);
+    const inputCant = document.getElementById('inputCant' + itemId);
+    const msg = document.getElementById('msgStock' + itemId);
+    
+    const opcion = ubicacionSelect.options[ubicacionSelect.selectedIndex];
+    
+    if (opcion.value === "") {
+        inputCant.disabled = true;
+        validarBoton(itemId); // Revalidar para apagar el botón
+        return;
+    }
+    
+    const stockDisponible = parseInt(opcion.getAttribute('data-stock'));
+    const maximoPermitido = Math.min(stockDisponible, faltanteGlobal);
+    
+    // Configurar input
+    inputCant.disabled = false;
+    inputCant.value = maximoPermitido;
+    inputCant.max = stockDisponible;
+    
+    // Mensaje visual
+    if (stockDisponible < faltanteGlobal) {
+        msg.innerHTML = `<span class="text-danger fw-bold">⚠️ Stock parcial: ${stockDisponible}. Faltarán ${faltanteGlobal - stockDisponible}.</span>`;
+    } else {
+        msg.innerHTML = `<span class="text-success fw-bold">✅ Stock suficiente.</span>`;
+    }
+    
+    // Activar validación del botón
+    validarBoton(itemId);
+}
+
+// 3. VALIDAR ESTADO DEL BOTÓN (La Joya de la Corona)
+function validarBoton(itemId) {
+    const ubicacionSelect = document.getElementById('selectUbicacion' + itemId);
+    const inputCant = document.getElementById('inputCant' + itemId);
+    const btnSubmit = document.getElementById('btnSubmit' + itemId);
+    
+    const ubicacionValida = ubicacionSelect.value !== "";
+    const cantidad = parseFloat(inputCant.value);
+    const maxStock = parseFloat(inputCant.max);
+    
+    // Lógica: Ubicación llena AND Cantidad > 0 AND Cantidad <= Stock real
+    if (ubicacionValida && cantidad > 0 && cantidad <= maxStock) {
+        btnSubmit.disabled = false; // PRENDER
+        btnSubmit.classList.remove('btn-secondary');
+        btnSubmit.classList.add('btn-primary');
+    } else {
+        btnSubmit.disabled = true; // APAGAR
+        btnSubmit.classList.remove('btn-primary');
+        btnSubmit.classList.add('btn-secondary');
+    }
+}
 </script>
 {% endblock %}
 
