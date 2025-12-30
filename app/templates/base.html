@@ -119,13 +119,11 @@
             {% if current_user.nivel_usuario >= 4 %}
             <a href="{{ url_for('users.index') }}" class="nav-link py-3">
                 <i class="fa-solid fa-users-gear me-2"></i> Recursos Humanos
-            </a>
-            {% endif %}
-            
+            </a>            
             <a href="{{ url_for('clients.index') }}" class="nav-link py-3">
                 <i class="fa-solid fa-users me-2"></i> Cartera de Clientes
             </a>
-            
+            {% endif %}
             <a class="nav-link py-3 d-flex justify-content-between align-items-center" 
                data-bs-toggle="collapse" href="#collapseFinanzas" role="button" aria-expanded="false">
                 <span><i class="fa-solid fa-sack-dollar me-2"></i> Finanzas</span>
