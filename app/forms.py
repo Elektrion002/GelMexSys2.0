@@ -5,7 +5,7 @@ from wtforms.validators import DataRequired, NumberRange, Length, Optional, Emai
 from flask_wtf.file import FileAllowed
 
 # ==========================================
-#  1. FORMULARIO DE INVENTARIO (PRODUCTOS)
+#  1. FORMULARIO SIMPLE (LEGACY / OPERATIVO)
 # ==========================================
 class ProductoForm(FlaskForm):
     sku = StringField('SKU / Código', validators=[DataRequired(), Length(max=50)])
@@ -46,10 +46,9 @@ class ClienteForm(FlaskForm):
     submit = SubmitField('Guardar Cliente')
 
 # ==========================================
-#  3. FORMULARIO DE USUARIOS (FULL - 38 CAMPOS)
+#  3. FORMULARIO DE USUARIOS (RH)
 # ==========================================
 class UsuarioForm(FlaskForm):
-    # --- GRUPO 1: CREDENCIALES ---
     email_acceso = StringField('Correo Institucional (Login)', validators=[DataRequired(), Email()])
     password = PasswordField('Contraseña', validators=[Optional()]) 
     puesto_id = SelectField('Puesto / Rol', coerce=int, validators=[DataRequired()])
@@ -61,8 +60,6 @@ class UsuarioForm(FlaskForm):
         (5, 'Nivel 5 - Super Admin (Dueño)')
     ], validators=[DataRequired()])
     pin_seguridad = StringField('PIN App Móvil (6 dígitos)', validators=[Optional(), Length(min=4, max=6)])
-
-    # --- GRUPO 2: IDENTIDAD ---
     nombres = StringField('Nombre(s)', validators=[DataRequired()])
     apellido_paterno = StringField('Apellido Paterno', validators=[DataRequired()])
     apellido_materno = StringField('Apellido Materno', validators=[Optional()])
@@ -73,8 +70,6 @@ class UsuarioForm(FlaskForm):
     profesion = StringField('Profesión / Oficio', validators=[Optional()])
     curp = StringField('CURP', validators=[Optional(), Length(max=18)])
     rfc = StringField('RFC (Personal)', validators=[Optional(), Length(max=13)])
-
-    # --- GRUPO 3: DOMICILIO DETALLADO ---
     calle = StringField('Calle', validators=[Optional()])
     num_exterior = StringField('No. Ext', validators=[Optional()])
     num_interior = StringField('No. Int', validators=[Optional()])
@@ -83,32 +78,47 @@ class UsuarioForm(FlaskForm):
     ciudad = StringField('Ciudad', validators=[Optional()])
     estado = StringField('Estado', default='Guanajuato')
     pais = StringField('País', default='México')
-
-    # --- GRUPO 4: CONTACTO Y EMERGENCIA ---
     telefono_celular = StringField('Celular Personal', validators=[DataRequired()])
     telefono_casa = StringField('Teléfono Casa', validators=[Optional()])
     email_personal = StringField('Email Personal', validators=[Optional(), Email()])
-    
     contacto_emergencia_nombre = StringField('Nombre Contacto Emergencia', validators=[Optional()])
     contacto_emergencia_telefono = StringField('Teléfono Emergencia', validators=[Optional()])
-
-    # --- GRUPO 5: INFORMACIÓN LABORAL ---
     fecha_inicio_empresa = DateField('Fecha Ingreso', validators=[Optional()])
     calificacion_evaluacion = SelectField('Evaluación Desempeño', coerce=int, choices=[
-        (5, '⭐⭐⭐⭐⭐ Excelente'),
-        (4, '⭐⭐⭐⭐ Bueno'),
-        (3, '⭐⭐⭐ Regular'),
-        (2, '⭐⭐ Malo'),
-        (1, '⭐ Pésimo')
+        (5, '⭐⭐⭐⭐⭐ Excelente'), (4, '⭐⭐⭐⭐ Bueno'), (3, '⭐⭐⭐ Regular'), (2, '⭐⭐ Malo'), (1, '⭐ Pésimo')
     ], default=5)
     notas_generales = TextAreaField('Notas Generales / Observaciones', validators=[Optional()])
-
-    # --- GRUPO 6: EXPEDIENTE DIGITAL ---
     foto_perfil = FileField('Foto Perfil (Rostro)', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
     img_ine_frente = FileField('INE Frente', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
     img_ine_reverso = FileField('INE Reverso', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
     img_licencia_frente = FileField('Licencia Frente', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
     img_licencia_reverso = FileField('Licencia Reverso', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
     fecha_validez_licencia = DateField('Vigencia Licencia', validators=[Optional()])
-
     submit = SubmitField('Guardar Empleado')
+
+# ==========================================
+#  4. FORMULARIO MAESTRO DE PRODUCTOS (ADMIN)
+# ==========================================
+class ProductoAdminForm(FlaskForm):
+    # TAB 1: IDENTIDAD
+    sku = StringField('SKU / Código Único', validators=[DataRequired(), Length(max=50)])
+    descripcion = StringField('Descripción Comercial', validators=[DataRequired(), Length(max=200)])
+    categoria_id = SelectField('Categoría / Familia', coerce=int, validators=[DataRequired()])
+    imagen_producto = FileField('Foto Marketing', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
+    activo = SelectField('Estado Catálogo', coerce=int, choices=[(1, 'ACTIVO (Venta y Producción)'), (0, 'DESCONTINUADO (Solo lectura)')], default=1)
+
+    # TAB 2: FINANZAS
+    unidad_id = SelectField('Unidad de Medida Base', coerce=int, validators=[DataRequired()])
+    precio_costo_actual = DecimalField('Costo Producción ($)', places=2, validators=[NumberRange(min=0)])
+    precio_venta_general = DecimalField('Precio Venta Público ($)', places=2, validators=[DataRequired(), NumberRange(min=0)])
+    
+    # TAB 3: POLÍTICA DE STOCK (PLANEACIÓN)
+    stock_minimo = IntegerField('Mínimo (Punto de Reorden)', validators=[NumberRange(min=0)], default=100)
+    stock_maximo = IntegerField('Máximo (Capacidad)', validators=[NumberRange(min=0)], default=1000)
+    stock_ideal = IntegerField('Stock Ideal (Meta Producción)', validators=[NumberRange(min=0)], default=500)
+
+    # TAB 4: FICHA TÉCNICA (LOGÍSTICA)
+    peso_gramos = DecimalField('Peso Unitario (gr)', places=2, default=0)
+    caducidad_dias = IntegerField('Vida Útil (Días)', default=0)
+
+    submit = SubmitField('Guardar Configuración Maestra')

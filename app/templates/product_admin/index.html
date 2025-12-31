@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% block title %}Catálogo Maestro{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-3 gap-3">
+        <div>
+            <h4 class="fw-bold text-dark m-0"><i class="fa-solid fa-table-list me-2"></i>Catálogo Maestro</h4>
+            <small class="text-muted">Gestión técnica de {{ productos|length }} productos registrados.</small>
+        </div>
+        
+        <div class="d-flex gap-2 w-100 w-md-auto">
+            <div class="input-group shadow-sm" style="max-width: 400px;">
+                <span class="input-group-text bg-white border-end-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                <input type="text" id="searchInput" class="form-control border-start-0" placeholder="Buscar por SKU, Nombre..." onkeyup="filtrarTabla()">
+            </div>
+            
+            <a href="{{ url_for('product_admin.create') }}" class="btn btn-dark fw-bold shadow-sm text-nowrap">
+                <i class="fa-solid fa-plus"></i> <span class="d-none d-sm-inline">NUEVO SKU</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped align-middle mb-0" id="tablaProductos">
+                    <thead class="bg-dark text-white small text-uppercase">
+                        <tr>
+                            <th class="ps-3 py-3" style="width: 180px;">SKU / ACCIÓN</th>
+                            
+                            <th style="cursor:pointer;" onclick="ordenarTabla(1)">Descripción <i class="fa-solid fa-sort ms-1 opacity-50"></i></th>
+                            
+                            <th class="text-center" style="cursor:pointer;" onclick="ordenarTabla(2)">Existencia <i class="fa-solid fa-sort ms-1 opacity-50"></i></th>
+                            
+                            <th>Categoría</th>
+                            <th class="text-end">Costo</th>
+                            <th class="text-end">P. Venta</th>
+                            <th class="text-center">Margen</th>
+                            <th class="text-center">Estatus</th>
+                        </tr>
+                    </thead>
+                    <tbody class="small">
+                        {% for item in productos %}
+                        <tr class="fila-producto">
+                            <td class="ps-3">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <span class="font-monospace fw-bold text-primary">{{ item.obj.sku }}</span>
+                                    <a href="{{ url_for('product_admin.edit', id=item.obj.id) }}" class="btn btn-sm btn-outline-dark border-0 shadow-none" title="Configurar Ficha">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </a>
+                                </div>
+                            </td>
+                            
+                            <td>
+                                <div class="fw-bold text-dark">{{ item.obj.descripcion }}</div>
+                                {% if item.obj.peso_gramos > 0 %}
+                                <span class="text-muted" style="font-size: 0.8em;">{{ "{:.0f}".format(item.obj.peso_gramos) }}g | Cad: {{ item.obj.caducidad_dias }}d</span>
+                                {% endif %}
+                            </td>
+
+                            <td class="text-center">
+                                {% if item.stock_total <= item.obj.stock_minimo %}
+                                    <span class="text-danger fw-bold fs-6"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ item.stock_total|int }}</span>
+                                {% elif item.stock_total >= item.obj.stock_ideal %}
+                                    <span class="text-success fw-bold fs-6"><i class="fa-solid fa-check-circle me-1"></i>{{ item.stock_total|int }}</span>
+                                {% else %}
+                                    <span class="text-warning fw-bold fs-6">{{ item.stock_total|int }}</span>
+                                {% endif %}
+                                <div class="text-muted" style="font-size: 0.7em;">Meta: {{ item.obj.stock_ideal|int }}</div>
+                            </td>
+
+                            <td><span class="badge bg-light text-dark border">{{ item.obj.categoria.nombre }}</span></td>
+
+                            <td class="text-end text-muted">${{ "{:,.2f}".format(item.obj.precio_costo_actual) }}</td>
+
+                            <td class="text-end fw-bold text-dark">${{ "{:,.2f}".format(item.obj.precio_venta_general) }}</td>
+
+                            <td class="text-center">
+                                <span class="badge {% if item.margen_porc < 30 %}bg-danger{% else %}bg-primary{% endif %} rounded-pill">
+                                    {{ "{:.0f}".format(item.margen_porc) }}%
+                                </span>
+                            </td>
+
+                            <td class="text-center">
+                                {% if item.obj.activo %}
+                                    <i class="fa-solid fa-circle text-success" title="Activo" style="font-size: 0.7em;"></i>
+                                {% else %}
+                                    <i class="fa-solid fa-circle text-danger" title="Baja" style="font-size: 0.7em;"></i>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- FUNCIÓN DE BÚSQUEDA RÁPIDA ---
+    function filtrarTabla() {
+        const input = document.getElementById("searchInput");
+        const filter = input.value.toUpperCase();
+        const table = document.getElementById("tablaProductos");
+        const tr = table.getElementsByTagName("tr");
+
+        for (let i = 1; i < tr.length; i++) {
+            // Buscamos en SKU (col 0) y Descripción (col 1)
+            let tdText = tr[i].innerText.toUpperCase();
+            if (tdText.indexOf(filter) > -1) {
+                tr[i].style.display = "";
+            } else {
+                tr[i].style.display = "none";
+            }
+        }
+    }
+
+    // --- FUNCIÓN DE ORDENAMIENTO (SORT) ---
+    function ordenarTabla(n) {
+        var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+        table = document.getElementById("tablaProductos");
+        switching = true;
+        dir = "asc"; 
+        
+        while (switching) {
+            switching = false;
+            rows = table.rows;
+            for (i = 1; i < (rows.length - 1); i++) {
+                shouldSwitch = false;
+                x = rows[i].getElementsByTagName("TD")[n];
+                y = rows[i + 1].getElementsByTagName("TD")[n];
+                
+                let xVal = x.innerText.toLowerCase().replace(/[^0-9a-z.-]/g, '');
+                let yVal = y.innerText.toLowerCase().replace(/[^0-9a-z.-]/g, '');
+
+                let isNum = !isNaN(parseFloat(xVal)) && isFinite(xVal);
+                
+                if (isNum) {
+                    xVal = parseFloat(xVal);
+                    yVal = parseFloat(yVal);
+                }
+
+                if (dir == "asc") {
+                    if (xVal > yVal) { shouldSwitch = true; break; }
+                } else if (dir == "desc") {
+                    if (xVal < yVal) { shouldSwitch = true; break; }
+                }
+            }
+            if (shouldSwitch) {
+                rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                switching = true;
+                switchcount ++;
+            } else {
+                if (switchcount == 0 && dir == "asc") {
+                    dir = "desc";
+                    switching = true;
+                }
+            }
+        }
+    }
+</script>
+{% endblock %}

@@ -58,7 +58,7 @@
     <nav class="sidebar">
         <div class="sidebar-header">
             <h4><i class="fa-solid fa-snowflake"></i> GelMexSys</h4>
-            <small class="text-warning">v2.0 Enterprise</small>
+            <small class="text-warning">v2.1 Enterprise</small>
         </div>
 
         <div class="nav flex-column mt-3">
@@ -80,7 +80,7 @@
             <div class="collapse" id="collapseInventario">
                 <div class="submenu-dark shadow-inner">
                     <a class="nav-link py-2" href="{{ url_for('inventory.index') }}">
-                        <i class="fa-solid fa-list me-2"></i> Catálogo Productos
+                        <i class="fa-solid fa-magnifying-glass me-2"></i> Consultar Existencias
                     </a>
                     <a class="nav-link py-2" href="{{ url_for('inventory.movimientos') }}">
                         <i class="fa-solid fa-right-left me-2"></i> Movimientos / Ajustes
@@ -117,13 +117,19 @@
             <div class="nav-group-label mt-2">ADMINISTRACIÓN</div>
             
             {% if current_user.nivel_usuario >= 4 %}
-            <a href="{{ url_for('users.index') }}" class="nav-link py-3">
-                <i class="fa-solid fa-users-gear me-2"></i> Recursos Humanos
-            </a>            
+                <a href="{{ url_for('users.index') }}" class="nav-link py-3">
+                    <i class="fa-solid fa-users-gear me-2"></i> Recursos Humanos
+                </a>
+                
+                <a href="{{ url_for('product_admin.index') }}" class="nav-link py-3 text-warning">
+                    <i class="fa-solid fa-compass-drafting me-2"></i> Ingeniería Producto
+                </a>
+            {% endif %}
+            
             <a href="{{ url_for('clients.index') }}" class="nav-link py-3">
                 <i class="fa-solid fa-users me-2"></i> Cartera de Clientes
             </a>
-            {% endif %}
+            
             <a class="nav-link py-3 d-flex justify-content-between align-items-center" 
                data-bs-toggle="collapse" href="#collapseFinanzas" role="button" aria-expanded="false">
                 <span><i class="fa-solid fa-sack-dollar me-2"></i> Finanzas</span>
@@ -148,7 +154,7 @@
                 </div>
             </div>
 
-            <a href="#" class="nav-link py-3"><i class="fa-solid fa-users-gear me-2"></i> Configuración</a>
+            <a href="#" class="nav-link py-3"><i class="fa-solid fa-gears me-2"></i> Configuración</a>
         </div>
     </nav>
 

@@ -1,0 +1,49 @@
+# 1. Agregar todos los cambios (incluyendo las nuevas carpetas de templates)
+git add .
+
+# 2. Sellar la versión con un mensaje técnico profesional
+git commit -m "Feat: Modulo RH Finalizado. Gestion de Usuarios completa (38 campos), seguridad en passwords y manejo de expedientes digitales."
+
+
+============================================================
+       GELMEXSYS 2.0 - PROTOCOLO DE ARRANQUE (FORZADO 3.12)
+============================================================
+
+Para asegurar que el sistema use C:\Python312 y no otra versión,
+sigue estos pasos en este orden exacto:
+
+1. ABRIR TERMINAL:
+   - Abre PowerShell en la carpeta: D:\GelMexSys2.0
+
+2. ACTIVAR EL ENTORNO VIRTUAL:
+   - Ejecuta: .\venv\Scripts\activate
+   * Nota: Debe aparecer (venv) en verde a la izquierda.
+
+3. LANZAR EL SERVICIO USANDO RUTA ABSOLUTA:
+   - En lugar de escribir solo "python", ejecuta este comando:
+   
+   & "C:\Python312\python.exe" run.py
+
+   * Explicación: El símbolo '&' le dice a PowerShell que ejecute 
+     exactamente el programa que está en esa ruta de C:, 
+     pero al estar el (venv) activo, usará las librerías 
+     instaladas en tu carpeta de proyecto.
+
+4. VALIDACIÓN DE ARRANQUE:
+   - Si todo es correcto, verás los mensajes:
+     --> Arrancando GelMexSys en modo: default
+     --> ACCESO EXTERNO HABILITADO
+     * Running on http://0.0.0.0:5000
+
+5. ACCESO AL SISTEMA:
+   - Abre el navegador en: http://localhost:5000
+
+============================================================
+             CONTROL DE CAMBIOS (GIT CHECKPOINT)
+============================================================
+Si el sistema carga y entras a "Ingeniería Producto", cierra 
+el proceso con CTRL+C y guarda tu avance:
+
+git add .
+git commit -m "Feat: Modulo Maestro de Productos con ruta absoluta 3.12"
+============================================================

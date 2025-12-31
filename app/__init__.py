@@ -56,7 +56,7 @@ def create_app(config_name='default'):
     from app.blueprints.logistics import logistics_bp
     app.register_blueprint(logistics_bp)
 
-    # NUEVO: Módulo de Finanzas
+    # Módulo de Finanzas
     from app.blueprints.finance import finance_bp
     app.register_blueprint(finance_bp)
 
@@ -65,5 +65,8 @@ def create_app(config_name='default'):
 
     from app.blueprints.users import users_bp
     app.register_blueprint(users_bp)
+
+    from app.blueprints.product_admin import product_admin_bp
+    app.register_blueprint(product_admin_bp)
 
     return app
