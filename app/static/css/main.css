@@ -1,113 +1,130 @@
 /* app/static/css/main.css */
 
 :root {
-    --gelmex-primary: #0d47a1; /* Azul Industrial Fuerte */
-    --gelmex-secondary: #1565c0; /* Azul Medio */
-    --gelmex-accent: #ffca28; /* Amarillo Preventivo (Botones/Alertas) */
-    --gelmex-dark: #263238; /* Gris Oscuro (Sidebar) */
-    --gelmex-light: #f8f9fa; /* Fondo General */
-    --sidebar-width: 250px;
+  --gelmex-primary: #0d47a1; /* Azul Industrial Fuerte */
+  --gelmex-secondary: #1565c0; /* Azul Medio */
+  --gelmex-accent: #ffca28; /* Amarillo Preventivo (Botones/Alertas) */
+  --gelmex-dark: #263238; /* Gris Oscuro (Sidebar) */
+  --gelmex-light: #f8f9fa; /* Fondo General */
+  --sidebar-width: 250px;
 }
 
 body {
-    background-color: var(--gelmex-light);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
+  background-color: var(--gelmex-light);
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 /* --- SIDEBAR --- */
 .sidebar {
-    width: var(--sidebar-width);
-    background-color: var(--gelmex-dark);
-    color: white;
-    height: 100vh;
-    position: fixed;
-    top: 0;
-    left: 0;
-    padding-top: 1rem;
-    transition: all 0.3s;
-    z-index: 1000;
+  width: var(--sidebar-width);
+  background-color: var(--gelmex-dark);
+  color: white;
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  padding-top: 1rem;
+  transition: all 0.3s;
+  z-index: 1000;
+  overflow-y: auto; /* Habilita scroll vertical */
+}
+
+/* Personalización del Scrollbar (Estilo Industrial Oscuro) */
+.sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--gelmex-accent);
 }
 
 .sidebar-header {
-    padding: 1rem;
-    text-align: center;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    margin-bottom: 1rem;
+  padding: 1rem;
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 1rem;
 }
 
 .sidebar .nav-link {
-    color: rgba(255,255,255,0.8);
-    padding: 0.8rem 1.5rem;
-    border-left: 4px solid transparent;
+  color: rgba(255, 255, 255, 0.8);
+  padding: 0.8rem 1.5rem;
+  border-left: 4px solid transparent;
 }
 
-.sidebar .nav-link:hover, .sidebar .nav-link.active {
-    color: white;
-    background-color: rgba(255,255,255,0.05);
-    border-left-color: var(--gelmex-accent);
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-left-color: var(--gelmex-accent);
 }
 
 .sidebar .nav-link i {
-    margin-right: 10px;
-    width: 20px;
-    text-align: center;
+  margin-right: 10px;
+  width: 20px;
+  text-align: center;
 }
 
 /* Submenús en Sidebar (Para Producción) */
 .nav-group-label {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.4);
-    padding: 1rem 1.5rem 0.5rem;
-    letter-spacing: 1px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 1rem 1.5rem 0.5rem;
+  letter-spacing: 1px;
 }
 
 .sub-menu {
-    padding-left: 2rem;
-    background-color: rgba(0,0,0,0.1);
+  padding-left: 2rem;
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
 /* --- CONTENIDO PRINCIPAL --- */
 .main-content {
-    margin-left: var(--sidebar-width);
-    padding: 20px;
-    width: calc(100% - var(--sidebar-width));
-    transition: all 0.3s;
+  margin-left: var(--sidebar-width);
+  padding: 20px;
+  width: calc(100% - var(--sidebar-width));
+  transition: all 0.3s;
 }
 
 /* --- NAVBAR SUPERIOR --- */
 .top-navbar {
-    background-color: white;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    padding: 0.5rem 1rem;
-    margin-bottom: 2rem;
-    border-radius: 8px;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  padding: 0.5rem 1rem;
+  margin-bottom: 2rem;
+  border-radius: 8px;
 }
 
 /* --- RESPONSIVO (Móvil) --- */
 @media (max-width: 768px) {
-    .sidebar {
-        margin-left: calc(var(--sidebar-width) * -1);
-    }
-    .sidebar.active {
-        margin-left: 0;
-    }
-    .main-content {
-        margin-left: 0;
-        width: 100%;
-    }
+  .sidebar {
+    margin-left: calc(var(--sidebar-width) * -1);
+  }
+  .sidebar.active {
+    margin-left: 0;
+  }
+  .main-content {
+    margin-left: 0;
+    width: 100%;
+  }
 }
 
 /* --- CARDS & WIDGETS --- */
 .card-erp {
-    border: none;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.03);
-    transition: transform 0.2s;
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+  transition: transform 0.2s;
 }
 .card-erp:hover {
-    transform: translateY(-2px);
+  transform: translateY(-2px);
 }

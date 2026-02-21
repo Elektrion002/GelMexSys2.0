@@ -69,4 +69,7 @@ def create_app(config_name='default'):
     from app.blueprints.product_admin import product_admin_bp
     app.register_blueprint(product_admin_bp)
 
+    from app.blueprints.catalogs_admin import catalogs_admin_bp
+    app.register_blueprint(catalogs_admin_bp)
+
     return app

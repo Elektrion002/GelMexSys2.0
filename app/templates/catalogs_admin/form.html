@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}{{ "Editar" if item else "Nuevo" }} {{ name }}{% endblock %}
+{% block page_header %}{{ "Edición" if item else "Alta" }} de {{ name }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-4">Información del Registro</h5>
+                <form method="POST">
+                    {% for field in fields %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">{{ field.label }}</label>
+                        
+                        {% if field.type == 'textarea' %}
+                        <textarea name="{{ field.name }}" class="form-control" rows="3" 
+                                  {{ 'required' if field.required }}>{{ getattr(item, field.name) if item else '' }}</textarea>
+                        
+                        {% elif field.type == 'number' %}
+                        <input type="number" step="any" name="{{ field.name }}" class="form-control" 
+                               value="{{ getattr(item, field.name) if item else '' }}"
+                               {{ 'required' if field.required }}>
+                        
+                        {% elif field.type == 'checkbox' %}
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="{{ field.name }}" 
+                                   {{ 'checked' if item and getattr(item, field.name) }}>
+                        </div>
+                        
+                        {% else %}
+                        <input type="text" name="{{ field.name }}" class="form-control" 
+                               value="{{ getattr(item, field.name) if item else '' }}" 
+                               {{ 'required' if field.required }}>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{{ url_for('catalogs_admin.list_items', slug=slug) }}" class="btn btn-light border">
+                            Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary px-4">
+                            Guardar Cambios
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

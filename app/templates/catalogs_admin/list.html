@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Listado de {{ name }}{% endblock %}
+{% block page_header %}Catálogo: {{ name }}{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div class="d-flex align-items-center gap-3 flex-grow-1">
+            <nav aria-label="breadcrumb" class="d-none d-md-block">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{{ url_for('catalogs_admin.index') }}">Catálogos</a></li>
+                    <li class="breadcrumb-item active">{{ name }}</li>
+                </ol>
+            </nav>
+            <div class="input-group" style="max-width: 400px;">
+                <span class="input-group-text bg-light border-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                <input type="text" id="itemSearch" class="form-control bg-light border-0" placeholder="Filtrar registros...">
+            </div>
+        </div>
+        <a href="{{ url_for('catalogs_admin.create', slug=slug) }}" class="btn btn-primary shadow-sm rounded-pill px-4">
+            <i class="fa-solid fa-plus me-2"></i> Nuevo Registro
+        </a>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="itemsTable">
+                <thead class="bg-light text-secondary">
+                    <tr>
+                        <th class="ps-4 cursor-pointer" onclick="sortTable(0)">ID <i class="fa-solid fa-sort small ms-1 opacity-50"></i></th>
+                        {% for col in columns %}
+                        <th class="cursor-pointer" onclick="sortTable({{ loop.index }})">
+                            {{ col|title }} <i class="fa-solid fa-sort small ms-1 opacity-50"></i>
+                        </th>
+                        {% endfor %}
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="itemList">
+                    {% for item in items %}
+                    <tr>
+                        <td class="ps-4 text-muted fw-bold">#{{ item.id }}</td>
+                        {% for col in columns %}
+                        <td>{{ getattr(item, col) if getattr(item, col) != None else '<span class="text-muted small">sin datos</span>'|safe }}</td>
+                        {% endfor %}
+                        <td class="text-center">
+                            <a href="{{ url_for('catalogs_admin.edit', slug=slug, id=item.id) }}" class="btn btn-sm btn-outline-primary border-0 rounded-circle" title="Editar">
+                                <i class="fa-solid fa-pen"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer bg-white text-muted small py-3">
+        Total: <span id="visibleCount">{{ items|length }}</span> registros encontrados.
+    </div>
+</div>
+
+<style>
+    .cursor-pointer { cursor: pointer; transition: background 0.2s; }
+    .cursor-pointer:hover { background: rgba(0,0,0,0.02); }
+    .table-hover tbody tr:hover { background-color: rgba(13, 71, 161, 0.01); }
+</style>
+
+<script>
+    // Buscador en tiempo real
+    document.getElementById('itemSearch').addEventListener('keyup', function() {
+        let val = this.value.toLowerCase();
+        let rows = document.querySelectorAll('#itemList tr');
+        let count = 0;
+        
+        rows.forEach(row => {
+            let text = row.innerText.toLowerCase();
+            if (text.includes(val)) {
+                row.style.display = '';
+                count++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        document.getElementById('visibleCount').innerText = count;
+    });
+
+    // Ordenamiento
+    function sortTable(n) {
+        var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+        table = document.getElementById("itemsTable");
+        switching = true;
+        dir = "asc";
+        while (switching) {
+            switching = false;
+            rows = table.rows;
+            for (i = 1; i < (rows.length - 1); i++) {
+                shouldSwitch = false;
+                x = rows[i].getElementsByTagName("TD")[n];
+                y = rows[i + 1].getElementsByTagName("TD")[n];
+                if (dir == "asc") {
+                    if (x.innerText.toLowerCase() > y.innerText.toLowerCase()) {
+                        shouldSwitch = true;
+                        break;
+                    }
+                } else if (dir == "desc") {
+                    if (x.innerText.toLowerCase() < y.innerText.toLowerCase()) {
+                        shouldSwitch = true;
+                        break;
+                    }
+                }
+            }
+            if (shouldSwitch) {
+                rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                switching = true;
+                switchcount ++;
+            } else {
+                if (switchcount == 0 && dir == "asc") {
+                    dir = "desc";
+                    switching = true;
+                }
+            }
+        }
+    }
+</script>
+{% endblock %}

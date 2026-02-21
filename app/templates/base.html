@@ -154,7 +154,12 @@
                 </div>
             </div>
 
-            <a href="#" class="nav-link py-3"><i class="fa-solid fa-gears me-2"></i> Configuración</a>
+            {% if current_user.nivel_usuario >= 4 %}
+            <a href="{{ url_for('catalogs_admin.index') }}" class="nav-link py-3">
+                <i class="fa-solid fa-list-check me-2"></i> Gestión de Catálogos
+            </a>
+            {% endif %}
+            
         </div>
     </nav>
 

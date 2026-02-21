@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Administración de Catálogos{% endblock %}
+{% block page_header %}Configuración de Catálogos Maestros{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm p-4 text-white" style="background: linear-gradient(45deg, #1a237e, #0d47a1);">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="fw-bold"><i class="fa-solid fa-list-check me-2"></i> Gestión de Parámetros Maestros</h3>
+                    <p class="mb-0 opacity-75">Selecciona el catálogo que deseas administrar. Usa el buscador para filtrar rápidamente.</p>
+                </div>
+                <div class="d-none d-md-block text-end">
+                    <span class="badge bg-warning text-dark px-3 py-2 rounded-pill shadow-sm">
+                        <i class="fa-solid fa-shield-halved me-1"></i> Control de Gerencia (Nivel 4+)
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Buscador y Tabla -->
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+                <div class="input-group w-50">
+                    <span class="input-group-text bg-light border-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                    <input type="text" id="catalogSearch" class="form-control bg-light border-0" placeholder="Buscar catálogo por nombre...">
+                </div>
+                <div class="text-muted small">
+                    Mostrando <span id="visibleCount">{{ catalogs|length }}</span> catálogos operativos
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" id="catalogsTable">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-4 cursor-pointer" onclick="sortTable(0)">Catálogo <i class="fa-solid fa-sort ms-1 opacity-50"></i></th>
+                                <th class="cursor-pointer" onclick="sortTable(1)">Clase Interna <i class="fa-solid fa-sort ms-1 opacity-50"></i></th>
+                                <th class="text-center cursor-pointer" onclick="sortTable(2)">Registros <i class="fa-solid fa-sort ms-1 opacity-50"></i></th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="catalogList">
+                            {% for cat in catalogs %}
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon-box me-3">
+                                            <i class="fa-solid fa-folder-tree text-primary"></i>
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold text-dark">{{ cat.slug|replace('-', ' ')|title }}</div>
+                                            <small class="text-muted">Gestión de {{ cat.name }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="text-muted small">{{ cat.name }}</td>
+                                <td class="text-center">
+                                    <span class="badge bg-light text-primary border rounded-pill px-3">{{ cat.count }}</span>
+                                </td>
+                                <td class="text-center pe-4">
+                                    <a href="{{ url_for('catalogs_admin.list_items', slug=cat.slug) }}" class="btn btn-primary btn-sm rounded-pill px-3">
+                                        <i class="fa-solid fa-pen-to-square me-1"></i> Abrir Catálogo
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .cursor-pointer { cursor: pointer; }
+    .icon-box {
+        width: 35px; height: 35px; border-radius: 8px; background: #e3f2fd;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .table-hover tbody tr:hover { background-color: rgba(13, 71, 161, 0.02); }
+</style>
+
+<script>
+    // Buscador en tiempo real
+    document.getElementById('catalogSearch').addEventListener('keyup', function() {
+        let val = this.value.toLowerCase();
+        let rows = document.querySelectorAll('#catalogList tr');
+        let count = 0;
+        
+        rows.forEach(row => {
+            let text = row.innerText.toLowerCase();
+            if (text.includes(val)) {
+                row.style.display = '';
+                count++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        document.getElementById('visibleCount').innerText = count;
+    });
+
+    // Ordenamiento básico
+    function sortTable(n) {
+        var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+        table = document.getElementById("catalogsTable");
+        switching = true;
+        dir = "asc";
+        while (switching) {
+            switching = false;
+            rows = table.rows;
+            for (i = 1; i < (rows.length - 1); i++) {
+                shouldSwitch = false;
+                x = rows[i].getElementsByTagName("TD")[n];
+                y = rows[i + 1].getElementsByTagName("TD")[n];
+                if (dir == "asc") {
+                    if (x.innerText.toLowerCase() > y.innerText.toLowerCase()) {
+                        shouldSwitch = true;
+                        break;
+                    }
+                } else if (dir == "desc") {
+                    if (x.innerText.toLowerCase() < y.innerText.toLowerCase()) {
+                        shouldSwitch = true;
+                        break;
+                    }
+                }
+            }
+            if (shouldSwitch) {
+                rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                switching = true;
+                switchcount ++;
+            } else {
+                if (switchcount == 0 && dir == "asc") {
+                    dir = "desc";
+                    switching = true;
+                }
+            }
+        }
+    }
+</script>
+{% endblock %}
