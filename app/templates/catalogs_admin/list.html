@@ -27,9 +27,9 @@
             <table class="table table-hover align-middle mb-0" id="itemsTable">
                 <thead class="bg-light text-secondary">
                     <tr>
-                        <th class="ps-4 cursor-pointer" onclick="sortTable(0)">ID <i class="fa-solid fa-sort small ms-1 opacity-50"></i></th>
+                        <th class="ps-4 cursor-pointer sort-header" data-column="0">ID <i class="fa-solid fa-sort small ms-1 opacity-50"></i></th>
                         {% for col in columns %}
-                        <th class="cursor-pointer" onclick="sortTable({{ loop.index }})">
+                        <th class="cursor-pointer sort-header" data-column="{{ loop.index }}">
                             {{ col|title }} <i class="fa-solid fa-sort small ms-1 opacity-50"></i>
                         </th>
                         {% endfor %}
@@ -41,7 +41,14 @@
                     <tr>
                         <td class="ps-4 text-muted fw-bold">#{{ item.id }}</td>
                         {% for col in columns %}
-                        <td>{{ getattr(item, col) if getattr(item, col) != None else '<span class="text-muted small">sin datos</span>'|safe }}</td>
+                        <td>
+                            {% set valor = getattr(item, col) %}
+                            {% if valor != None %}
+                                {{ valor }}
+                            {% else %}
+                                <span class="text-muted small">sin datos</span>
+                            {% endif %}
+                        </td>
                         {% endfor %}
                         <td class="text-center">
                             <a href="{{ url_for('catalogs_admin.edit', slug=slug, id=item.id) }}" class="btn btn-sm btn-outline-primary border-0 rounded-circle" title="Editar">
@@ -121,5 +128,12 @@
             }
         }
     }
+
+    // Inicializar listeners de ordenamiento
+    document.querySelectorAll('.sort-header').forEach(header => {
+        header.addEventListener('click', function() {
+            sortTable(parseInt(this.dataset.column));
+        });
+    });
 </script>
 {% endblock %}
