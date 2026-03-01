@@ -91,33 +91,75 @@
                 </div>
             </section>
 
-            <section id="productos" class="doc-section shadow-sm border-0">
+            <section id="productos" class="doc-section shadow-sm border-0 mb-5">
                 <div class="d-flex align-items-center mb-4">
-                    <div class="help-icon-box bg-success bg-opacity-10 mb-0 me-3">
-                        <i class="fa-solid fa-box-open text-success fa-lg"></i>
+                    <div class="help-icon-box bg-success bg-opacity-10 text-success me-3">
+                        <i class="fa-solid fa-box-open fa-2x"></i>
                     </div>
-                    <h2 class="fw-bold m-0" style="color: var(--gelmex-secondary);">2. Catálogo Maestro de Productos</h2>
+                    <div>
+                        <h2 class="fw-bold mb-0">2. Ingeniería de Producto</h2>
+                        <p class="text-muted mb-0">Gestión de Catálogo Maestro, márgenes financieros y estándares de imagen.</p>
+                    </div>
                 </div>
-                <p>La "Ingeniería de Producto" es el cerebro del sistema. Aquí se definen los estándares que rigen toda la operación.</p>
-                
-                <div class="row g-4 mt-2">
+
+                <div class="row g-4 mb-5">
                     <div class="col-md-6">
-                        <div class="p-4 rounded-4 bg-light border-start border-4 border-success h-100">
-                            <h5 class="fw-bold text-success mb-3"><i class="fa-solid fa-fingerprint me-2"></i> Identidad Única (SKU)</h5>
-                            <p class="small mb-0">Cada producto debe tener un **SKU único**. El sistema lo convierte automáticamente a mayúsculas para mantener el orden. Ejemplo: `PAL-FRE-01`.</p>
+                        <div class="p-4 rounded-4 h-100" style="background: rgba(27, 94, 32, 0.03); border: 1px solid rgba(27, 94, 32, 0.1);">
+                            <h5 class="fw-bold text-success mb-3 text-uppercase small letter-spacing-1">¿QUÉ ES?</h5>
+                            <p class="mb-0">Es el **Cerebro Estructural** del sistema. Aquí nace la identidad de cada producto que GelMex ofrece, definiendo desde su "ADN" (SKU) hasta su valoración financiera e impacto visual de cara al cliente final.</p>
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="p-4 rounded-4 bg-light border-start border-4 border-danger h-100">
-                            <h5 class="fw-bold text-danger mb-3"><i class="fa-solid fa-chart-line me-2"></i> Inteligencia de Precios</h5>
-                            <p class="small mb-0">Al ingresar el **Precio de Costo** y el **Precio de Venta**, el sistema calcula instantáneamente el **Margen de Utilidad (%)** para toma de decisiones rápidas.</p>
+                        <div class="p-4 rounded-4 h-100" style="background: rgba(62, 39, 35, 0.03); border: 1px solid rgba(62, 39, 35, 0.1);">
+                            <h5 class="fw-bold text-secondary mb-3 text-uppercase small letter-spacing-1">¿POR QUÉ EXISTE?</h5>
+                            <p class="mb-0">Para mantener una verdad absoluta en toda la empresa. Sin una Ingeniería de Producto rigurosa, Producción no sabría qué crear, Ventas qué cobrar y Almacén qué proteger. Homologa métricas, rentabilidad y procesos.</p>
                         </div>
                     </div>
                 </div>
 
-                <div class="mt-4 p-4 rounded-4 border border-2 border-dashed">
-                    <h6 class="fw-bold mb-3"><i class="fa-solid fa-camera-retro me-2 text-primary"></i> Estándar de Imagen</h6>
-                    <p class="mb-0">Para una experiencia premium en el portal de clientes, las fotos deben ser de alta calidad y fondo neutro. El sistema las optimiza y renombra automáticamente usando el SKU.</p>
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="p-4 bg-white rounded-4 border shadow-sm">
+                            <h5 class="fw-bold text-success mb-3">¿PARA QUÉ SIRVE?</h5>
+                            <ul class="list-unstyled mb-0">
+                                <li class="mb-3 d-flex align-items-start">
+                                    <i class="fa-solid fa-check-circle text-success mt-1 me-2"></i>
+                                    <span>**Identidad Inviolable (SKU)**: Conforma un código único en mayúsculas (ej. `PAL-FRE-01`) que amarra el producto entre todos los módulos sin riesgo a errores tipográficos.</span>
+                                </li>
+                                <li class="mb-3 d-flex align-items-start">
+                                    <i class="fa-solid fa-check-circle text-success mt-1 me-2"></i>
+                                    <span>**Inteligencia Financiera Activa**: El sistema calcula en vivo el _Margen de Utilidad (%)_ cruzando el Precio de Costo y Venta, alertándote si un sabor deja de ser rentable.</span>
+                                </li>
+                                <li class="mb-0 d-flex align-items-start">
+                                    <i class="fa-solid fa-check-circle text-success mt-1 me-2"></i>
+                                    <span>**Escaparate Digital**: Gestiona la foto que el cliente ve en su portal MoliShop, procesándola de manera segura en el servidor.</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-4 bg-white rounded-4 border shadow-sm">
+                            <h5 class="fw-bold text-warning mb-3">¿CÓMO SE USA?</h5>
+                            <ol class="mb-0">
+                                <li class="mb-2"><strong>Alta</strong>: Entra a **Productos -> Nuevo**. Elige una categoría base (Helados, Paletas) y su unidad de medida (Piezas, Litros).</li>
+                                <li class="mb-2"><strong>Asignación de SKU</strong>: Escribe un código lógico. El sistema validará agresivamente que no exista otro idéntico.</li>
+                                <li class="mb-2"><strong>Fotografía</strong>: Sube una imagen de alta calidad, fondo limpio. El sistema la va a vincular eternamente al SKU.</li>
+                                <li><strong>Precios</strong>: Introduce Costo y Venta. El _dashboard_ de productos te mostrará el margen real calculado al vuelo cada vez que entres.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-5 p-4 rounded-4" style="background: rgba(27, 94, 32, 0.1); border-left: 4px solid #1B5E20;">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <i class="fa-solid fa-camera-retro fa-2x" style="color: #1B5E20;"></i>
+                        </div>
+                        <div class="col">
+                            <h6 class="fw-bold mb-1" style="color: #1B5E20;">Estándar de Imagen GelMex</h6>
+                            <p class="small mb-0 text-dark">Dada la naturaleza visual del portal de clientes, las fotografías son críticas. Un producto sin foto, o con una imagen de baja calidad, deprecia la percepción de marca "Premium". El sistema admite actualizaciones fluidas desde la ficha de edición.</p>
+                        </div>
+                    </div>
                 </div>
             </section>
 
