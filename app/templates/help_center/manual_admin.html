@@ -29,6 +29,9 @@
                         <a class="nav-link rounded-3 mb-2" href="#logistica">
                             <i class="fa-solid fa-truck-fast me-2 text-primary"></i> 6. Logística y Rutas
                         </a>
+                        <a class="nav-link rounded-3 mb-2" href="#rrhh">
+                            <i class="fa-solid fa-users-gear me-2 text-purple" style="color: #9C27B0;"></i> 7. Recursos Humanos
+                        </a>
                     </nav>
                 </div>
             </div>
@@ -320,6 +323,79 @@
                 <div class="mt-5 p-4 rounded-4 bg-danger bg-opacity-10 border border-danger border-opacity-20">
                     <h6 class="fw-bold text-danger mb-2"><i class="fa-solid fa-shield-halved me-2"></i>Regla de Oro del Repartidor</h6>
                     <p class="small mb-0 text-danger text-opacity-75">Toda entrega debe ir acompañada de un registro de "Confirmación" en el sistema. Una orden entregada sin confirmación digital es una brecha en la auditoría de inventario.</p>
+                </div>
+            </section>
+
+            <!-- 7. RECURSOS HUMANOS -->
+            <section id="rrhh" class="doc-section shadow-sm border-0 mb-5" style="border-top: 8px solid #9C27B0 !important;">
+                <div class="d-flex align-items-center mb-4">
+                    <div class="help-icon-box bg-opacity-10 me-3" style="background-color: rgba(156, 39, 176, 0.1); color: #9C27B0;">
+                        <i class="fa-solid fa-users-gear fa-2x"></i>
+                    </div>
+                    <div>
+                        <h2 class="fw-bold mb-0">7. Recursos Humanos y Accesos</h2>
+                        <p class="text-muted mb-0">Gestión de expedientes digitales y privilegios del sistema.</p>
+                    </div>
+                </div>
+
+                <div class="row g-4 mb-5">
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 h-100" style="background: rgba(156, 39, 176, 0.03); border: 1px solid rgba(156, 39, 176, 0.1);">
+                            <h5 class="fw-bold mb-3 text-uppercase small letter-spacing-1" style="color: #9C27B0;">¿QUÉ ES?</h5>
+                            <p class="mb-0">La **Bóveda de Identidad** de GelMexSys. Es el panel de control exclusivo para gerencia (Nivel 4) donde se decide quién entra, qué puede ver y qué puede alterar dentro del ecosistema digital de la empresa.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 h-100" style="background: rgba(62, 39, 35, 0.03); border: 1px solid rgba(62, 39, 35, 0.1);">
+                            <h5 class="fw-bold text-secondary mb-3 text-uppercase small letter-spacing-1">¿POR QUÉ EXISTE?</h5>
+                            <p class="mb-0">Para proteger los activos operativos y financieros. Si un usuario sin capacitación manipula inventarios, altera catálogos o despacha rutas, la integridad de GelMex peligra. Conforma el muro de seguridad principal de la arquitectura.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="p-4 bg-white rounded-4 border shadow-sm">
+                            <h5 class="fw-bold text-success mb-3">¿PARA QUÉ SIRVE?</h5>
+                            <ul class="list-unstyled mb-0">
+                                <li class="mb-3 d-flex align-items-start">
+                                    <i class="fa-solid fa-check-circle text-success mt-1 me-2"></i>
+                                    <span>**Expediente Digital 360°**: Almacena centralizadamente la foto del empleado, INE (Frente/Reverso) y Licencia de Conducir (Vital para choferes).</span>
+                                </li>
+                                <li class="mb-3 d-flex align-items-start">
+                                    <i class="fa-solid fa-check-circle text-success mt-1 me-2"></i>
+                                    <span>**Jerarquización (Niveles 1 al 4)**: Otorga permisos granulares (e.g., solo los auditores de finanzas o los gerentes pueden borrar registros).</span>
+                                </li>
+                                <li class="mb-0 d-flex align-items-start">
+                                    <i class="fa-solid fa-check-circle text-success mt-1 me-2"></i>
+                                    <span>**Kill Switch (Bloqueo Vital)**: Permite desactivar inmediatamente el acceso de un ex-empleado sin borrar su historial de operaciones.</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-4 bg-white rounded-4 border shadow-sm">
+                            <h5 class="fw-bold text-warning mb-3">¿CÓMO SE USA?</h5>
+                            <ol class="mb-0">
+                                <li class="mb-2"><strong>Alta</strong>: Ve a **Recursos Humanos -> Nuevo Empleado**. Asigna un Nivel y carga estrictamente los documentos PDF/JPG solicitados.</li>
+                                <li class="mb-2"><strong>Contraseñas</strong>: El sistema cifra las claves irreversiblemente (`HASH`). Si un empleado la pierde, debes **Editar** su perfil y asignarle una nueva; nadie puede leer la anterior.</li>
+                                <li class="mb-2"><strong>Actualización de Puestos</strong>: Un cambio de puesto en el catálogo se refleja en su tablero personal.</li>
+                                <li><strong>Baja</strong>: En la lista de personal, presiona el botón naranja (<i class="fa-solid fa-power-off"></i>) para revocar acceso sin romper la base de datos histórica.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-5 p-4 rounded-4" style="background: rgba(156, 39, 176, 0.1); border-left: 4px solid #9C27B0;">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <i class="fa-solid fa-key fa-2x" style="color: #9C27B0;"></i>
+                        </div>
+                        <div class="col">
+                            <h6 class="fw-bold mb-1" style="color: #9C27B0;">Regla Suprema de Acceso</h6>
+                            <p class="small mb-0 text-dark">Bajo ninguna circunstancia se debe crear una cuenta "comodín" de uso compartido. La auditoría del sistema depende de saber exactamente QUÉ humano tomó CADA decisión basada en su ID (Tokens de Sesión Individual).</p>
+                        </div>
+                    </div>
                 </div>
             </section>
         </div>
