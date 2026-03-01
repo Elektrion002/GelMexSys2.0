@@ -23,10 +23,9 @@
                         <a href="#inventarios" class="nav-link rounded-3 mb-1">
                             <i class="fa-solid fa-boxes-stacked me-2"></i> 4. Inventarios y Almacén
                         </a>
-                    </nav>
-                </div>
-            </div>
-        </div>
+                        <a href="#produccion" class="nav-link rounded-3 mb-1">
+                            <i class="fa-solid fa-industry me-2"></i> 5. Producción Artisinal
+                        </a>
 
         <!-- Contenido Administrativo -->
         <div class="col-lg-9">
@@ -195,10 +194,62 @@
                     <p class="small mb-0">"Dato que no se registra, es pérdida que no se explica". Todo movimiento físico debe tener su espejo digital en el sistema.</p>
                 </div>
             </section>
-            <section id="produccion" class="text-center py-5 bg-light rounded-5 opacity-50 mt-4">
-                <i class="fa-solid fa-industry fa-2x text-muted mb-3"></i>
-                <h5 class="fw-bold text-muted">Próximo Capítulo: Producción Artisinal</h5>
-                <p class="text-muted small">Documentación del flujo de transformación y control de calidad bajo estructura funcional.</p>
+            <section id="produccion" class="doc-section shadow-sm border-0">
+                <div class="d-flex align-items-center mb-4">
+                    <div class="help-icon-box bg-info bg-opacity-10 mb-0 me-3">
+                        <i class="fa-solid fa-industry text-info fa-lg"></i>
+                    </div>
+                    <h2 class="fw-bold m-0" style="color: var(--gelmex-secondary);">5. Producción Artisinal y MRP</h2>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 bg-white border h-100">
+                            <h5 class="fw-bold text-info mb-3">¿QUÉ ES?</h5>
+                            <p class="small mb-0">Es el **Motor de Transformación** de GelMex. El sistema toma las ventas pendientes y el inventario actual para decirte exactamente qué "batir" hoy.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 bg-white border h-100">
+                            <h5 class="fw-bold text-primary mb-3">¿POR QUÉ EXISTE?</h5>
+                            <p class="small mb-0">Para que el Maestro Heladero no trabaje a ciegas. El sistema prioriza los sabores con stock crítico y asegura que la producción abastezca los pedidos confirmados.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 bg-white border h-100">
+                            <h5 class="fw-bold text-success mb-3">¿PARA QUÉ SIRVE?</h5>
+                            <ul class="small mb-0 ps-3">
+                                <li><strong>Tablero de Semáforos:</strong> Detecta sabores en ⚠️ CRÍTICO (Falta stock) o 🟡 RECUPERAR.</li>
+                                <li><strong>Control de Merma:</strong> Compara lo que se planeó producir vs. lo que realmente salió del bote.</li>
+                                <li><strong>Validación de Almacén:</strong> Genera un estatus "Por Recibir" para que Almacén cuente el producto antes de subirlo al inventario.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 bg-white border h-100">
+                            <h5 class="fw-bold text-warning mb-3">¿CÓMO SE USA?</h5>
+                            <ol class="small mb-0 ps-3">
+                                <li>Ve al <strong>Tablero de Necesidades</strong> y revisa los sabores en rojo.</li>
+                                <li>Crea una <strong>Orden de Producción</strong> (El sistema asignará un folio único para rastreo).</li>
+                                <li>El Maestro Heladero pone la orden en <strong>BATIENDO</strong> cuando inicia.</li>
+                                <li>Al terminar, debe <strong>Reportar Producción Real</strong> (Piezas terminadas).</li>
+                                <li>La orden pasará a Almacén para su ingreso final.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 p-4 rounded-4 bg-info bg-opacity-10 border-start border-4 border-info shadow-sm">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <i class="fa-solid fa-lightbulb text-info fa-2x"></i>
+                        </div>
+                        <div class="col">
+                            <h6 class="fw-bold mb-1">Dato Inteligente: Disponible Real</h6>
+                            <p class="small mb-0">El sistema calcula: (Existencia Física + Lo que viene en camino) - (Ventas Comprometidas). ¡Esa es tu verdadera brújula!</p>
+                        </div>
+                    </div>
+                </div>
             </section>
         </div>
     </div>
