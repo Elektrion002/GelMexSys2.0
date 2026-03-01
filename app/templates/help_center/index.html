@@ -3,45 +3,47 @@
 {% block title %}Centro de Ayuda GelMex{% endblock %}
 
 {% block content %}
-<div class="container py-5">
-    <div class="text-center mb-5">
-        <h1 class="display-4 fw-800">¿Cómo podemos ayudarte?</h1>
-        <p class="text-muted lead">Explora nuestras guías paso a paso para dominar GelMexSys 2.0</p>
+<div class="container py-4">
+    <!-- Hero Help Section -->
+    <div class="help-hero mb-5 shadow-lg">
+        <img src="{{ url_for('static', filename='img/hero_ayuda.png') }}" class="help-hero-img" alt="Soporte GelMex">
+        <div class="text-center position-relative z-1 px-4">
+            <h1 class="display-3 fw-800 mb-2">Centro de Ayuda</h1>
+            <p class="lead opacity-90 fw-400">Guías interactivas para una operación GelMex de nivel mundial.</p>
+        </div>
     </div>
 
     <div class="row g-4 justify-content-center">
         <!-- Manual del Cliente -->
         <div class="col-md-5">
-            <div class="card h-100 border-0 shadow-sm rounded-4 hover-lift p-4 overflow-hidden">
-                <div class="d-flex align-items-center mb-4">
-                    <div class="bg-primary bg-opacity-10 p-3 rounded-circle me-3">
-                        <i class="fa-solid fa-shop fa-2x text-primary"></i>
-                    </div>
-                    <div>
-                        <h3 class="fw-bold mb-0">Manual de Clientes</h3>
-                        <p class="text-muted small mb-0">Portal de Pedidos y Catálogo</p>
-                    </div>
+            <div class="card h-100 help-card p-5 border-0">
+                <div class="help-icon-box bg-primary bg-opacity-10">
+                    <i class="fa-solid fa-store fa-2x text-primary"></i>
                 </div>
-                <p>Aprende a realizar pedidos, gestionar tu cuenta y consultar tus precios VIP personalizados.</p>
-                <a href="{{ url_for('help_center.client_manual') }}" class="btn btn-primary rounded-pill mt-auto">Explorar Guía</a>
+                <h3 class="fw-bold mb-3">Manual de Clientes</h3>
+                <p class="text-muted mb-4">Todo lo que tus clientes necesitan saber para navegar y pedir en el portal oficial.</p>
+                <div class="mt-auto">
+                    <a href="{{ url_for('help_center.client_manual') }}" class="btn btn-primary rounded-pill px-4 fw-bold">
+                        Abrir Manual <i class="fa-solid fa-arrow-right ms-2"></i>
+                    </a>
+                </div>
             </div>
         </div>
 
         {% if not es_cliente %}
         <!-- Manual Administrativo -->
         <div class="col-md-5">
-            <div class="card h-100 border-0 shadow-sm rounded-4 hover-lift p-4 overflow-hidden">
-                <div class="d-flex align-items-center mb-4">
-                    <div class="bg-dark bg-opacity-10 p-3 rounded-circle me-3">
-                        <i class="fa-solid fa-gears fa-2x text-dark"></i>
-                    </div>
-                    <div>
-                        <h3 class="fw-bold mb-0">Manual Administrativo</h3>
-                        <p class="text-muted small mb-0">Gestión Operativa y Finanzas</p>
-                    </div>
+            <div class="card h-100 help-card p-5 border-0">
+                <div class="help-icon-box bg-dark bg-opacity-10">
+                    <i class="fa-solid fa-display fa-2x text-dark"></i>
                 </div>
-                <p>Guía completa para el manejo de inventarios, producción, logística y administración de catálogos.</p>
-                <a href="{{ url_for('help_center.admin_manual') }}" class="btn btn-dark rounded-pill mt-auto">Explorar Guía</a>
+                <h3 class="fw-bold mb-3">Manual Maestro Admin</h3>
+                <p class="text-muted mb-4">Guía técnica para el control de inventarios, producción, rutas y finanzas empresariales.</p>
+                <div class="mt-auto">
+                    <a href="{{ url_for('help_center.admin_manual') }}" class="btn btn-dark rounded-pill px-4 fw-bold">
+                        Abrir Manual <i class="fa-solid fa-arrow-right ms-2"></i>
+                    </a>
+                </div>
             </div>
         </div>
         {% endif %}

@@ -195,11 +195,78 @@ body {
   transform: scale(1.1);
 }
 
-/* Estilos adicionales para el Login */
-.login-body {
-  background-color: #f0f7ff !important;
+/* Estilos específicos para el Centro de Ayuda */
+.help-hero {
+    height: 300px;
+    background: linear-gradient(135deg, #007AFF 0%, #00C6FF 100%);
+    border-radius: var(--gelmex-radius);
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    box-shadow: 0 20px 40px rgba(0, 122, 255, 0.2);
 }
 
-.min-vh-75 {
-  min-height: 75vh;
+.help-hero-img {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.6;
+    mix-blend-mode: overlay;
+}
+
+.help-card {
+    background: var(--gelmex-card-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: var(--gelmex-radius);
+    transition: var(--transition-smooth);
+}
+
+.help-card:hover {
+    transform: translateY(-8px);
+    background: white;
+    box-shadow: 0 30px 60px -12px rgba(50, 50, 93, 0.1), 0 18px 36px -18px rgba(0, 0, 0, 0.15);
+}
+
+.manual-nav .nav-link {
+    border-left: 3px solid transparent;
+    padding: 0.8rem 1.5rem;
+    color: var(--gelmex-text-muted);
+    transition: var(--transition-smooth);
+    font-weight: 500;
+}
+
+.manual-nav .nav-link:hover, .manual-nav .nav-link.active {
+    color: var(--gelmex-primary);
+    background: var(--gelmex-accent-blue);
+    border-left: 3px solid var(--gelmex-primary);
+}
+
+.doc-section {
+    background: white;
+    padding: 3rem;
+    border-radius: var(--gelmex-radius);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+    margin-bottom: 2rem;
+}
+
+.help-icon-box {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 18px;
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .hero-title { font-size: 2.2rem; }
+    .hero-section { height: 350px; }
+    .help-hero { height: 250px; }
 }

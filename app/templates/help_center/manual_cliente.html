@@ -2,77 +2,138 @@
 
 {% block title %}Manual del Cliente GelMex{% endblock %}
 
+{% block title %}Manual del Cliente | GelMex Support{% endblock %}
+
 {% block content %}
 <div class="container py-5">
-    <div class="row">
-        <!-- Navegación lateral -->
-        <div class="col-lg-3 d-none d-lg-block">
+    <div class="row g-5">
+        <!-- Navegación lateral Premium -->
+        <div class="col-lg-3">
             <div class="sticky-top" style="top: 100px;">
-                <h5 class="fw-bold mb-4">Manual del Cliente</h5>
-                <nav class="nav flex-column gap-2 small">
-                    <a href="#acceso" class="nav-link text-dark fw-bold ps-0 border-start border-primary border-4 ps-3">1. Acceso al Sistema</a>
-                    <a href="#catalogo" class="nav-link text-muted ps-0 ps-3">2. Explorar Catálogo</a>
-                    <a href="#precios" class="nav-link text-muted ps-0 ps-3">3. Precios VIP</a>
-                    <a href="#pedidos" class="nav-link text-muted ps-0 ps-3">4. Realizar Pedidos</a>
-                    <a href="#soporte" class="nav-link text-muted ps-0 ps-3">5. Soporte y Ayuda</a>
-                </nav>
+                <div class="help-card p-4 border-0 mb-4">
+                    <h6 class="fw-bold text-uppercase small text-muted mb-3 letter-spacing-1">Contenido</h6>
+                    <nav class="nav flex-column manual-nav">
+                        <a href="#acceso" class="nav-link active rounded-3 mb-1">
+                            <i class="fa-solid fa-key me-2"></i> Acceso
+                        </a>
+                        <a href="#catalogo" class="nav-link rounded-3 mb-1">
+                            <i class="fa-solid fa-magnifying-glass me-2"></i> Catálogo
+                        </a>
+                        <a href="#precios" class="nav-link rounded-3 mb-1">
+                            <i class="fa-solid fa-star me-2"></i> Precios VIP
+                        </a>
+                        <a href="#pedidos" class="nav-link rounded-3 mb-1">
+                            <i class="fa-solid fa-cart-shopping me-2"></i> Pedidos
+                        </a>
+                        <a href="#soporte" class="nav-link rounded-3">
+                            <i class="fa-solid fa-headset me-2"></i> Soporte
+                        </a>
+                    </nav>
+                </div>
+                
+                <div class="card bg-primary text-white p-4 border-0 rounded-4 shadow-sm">
+                    <h6 class="fw-bold mb-2">¿Necesitas ayuda extra?</h6>
+                    <p class="small mb-3 opacity-90">Nuestro equipo está listo para apoyarte vía WhatsApp.</p>
+                    <a href="#" class="btn btn-light btn-sm rounded-pill fw-bold w-100">Contactar</a>
+                </div>
             </div>
         </div>
 
-        <!-- Contenido principal -->
+        <!-- Contenido del Manual -->
         <div class="col-lg-9">
-            <section id="bienvenida" class="mb-5">
-                <h1 class="fw-800 mb-3">¡Bienvenido a la Experiencia GelMex!</h1>
-                <p class="lead text-muted">Esta guía te ayudará a navegar por nuestro nuevo portal oficial, diseñado para que gestionar tus pedidos de helado sea rápido, seguro y placentero.</p>
-                <hr class="my-5">
-            </section>
+            <div class="mb-5">
+                <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill mb-3 fw-bold">GUÍA DEL CLIENTE</span>
+                <h1 class="display-4 fw-800 mb-4">Dominando el Portal GelMex</h1>
+                <p class="lead text-muted">Aprende a gestionar tus pedidos con la máxima frescura y eficiencia.</p>
+            </div>
 
-            <section id="acceso" class="mb-5">
-                <h2 class="fw-bold mb-4"><i class="fa-solid fa-key text-primary me-2"></i>1. Acceso al Sistema</h2>
-                <p>Para entrar a tu portal privado, necesitas dos datos que tu ejecutivo GelMex te proporcionará:</p>
-                <ol>
-                    <li><strong>Nombre de Negocio:</strong> Tal cual aparece en tu registro.</li>
-                    <li><strong>Código de Acceso:</strong> Tu credencial digital única (8 caracteres).</li>
-                </ol>
-                <div class="alert alert-info border-0 shadow-sm rounded-4">
-                    <strong>Tip:</strong> Si olvidas tu código, contacta a tu repartidor o vendedor habitual para que te lo proporcione.
+            <section id="acceso" class="doc-section shadow-sm border-0">
+                <div class="d-flex align-items-center mb-4">
+                    <div class="help-icon-box bg-primary bg-opacity-10 mb-0 me-3">
+                        <i class="fa-solid fa-key text-primary fa-lg"></i>
+                    </div>
+                    <h2 class="fw-bold m-0">1. Acceso Seguro</h2>
+                </div>
+                <p>Tu portal es privado y está protegido. Para ingresar solo necesitas:</p>
+                <div class="row g-3 mt-2">
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded-4 h-100">
+                            <h6 class="fw-bold mb-1">Nombre de Negocio</h6>
+                            <p class="small text-muted mb-0">El nombre exacto con el que te registramos en GelMex.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded-4 h-100">
+                            <h6 class="fw-bold mb-1">Código de Acceso</h6>
+                            <p class="small text-muted mb-0">Tu llave digital de 8 caracteres. Es personal e intransferible.</p>
+                        </div>
+                    </div>
                 </div>
             </section>
 
-            <section id="catalogo" class="mb-5">
-                <h2 class="fw-bold mb-4"><i class="fa-solid fa-ice-cream text-primary me-2"></i>2. Explorar Catálogo</h2>
-                <p>Nuestro catálogo está organizado para que encuentres tus sabores favoritos en segundos:</p>
-                <ul>
-                    <li><strong>Buscador Inteligente:</strong> Ubicado en la parte superior, filtra por nombre o sabor.</li>
-                    <li><strong>Vista por Categorías:</strong> Los productos están etiquetados (General, Especiales, etc.).</li>
-                    <li><strong>Detalle Visual:</strong> Cada producto cuenta con una fotografía real para facilitar su identificación.</li>
+            <section id="catalogo" class="doc-section shadow-sm border-0">
+                <div class="d-flex align-items-center mb-4">
+                    <div class="help-icon-box bg-info bg-opacity-10 mb-0 me-3">
+                        <i class="fa-solid fa-ice-cream text-info fa-lg"></i>
+                    </div>
+                    <h2 class="fw-bold m-0">2. Explorar el Catálogo</h2>
+                </div>
+                <p>Hemos diseñado una vitrina virtual para que vivas la frescura GelMex antes de pedir:</p>
+                <ul class="list-unstyled gap-3 d-grid">
+                    <li class="d-flex gap-3">
+                        <i class="fa-solid fa-check-circle text-success mt-1"></i>
+                        <span><strong>Buscador Reactivo:</strong> Escribe lo que buscas y mira los resultados al instante.</span>
+                    </li>
+                    <li class="d-flex gap-3">
+                        <i class="fa-solid fa-check-circle text-success mt-1"></i>
+                        <span><strong>Categorización Clara:</strong> Identifica fácilmente qué son paletas, helados o especialidades.</span>
+                    </li>
                 </ul>
+                <div class="mt-4 rounded-4 overflow-hidden shadow-sm">
+                    <img src="{{ url_for('static', filename='img/hero_catalogo.png') }}" class="w-100 object-fit-cover" style="height: 200px;" alt="Vista Catálogo">
+                </div>
             </section>
 
-            <section id="precios" class="mb-5">
-                <h2 class="fw-bold mb-4"><i class="fa-solid fa-star text-warning me-2"></i>3. Privacidad y Precios VIP</h2>
-                <p>En GelMex valoramos tu lealtad. Por eso, hemos implementado precios dinámicos:</p>
-                <ul>
-                    <li><strong>Privacidad:</strong> Los precios son invisibles para el público general. Solo tú puedes verlos al ingresar con tu código.</li>
-                    <li><strong>Precio Especial:</strong> Si eres cliente VIP, el sistema aplicará automáticamente tus descuentos pactados. Verás un distintivo <strong>"VIP"</strong> en los productos con oferta.</li>
-                </ul>
+            <section id="precios" class="doc-section shadow-sm border-0">
+                <div class="d-flex align-items-center mb-4">
+                    <div class="help-icon-box bg-warning bg-opacity-10 mb-0 me-3">
+                        <i class="fa-solid fa-star text-warning fa-lg"></i>
+                    </div>
+                    <h2 class="fw-bold m-0">3. Precios y Beneficios VIP</h2>
+                </div>
+                <p>Tu relación con GelMex es única, y el portal lo reconoce:</p>
+                <div class="alert alert-warning border-0 rounded-4 p-4 shadow-sm">
+                    <h6 class="fw-bold"><i class="fa-solid fa-shield-halved me-2"></i>Privacidad Total</h6>
+                    <p class="mb-0 small">Nadie fuera de tu negocio puede ver tus precios pactados. La confidencialidad es nuestra prioridad.</p>
+                </div>
+                <p class="mt-3">Busca los productos marcados con la estrella <strong>VIP</strong> para identificar tus descuentos especiales activados.</p>
             </section>
 
-            <section id="pedidos" class="mb-5">
-                <h2 class="fw-bold mb-4"><i class="fa-solid fa-cart-shopping text-primary me-2"></i>4. Realizar Pedidos</h2>
-                <p>El proceso de pedido es intuitivo y transparente:</p>
-                <ol>
-                    <li>Selecciona la cantidad de cada sabor usando los botones <strong>(+)</strong> y <strong>(-)</strong> en la lista de pedidos.</li>
-                    <li>Revisa el <strong>Resumen del Pedido</strong> en la columna derecha. Verás el total de piezas y el monto estimado en pesos.</li>
-                    <li>Añade notas si lo necesitas (ej. "Entregar después de las 3 PM").</li>
-                    <li>Presiona <strong>"Enviar Pedido"</strong> y ¡listo! Tu orden llegará directo a nuestras oficinas.</li>
-                </ol>
-            </section>
-
-            <section id="soporte" class="mb-5">
-                <h2 class="fw-bold mb-4"><i class="fa-solid fa-headset text-primary me-2"></i>5. Soporte y Ayuda</h2>
-                <p>¿Tienes dudas con un pedido o un pago? Estamos para servirte.</p>
-                <p>Puedes contactarnos vía WhatsApp con tu vendedor asignado o llamar directamente a nuestras oficinas centrales.</p>
+            <section id="pedidos" class="doc-section shadow-sm border-0">
+                <div class="d-flex align-items-center mb-4">
+                    <div class="help-icon-box bg-success bg-opacity-10 mb-0 me-3">
+                        <i class="fa-solid fa-cart-shopping text-success fa-lg"></i>
+                    </div>
+                    <h2 class="fw-bold m-0">4. El Arte de Pedir</h2>
+                </div>
+                <p>Realiza tu pedido en 3 pasos maestros:</p>
+                <div class="d-flex gap-4 mb-4 mt-3">
+                    <div class="text-center">
+                        <div class="bg-light rounded-circle d-flex align-items-center justify-content-center mb-2 mx-auto" style="width: 50px; height: 50px;"><strong>1</strong></div>
+                        <span class="small fw-bold">Selecciona</span>
+                    </div>
+                    <div class="flex-grow-1 border-bottom mb-4 opacity-25"></div>
+                    <div class="text-center">
+                        <div class="bg-light rounded-circle d-flex align-items-center justify-content-center mb-2 mx-auto" style="width: 50px; height: 50px;"><strong>2</strong></div>
+                        <span class="small fw-bold">Revisa</span>
+                    </div>
+                    <div class="flex-grow-1 border-bottom mb-4 opacity-25"></div>
+                    <div class="text-center">
+                        <div class="bg-light rounded-circle d-flex align-items-center justify-content-center mb-2 mx-auto" style="width: 50px; height: 50px;"><strong>3</strong></div>
+                        <span class="small fw-bold">Envía</span>
+                    </div>
+                </div>
+                <p class="small text-muted">Recibirás un total estimado antes de finalizar para que tengas un control financiero total.</p>
             </section>
         </div>
     </div>

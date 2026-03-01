@@ -2,52 +2,96 @@
 
 {% block title %}Manual Administrativo GelMexSys{% endblock %}
 
+{% block title %}Manual Administrativo | GelMex Master Control{% endblock %}
+
 {% block content %}
 <div class="container py-5">
-    <div class="row">
-        <!-- Navegación lateral -->
+    <div class="row g-5">
+        <!-- Navegación lateral Maestro -->
         <div class="col-lg-3">
-            <div class="sticky-top" style="top: 2rem;">
-                <h5 class="fw-bold mb-4">Manual Maestro</h5>
-                <nav class="nav flex-column gap-2 small" id="manualNav">
-                    <a href="#introduccion" class="nav-link text-dark fw-bold ps-0 border-start border-primary border-4 ps-3">1. Introducción 5S</a>
-                    <a href="#productos" class="nav-link text-muted ps-0 ps-3">2. Gestión de Productos</a>
-                    <a href="#inventarios" class="nav-link text-muted ps-0 ps-3">3. Inventarios y Stock</a>
-                    <a href="#produccion" class="nav-link text-muted ps-0 ps-3">4. Control de Producción</a>
-                    <a href="#ventas" class="nav-link text-muted ps-0 ps-3">5. Ventas y Clientes</a>
-                    <a href="#logistica" class="nav-link text-muted ps-0 ps-3">6. Logística y Rutas</a>
-                </nav>
+            <div class="sticky-top" style="top: 100px;">
+                <div class="help-card p-4 border-0 mb-4">
+                    <h6 class="fw-bold text-uppercase small text-muted mb-3 letter-spacing-1">Manual Maestro</h6>
+                    <nav class="nav flex-column manual-nav">
+                        <a href="#introduccion" class="nav-link active rounded-3 mb-1">
+                            <i class="fa-solid fa-house-laptop me-2"></i> 1. Filosofía 5S
+                        </a>
+                        <a href="#productos" class="nav-link rounded-3 mb-1">
+                            <i class="fa-solid fa-cubes me-2"></i> 2. Gestión de Productos
+                        </a>
+                        <a href="#inventarios" class="nav-link rounded-3 mb-1 opacity-50">
+                            <i class="fa-solid fa-boxes-stacked me-2"></i> 3. Inventarios
+                        </a>
+                        <a href="#produccion" class="nav-link rounded-3 mb-1 opacity-50">
+                            <i class="fa-solid fa-industry me-2"></i> 4. Control de Vida
+                        </a>
+                    </nav>
+                </div>
             </div>
         </div>
 
-        <!-- Contenido principal -->
+        <!-- Contenido Administrativo -->
         <div class="col-lg-9">
-            <section id="introduccion" class="mb-5 pt-4">
-                <h1 class="fw-800 display-5">Manual Maestro GelMexSys 2.0</h1>
-                <p class="lead text-muted">Guía técnica y operativa para el equipo administrativo de GelMex.</p>
-                <div class="alert alert-dark border-0 rounded-4 mt-4">
-                    <h5 class="fw-bold mb-2">Filosofía de Trabajo: Metodología 5S</h5>
-                    <p class="small mb-0">Este sistema está construido bajo los principios de Clasificación, Orden, Limpieza, Estandarización y Disciplina. Cada clic debe reflejar esta eficiencia.</p>
+            <div class="mb-5">
+                <span class="badge bg-dark bg-opacity-10 text-dark px-3 py-2 rounded-pill mb-3 fw-bold">GUÍA ADMINISTRATIVA</span>
+                <h1 class="display-4 fw-800 mb-4">Ingeniería de Control GelMex</h1>
+                <p class="lead text-muted">Documentación técnica para el core operativo de la empresa.</p>
+            </div>
+
+            <section id="introduccion" class="doc-section shadow-sm border-0">
+                <div class="d-flex align-items-center mb-4">
+                    <div class="help-icon-box bg-warning bg-opacity-10 mb-0 me-3">
+                        <i class="fa-solid fa-vial-circle-check text-warning fa-lg"></i>
+                    </div>
+                    <h2 class="fw-bold m-0">1. Estandarización 5S</h2>
                 </div>
-                <hr class="my-5">
+                <p>GelMexSys 2.0 no es solo software, es una metodología de trabajo:</p>
+                <div class="row g-3 mt-2">
+                    <div class="col-md-4">
+                        <div class="p-3 border rounded-4 text-center">
+                            <div class="fw-bold small">CLASIFICAR</div>
+                            <div class="text-muted extra-small">Solo lo necesario en pantalla.</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 border rounded-4 text-center">
+                            <div class="fw-bold small">ORDENAR</div>
+                            <div class="text-muted extra-small">Un lugar para cada dato.</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 border rounded-4 text-center">
+                            <div class="fw-bold small">LIMPIAR</div>
+                            <div class="text-muted extra-small">Datos sin errores ni basura.</div>
+                        </div>
+                    </div>
+                </div>
             </section>
 
-            <section id="productos" class="mb-5">
-                <h2 class="fw-bold mb-4">2. Gestión de Productos</h2>
-                <p>El núcleo del sistema. Aquí registras la cara de GelMex al cliente.</p>
-                <div class="card bg-light border-0 rounded-4 p-4 mb-3">
-                    <ul class="mb-0">
-                        <li><strong>SKU Único:</strong> Cada producto debe tener un código irrepetible.</li>
-                        <li><strong>Precios:</strong> El <em>Precio Venta General</em> es la base, pero el sistema prioriza los <em>Precios Especiales</em> por cliente en el portal.</li>
-                        <li><strong>Imagen:</strong> Sube fotos nítidas. Si falta una, el sistema asignará el logo de GelMex automáticamente.</li>
-                    </ul>
+            <section id="productos" class="doc-section shadow-sm border-0">
+                <div class="d-flex align-items-center mb-4">
+                    <div class="help-icon-box bg-primary bg-opacity-10 mb-0 me-3">
+                        <i class="fa-solid fa-compass-drafting text-primary fa-lg"></i>
+                    </div>
+                    <h2 class="fw-bold m-0">2. Ingeniería de Producto</h2>
                 </div>
+                <p>El catálogo es dinámico. Recuerda que:</p>
+                <ul class="list-unstyled gap-2 d-grid">
+                    <li class="d-flex gap-2 align-items-center">
+                        <i class="fa-solid fa-circle-info text-primary small"></i>
+                        <span><strong>Precios Especiales:</strong> Se gestionan por cliente en el módulo de Cartera.</span>
+                    </li>
+                    <li class="d-flex gap-2 align-items-center">
+                        <i class="fa-solid fa-circle-info text-primary small"></i>
+                        <span><strong>SKU:</strong> Es la brújula del sistema. Nunca debe repetirse.</span>
+                    </li>
+                </ul>
             </section>
 
-            <section id="inventarios" class="mb-4 text-center py-5 bg-light rounded-5">
-                <i class="fa-solid fa-hourglass-start fa-3x text-muted mb-3"></i>
-                <h4 class="fw-bold text-muted">Módulo en Documentación</h4>
-                <p class="text-muted small">Estamos redactando los capítulos operativos (Fase 2 y 3). ¡Vuelve pronto!</p>
+            <section id="inventarios" class="text-center py-5 bg-light rounded-5 opacity-50">
+                <i class="fa-solid fa-pen-nib fa-2x text-muted mb-3"></i>
+                <h5 class="fw-bold text-muted">Capítulo en Redacción</h5>
+                <p class="text-muted small">Fase 2 de documentación en progreso.</p>
             </section>
         </div>
     </div>
