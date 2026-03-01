@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Acceso Cliente - GelMex{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center min-vh-75 mt-5">
+    <div class="col-md-5 col-lg-4">
+        <!-- Logo / Marca -->
+        <div class="text-center mb-5">
+            <h1 class="display-3 fw-bold text-primary mb-0">GelMex</h1>
+            <p class="text-muted">Introduce tus datos para acceder a pedidos.</p>
+        </div>
+
+        <!-- Card de Login -->
+        <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="card-body p-4 p-md-5">
+                <form method="POST">
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-muted small">Nombre del Negocio</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-0"><i class="fa-solid fa-shop text-primary"></i></span>
+                            <input type="text" name="negocio" class="form-control bg-light border-0 py-2" placeholder="Ej: Heladería Central" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-muted small">Código de Acceso (Credencial)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-0"><i class="fa-solid fa-key text-primary"></i></span>
+                            <input type="password" name="codigo" class="form-control bg-light border-0 py-2" placeholder="8 caracteres" required>
+                        </div>
+                        <div class="form-text mt-2 small">
+                            <i class="fa-solid fa-circle-info me-1"></i> Si no tienes tu código, contacta a tu repartidor de GelMex.
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow-sm mt-3">
+                        <i class="fa-solid fa-right-to-bracket me-2"></i> Entrar al Portal
+                    </button>
+                </form>
+            </div>
+            <div class="card-footer bg-light border-0 text-center py-3">
+                <a href="{{ url_for('customer_portal.catalog') }}" class="text-decoration-none small fw-bold">
+                    <i class="fa-solid fa-arrow-left me-1"></i> Volver al Catálogo Público
+                </a>
+            </div>
+        </div>
+
+        <!-- Footer Decorativo -->
+        <div class="text-center mt-5 opacity-50">
+            <img src="https://img.icons8.com/isometric/100/ice-cream-confectionery.png" width="50" alt="GelMex">
+            <p class="mt-2 small mb-0">© 2026 GelMex - Sistema de Pedidos</p>
+        </div>
+    </div>
+</div>
+
+<style>
+    body { background-color: #f0f7ff !important; }
+    .min-vh-75 { min-height: 75vh; }
+</style>
+{% endblock %}

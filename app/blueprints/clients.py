@@ -165,6 +165,15 @@ def delete(id):
     flash(f'🗑️ Cliente "{cliente.nombre_negocio}" dado de baja.', 'info')
     return redirect(url_for('clients.index'))
 
+@clients_bp.route('/generar-codigo/<int:id>')
+@login_required
+def generate_code(id):
+    cliente = Cliente.query.get_or_404(id)
+    codigo = cliente.generate_access_code()
+    db.session.commit()
+    flash(f'✅ Código generado para {cliente.nombre_negocio}: {codigo}', 'success')
+    return redirect(request.referrer or url_for('clients.index'))
+
 # --- PRECIOS ESPECIALES ---
 @clients_bp.route('/add-precio', methods=['POST'])
 @login_required

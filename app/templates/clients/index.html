@@ -43,8 +43,20 @@
                             {% endif %}
                         </td>
                         <td class="text-end pe-3">
-                            <a href="{{ url_for('clients.edit', id=c.id) }}" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-pen"></i></a>
-                            <a href="{{ url_for('clients.delete', id=c.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Baja lógica?')"><i class="fa-solid fa-trash"></i></a>
+                            <div class="btn-group shadow-sm">
+                                {% if c.access_code %}
+                                    <a href="https://wa.me/{{ c.celular|replace(' ', '')|replace('+', '') }}?text=Hola%20*{{ c.nombre_negocio }}*,%20te%20compartimos%20tu%20catálogo%20de%20GelMex%20y%20acceso%20a%20pedidos:%20https://{{ request.host }}/portal/catalogo%20Usa%20tu%20código:%20*{{ c.access_code }}*" 
+                                       target="_blank" class="btn btn-sm btn-success" title="Compartir Credencial WhatsApp">
+                                        <i class="fa-brands fa-whatsapp"></i>
+                                    </a>
+                                {% else %}
+                                    <a href="{{ url_for('clients.generate_code', id=c.id) }}" class="btn btn-sm btn-warning" title="Generar Credencial">
+                                        <i class="fa-solid fa-key"></i>
+                                    </a>
+                                {% endif %}
+                                <a href="{{ url_for('clients.edit', id=c.id) }}" class="btn btn-sm btn-outline-primary" title="Editar"><i class="fa-solid fa-pen"></i></a>
+                                <a href="{{ url_for('clients.delete', id=c.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Baja lógica?')" title="Eliminar"><i class="fa-solid fa-trash"></i></a>
+                            </div>
                         </td>
                     </tr>
                     {% else %}

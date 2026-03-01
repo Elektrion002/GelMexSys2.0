@@ -43,6 +43,7 @@ class ClienteForm(FlaskForm):
     img_fachada = FileField('Fachada Negocio', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
     img_ine_frente = FileField('INE Frente', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
     img_ine_reverso = FileField('INE Reverso', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
+    access_code = StringField('Código de Acceso (Portal)', render_kw={'readonly': True})
     submit = SubmitField('Guardar Cliente')
 
 # ==========================================

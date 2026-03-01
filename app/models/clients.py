@@ -47,6 +47,14 @@ class Cliente(db.Model):
 
     # --- CONTROL ---
     activo = db.Column(db.Boolean, default=True)
+    access_code = db.Column(db.String(20), unique=True) # Credencial GelMex
+
+    def generate_access_code(self):
+        import secrets
+        import string
+        alphabet = string.ascii_uppercase + string.digits
+        self.access_code = ''.join(secrets.choice(alphabet) for _ in range(8))
+        return self.access_code
 
     # Relaciones ORM
     ruta = db.relationship('RutaReparto', backref='clientes')

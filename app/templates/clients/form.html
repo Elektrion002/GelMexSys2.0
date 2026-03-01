@@ -61,6 +61,19 @@
                                 <label class="form-label">Giro del Negocio</label>
                                 {{ form.tipo_negocio(class="form-control") }}
                             </div>
+
+                            {% if cliente %}
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold text-primary"><i class="fa-solid fa-key me-1"></i> Credencial GelMex (Acceso Portal)</label>
+                                <div class="input-group">
+                                    {{ form.access_code(class="form-control bg-light fw-bold text-center") }}
+                                    <a href="{{ url_for('clients.generate_code', id=cliente.id) }}" class="btn btn-warning fw-bold">
+                                        <i class="fa-solid fa-sync me-1"></i> GENERAR / RESET
+                                    </a>
+                                </div>
+                                <small class="text-muted">Este código es necesario para que el cliente haga pedidos desde su portal.</small>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
 
