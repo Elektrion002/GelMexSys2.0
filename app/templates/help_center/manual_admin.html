@@ -11,17 +11,17 @@
                 <div class="help-card p-4 border-0 mb-4">
                     <h6 class="fw-bold text-uppercase small text-muted mb-3 letter-spacing-1">Manual Maestro</h6>
                     <nav class="nav flex-column manual-nav">
-                        <a href="#introduccion" class="nav-link active rounded-3 mb-1">
-                            <i class="fa-solid fa-house-laptop me-2"></i> 1. Filosofía 5S
+                        <a href="#ventas" class="nav-link active rounded-3 mb-1">
+                            <i class="fa-solid fa-cart-shopping me-2"></i> 1. Módulo de Ventas
                         </a>
                         <a href="#productos" class="nav-link rounded-3 mb-1">
                             <i class="fa-solid fa-cubes me-2"></i> 2. Gestión de Productos
                         </a>
-                        <a href="#inventarios" class="nav-link rounded-3 mb-1 opacity-50">
-                            <i class="fa-solid fa-boxes-stacked me-2"></i> 3. Inventarios
+                        <a href="#catalogos" class="nav-link rounded-3 mb-1">
+                            <i class="fa-solid fa-sitemap me-2"></i> 3. Infraestructura
                         </a>
-                        <a href="#produccion" class="nav-link rounded-3 mb-1 opacity-50">
-                            <i class="fa-solid fa-industry me-2"></i> 4. Control de Vida
+                        <a href="#inventarios" class="nav-link rounded-3 mb-1 opacity-50">
+                            <i class="fa-solid fa-boxes-stacked me-2"></i> 4. Inventarios
                         </a>
                     </nav>
                 </div>
@@ -36,31 +36,47 @@
                 <p class="lead fw-600 mb-0" style="color: var(--gelmex-secondary); opacity: 0.8;">Documentación técnica para el corazón operativo de la heladería.</p>
             </div>
 
-            <section id="introduccion" class="doc-section shadow-sm border-0">
+            <section id="ventas" class="doc-section shadow-sm border-0">
                 <div class="d-flex align-items-center mb-4">
                     <div class="help-icon-box bg-danger bg-opacity-10 mb-0 me-3">
-                        <i class="fa-solid fa-vial-circle-check text-danger fa-lg"></i>
+                        <i class="fa-solid fa-cash-register text-danger fa-lg"></i>
                     </div>
-                    <h2 class="fw-bold m-0" style="color: var(--gelmex-secondary);">1. Estandarización 5S</h2>
+                    <h2 class="fw-bold m-0" style="color: var(--gelmex-secondary);">1. Módulo de Ventas y Preventa</h2>
                 </div>
-                <p>GelMexSys 2.0 no es solo software, es una metodología de trabajo:</p>
-                <div class="row g-3 mt-2">
-                    <div class="col-md-4">
-                        <div class="p-3 border rounded-4 text-center">
-                            <div class="fw-bold small">CLASIFICAR</div>
-                            <div class="text-muted extra-small">Solo lo necesario en pantalla.</div>
+
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 bg-white border h-100">
+                            <h5 class="fw-bold text-danger mb-3">¿QUÉ ES?</h5>
+                            <p class="small mb-0">Es la **Consola de Control Comercial** donde se capturan los pedidos de preventa. Es el primer punto de contacto digital entre el cliente y la operación de GelMex.</p>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="p-3 border rounded-4 text-center">
-                            <div class="fw-bold small">ORDENAR</div>
-                            <div class="text-muted extra-small">Un lugar para cada dato.</div>
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 bg-white border h-100">
+                            <h5 class="fw-bold text-primary mb-3">¿POR QUÉ EXISTE?</h5>
+                            <p class="small mb-0">Para eliminar el error humano en la toma de pedidos, asegurar el cobro correcto según el perfil del cliente y proteger las finanzas mediante validaciones de crédito.</p>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="p-3 border rounded-4 text-center">
-                            <div class="fw-bold small">LIMPIAR</div>
-                            <div class="text-muted extra-small">Datos sin errores ni basura.</div>
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 bg-white border h-100">
+                            <h5 class="fw-bold text-success mb-3">¿PARA QUÉ SIRVE?</h5>
+                            <ul class="small mb-0 ps-3">
+                                <li><strong>Validación de Crédito:</strong> Bloquea ventas si el cliente excede su límite (Deuda + Pedidos vivos).</li>
+                                <li><strong>Precios VIP:</strong> Aplica automáticamente los descuentos pactados.</li>
+                                <li><strong>Trazabilidad:</strong> Genera folios únicos que activan producción.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 bg-white border h-100">
+                            <h5 class="fw-bold text-warning mb-3">¿CÓMO SE USA?</h5>
+                            <ol class="small mb-0 ps-3">
+                                <li>Accede a <strong>Ventas -> Preventa</strong>.</li>
+                                <li>Selecciona al <strong>Cliente</strong> (el sistema cargará su estado financiero).</li>
+                                <li>Agrega los productos y cantidades al carrito.</li>
+                                <li>Define la <strong>Fecha de Entrega</strong> y el método de pago.</li>
+                                <li>Escribe una nota detallada (mín. 15 caracteres) y guarda.</li>
+                            </ol>
                         </div>
                     </div>
                 </div>
@@ -68,28 +84,71 @@
 
             <section id="productos" class="doc-section shadow-sm border-0">
                 <div class="d-flex align-items-center mb-4">
-                    <div class="help-icon-box bg-primary bg-opacity-10 mb-0 me-3">
-                        <i class="fa-solid fa-compass-drafting text-primary fa-lg"></i>
+                    <div class="help-icon-box bg-success bg-opacity-10 mb-0 me-3">
+                        <i class="fa-solid fa-box-open text-success fa-lg"></i>
                     </div>
-                    <h2 class="fw-bold m-0">2. Ingeniería de Producto</h2>
+                    <h2 class="fw-bold m-0" style="color: var(--gelmex-secondary);">2. Catálogo Maestro de Productos</h2>
                 </div>
-                <p>El catálogo es dinámico. Recuerda que:</p>
-                <ul class="list-unstyled gap-2 d-grid">
-                    <li class="d-flex gap-2 align-items-center">
-                        <i class="fa-solid fa-circle-info text-primary small"></i>
-                        <span><strong>Precios Especiales:</strong> Se gestionan por cliente en el módulo de Cartera.</span>
-                    </li>
-                    <li class="d-flex gap-2 align-items-center">
-                        <i class="fa-solid fa-circle-info text-primary small"></i>
-                        <span><strong>SKU:</strong> Es la brújula del sistema. Nunca debe repetirse.</span>
-                    </li>
-                </ul>
+                <p>La "Ingeniería de Producto" es el cerebro del sistema. Aquí se definen los estándares que rigen toda la operación.</p>
+                
+                <div class="row g-4 mt-2">
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 bg-light border-start border-4 border-success h-100">
+                            <h5 class="fw-bold text-success mb-3"><i class="fa-solid fa-fingerprint me-2"></i> Identidad Única (SKU)</h5>
+                            <p class="small mb-0">Cada producto debe tener un **SKU único**. El sistema lo convierte automáticamente a mayúsculas para mantener el orden. Ejemplo: `PAL-FRE-01`.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 bg-light border-start border-4 border-danger h-100">
+                            <h5 class="fw-bold text-danger mb-3"><i class="fa-solid fa-chart-line me-2"></i> Inteligencia de Precios</h5>
+                            <p class="small mb-0">Al ingresar el **Precio de Costo** y el **Precio de Venta**, el sistema calcula instantáneamente el **Margen de Utilidad (%)** para toma de decisiones rápidas.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 p-4 rounded-4 border border-2 border-dashed">
+                    <h6 class="fw-bold mb-3"><i class="fa-solid fa-camera-retro me-2 text-primary"></i> Estándar de Imagen</h6>
+                    <p class="mb-0">Para una experiencia premium en el portal de clientes, las fotos deben ser de alta calidad y fondo neutro. El sistema las optimiza y renombra automáticamente usando el SKU.</p>
+                </div>
+            </section>
+
+            <section id="catalogos" class="doc-section shadow-sm border-0">
+                <div class="d-flex align-items-center mb-4">
+                    <div class="help-icon-box bg-primary bg-opacity-10 mb-0 me-3">
+                        <i class="fa-solid fa-sitemap text-primary fa-lg"></i>
+                    </div>
+                    <h2 class="fw-bold m-0" style="color: var(--gelmex-secondary);">3. Infraestructura y Catálogos</h2>
+                </div>
+                <p>GelMexSys utiliza un sistema de **Catálogos Dinámicos** para gestionar la base del negocio.</p>
+
+                <div class="card border-0 rounded-4 overflow-hidden mb-4 shadow-sm">
+                    <div class="card-header bg-dark text-white p-3 border-0">
+                        <h6 class="m-0 fw-bold"><i class="fa-solid fa-tree me-2 text-warning"></i> El Explorador de Infraestructura</h6>
+                    </div>
+                    <div class="card-body bg-white">
+                        <p class="small text-muted mb-3">Usa esta herramienta visual para navegar en cascada:</p>
+                        <ul class="small mb-0">
+                            <li><strong>Plantas:</strong> Unidades de negocio principales.</li>
+                            <li><strong>Áreas:</strong> Departamentos dentro de la planta (Producción, Ventas, etc).</li>
+                            <li><strong>Almacenes:</strong> Puntos físicos de resguardo.</li>
+                            <li><strong>Ubicaciones:</strong> El estante o rack exacto donde vive el producto.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning rounded-4 border-0 d-flex align-items-center p-4">
+                    <i class="fa-solid fa-triangle-exclamation fa-2x me-3 opacity-50"></i>
+                    <div>
+                        <h6 class="fw-bold mb-1">Nota de Seguridad</h6>
+                        <p class="small mb-0 text-dark">La edición de catálogos requiere **Nivel 4 (Gerencia)**. Cambios en unidades de medida o SKUs pueden afectar registros históricos de ventas.</p>
+                    </div>
+                </div>
             </section>
 
             <section id="inventarios" class="text-center py-5 bg-light rounded-5 opacity-50">
                 <i class="fa-solid fa-pen-nib fa-2x text-muted mb-3"></i>
-                <h5 class="fw-bold text-muted">Capítulo en Redacción</h5>
-                <p class="text-muted small">Fase 2 de documentación en progreso.</p>
+                <h5 class="fw-bold text-muted">Próximos Capítulos</h5>
+                <p class="text-muted small">Fase 3: Documentación de Producción e Inventarios bajo estructura funcional (Qué/Por qué/Para qué/Cómo).</p>
             </section>
         </div>
     </div>
