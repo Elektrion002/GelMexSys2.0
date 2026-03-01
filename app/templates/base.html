@@ -116,7 +116,7 @@
 
             <div class="nav-group-label mt-2">ADMINISTRACIÓN</div>
             
-            {% if current_user.nivel_usuario >= 4 %}
+            {% if current_user.is_authenticated and current_user.nivel_usuario >= 4 %}
                 <a href="{{ url_for('users.index') }}" class="nav-link py-3">
                     <i class="fa-solid fa-users-gear me-2"></i> Recursos Humanos
                 </a>
@@ -154,7 +154,7 @@
                 </div>
             </div>
 
-            {% if current_user.nivel_usuario >= 4 %}
+            {% if current_user.is_authenticated and current_user.nivel_usuario >= 4 %}
             <a href="{{ url_for('catalogs_admin.index') }}" class="nav-link py-3">
                 <i class="fa-solid fa-list-check me-2"></i> Gestión de Catálogos
             </a>
