@@ -34,17 +34,18 @@
         </div>
         <div class="d-none d-md-block">
             <span class="badge glass-effect text-dark border-0 shadow-sm px-4 py-3 rounded-pill">
-                <i class="fa-solid fa-ice-cream me-2 text-primary"></i>{{ productos|length }} Variedades
+                <i class="fa-solid fa-ice-cream me-2 text-primary"></i>{{ items|length }} Variedades
             </span>
         </div>
     </div>
 
     <!-- Grid de Productos -->
     <div class="row g-4" id="catalogGrid">
-        {% for prod in productos %}
+        {% for item in items %}
+        {% set prod = item.obj %}
         <div class="col-6 col-md-4 col-lg-3 product-item-anim" data-search="{{ prod.sku }} {{ prod.descripcion }} {{ prod.categoria.nombre if prod.categoria else '' }}">
             <div class="card h-100 product-card shadow-sm border-0">
-                <!-- Imagen de Producto con Contenedor Premium -->
+                <!-- Imagen de Producto -->
                 <div class="product-image-container p-4 d-flex align-items-center justify-content-center" 
                      style="background: #f8f9fa; aspect-ratio: 1/1; position: relative; border-radius: 20px 24px 0 0;">
                     {% if prod.imagen_producto %}
@@ -57,6 +58,12 @@
                              class="w-100 h-100 object-fit-contain opacity-50" 
                              alt="Sin imagen">
                     {% endif %}
+                    
+                    {% if item.es_vip %}
+                    <span class="position-absolute top-0 end-0 m-3 badge bg-warning text-dark shadow-sm rounded-pill px-3 py-2 fw-bold">
+                        <i class="fa-solid fa-star me-1"></i> VIP
+                    </span>
+                    {% endif %}
                 </div>
                 
                 <div class="card-body d-flex flex-column p-4">
@@ -68,10 +75,23 @@
                     <h6 class="card-title fw-bold mb-3 text-dark text-truncate-2">{{ prod.descripcion }}</h6>
                     
                     <div class="mt-auto pt-2 d-flex justify-content-between align-items-center">
-                        <span class="fs-5 fw-800 text-dark">${{ "{:,.2f}".format(prod.precio_venta_general) }}</span>
-                        <a href="{{ url_for('customer_portal.order') }}" class="btn btn-dark rounded-circle d-flex align-items-center justify-content-center shadow" style="width: 44px; height: 44px;">
-                            <i class="fa-solid fa-plus"></i>
-                        </a>
+                        {% if item.precio_final %}
+                            <div>
+                                <span class="fs-5 fw-800 text-dark">${{ "{:,.2f}".format(item.precio_final) }}</span>
+                                {% if item.es_vip %}
+                                <br><small class="text-success fw-bold" style="font-size: 0.7rem;">Precio Especial</small>
+                                {% endif %}
+                            </div>
+                            <a href="{{ url_for('customer_portal.order') }}" class="btn btn-dark rounded-circle d-flex align-items-center justify-content-center shadow" style="width: 44px; height: 44px;">
+                                <i class="fa-solid fa-plus"></i>
+                            </a>
+                        {% else %}
+                            <div class="w-100">
+                                <a href="{{ url_for('customer_portal.login') }}" class="btn btn-outline-primary btn-sm w-100 rounded-pill fw-600">
+                                    <i class="fa-solid fa-lock me-1"></i> Ver Precio
+                                </a>
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>

@@ -31,12 +31,14 @@
                                 <tr>
                                     <th class="ps-4">Producto</th>
                                     <th class="text-center">Presentación</th>
+                                    <th class="text-center">Precio</th>
                                     <th class="text-center" style="width: 150px;">Cantidad</th>
                                 </tr>
                             </thead>
                             <tbody id="productRows">
-                                {% for prod in productos %}
-                                <tr class="item-row" data-name="{{ prod.descripcion }} {{ prod.sku }}">
+                                {% for item in productos %}
+                                {% set prod = item.obj %}
+                                <tr class="item-row" data-name="{{ prod.descripcion }} {{ prod.sku }}" data-price="{{ item.precio_final }}">
                                     <td class="ps-4">
                                         <div class="d-flex align-items-center">
                                             <div class="rounded-3 bg-light overflow-hidden me-3" style="width: 45px; height: 45px;">
@@ -54,6 +56,12 @@
                                     </td>
                                     <td class="text-center small text-muted">
                                         {{ prod.unidad.abreviatura if prod.unidad else 'Caja' }}
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="fw-bold">${{ "{:,.2f}".format(item.precio_final) }}</div>
+                                        {% if item.es_vip %}
+                                            <span class="badge bg-warning text-dark" style="font-size: 0.6rem;">VIP</span>
+                                        {% endif %}
                                     </td>
                                     <td class="pe-4">
                                         <div class="input-group input-group-sm">
@@ -92,9 +100,14 @@
 
                         <hr>
 
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted small">Total de Artículos</span>
+                            <span id="totalItems" class="badge bg-light text-dark rounded-pill">0</span>
+                        </div>
+
                         <div class="d-flex justify-content-between mb-4">
-                            <span class="fw-bold">Total de Artículos</span>
-                            <span id="totalItems" class="badge bg-primary rounded-pill">0</span>
+                            <span class="fw-bold">Total Estimado</span>
+                            <span id="totalMoney" class="fw-bold text-primary fs-5">$0.00</span>
                         </div>
 
                         <button type="submit" class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow">

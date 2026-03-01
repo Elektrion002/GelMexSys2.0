@@ -7,9 +7,39 @@ customer_portal_bp = Blueprint('customer_portal', __name__, url_prefix='/portal'
 
 @customer_portal_bp.route('/catalogo')
 def catalog():
-    # Solo mostramos productos activos
     productos = Producto.query.filter_by(activo=True).all()
-    return render_template('customer_portal/catalog.html', productos=productos)
+    
+    # Lógica de precios personalizados
+    catalogo_precios = []
+    cliente_id = session.get('customer_id')
+    
+    from app.models.clients import PrecioEspecialCliente
+    
+    for prod in productos:
+        precio_final = None # Oculto por defecto
+        es_vip = False
+        
+        if cliente_id:
+            # Intentar buscar precio especial
+            especial = PrecioEspecialCliente.query.filter_by(
+                cliente_id=cliente_id, 
+                producto_id=prod.id
+            ).first()
+            
+            if especial:
+                precio_final = especial.valor_descuento
+                es_vip = True
+            else:
+                precio_final = prod.precio_venta_general
+                es_vip = False
+        
+        catalogo_precios.append({
+            'obj': prod,
+            'precio_final': precio_final,
+            'es_vip': es_vip
+        })
+        
+    return render_template('customer_portal/catalog.html', items=catalogo_precios)
 
 @customer_portal_bp.route('/acceso', methods=['GET', 'POST'])
 def login():
@@ -44,9 +74,28 @@ def order():
     cliente = Cliente.query.get(session['customer_id'])
     productos = Producto.query.filter_by(activo=True).all()
     
+    from app.models.clients import PrecioEspecialCliente
+    
+    # Calcular precios finales para el pedido
+    productos_con_precio = []
+    for prod in productos:
+        especial = PrecioEspecialCliente.query.filter_by(
+            cliente_id=cliente.id, 
+            producto_id=prod.id
+        ).first()
+        
+        precio_final = especial.valor_descuento if especial else prod.precio_venta_general
+        es_vip = True if especial else False
+        
+        productos_con_precio.append({
+            'obj': prod,
+            'precio_final': precio_final,
+            'es_vip': es_vip
+        })
+    
     if request.method == 'POST':
-        # Aquí iría la lógica para procesar el pedido (crear registro en BD)
+        # Aquí iría la lógica para procesar el pedido
         flash('Tu pedido ha sido enviado con éxito. Un ejecutivo de GelMex se comunicará contigo.', 'success')
         return redirect(url_for('customer_portal.catalog'))
         
-    return render_template('customer_portal/order.html', cliente=cliente, productos=productos)
+    return render_template('customer_portal/order.html', cliente=cliente, productos=productos_con_precio)

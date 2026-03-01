@@ -38,21 +38,28 @@ function cambiarCantidad(id, delta) {
 }
 
 /**
- * Actualiza el resumen visual del pedido
+ * Actualiza el resumen visual del pedido (Cantidades y Total monetario)
  */
 function actualizarResumen() {
     const inputs = document.querySelectorAll('.qty-input');
     const resumenContenedor = document.getElementById('selectedItems');
-    const badgeTotal = document.getElementById('totalItems');
+    const badgeTotalItems = document.getElementById('totalItems');
+    const displayTotalMoney = document.getElementById('totalMoney');
+    
     let totalArticulos = 0;
+    let totalDinero = 0;
     let html = '';
 
     inputs.forEach(input => {
         let val = parseInt(input.value);
         if (val > 0) {
-            totalArticulos += val;
             const fila = input.closest('tr');
             const nombre = fila.dataset.name.split(' SKU')[0];
+            const precio = parseFloat(fila.dataset.price) || 0;
+            
+            totalArticulos += val;
+            totalDinero += (val * precio);
+            
             html += `
                 <div class="d-flex justify-content-between align-items-center mb-2 small">
                     <span class="text-truncate me-2" style="max-width: 150px;">${nombre}</span>
@@ -62,6 +69,7 @@ function actualizarResumen() {
         }
     });
 
+    // Actualizar contenedor de items seleccionados
     if (totalArticulos > 0) {
         if (resumenContenedor) resumenContenedor.innerHTML = html;
     } else {
@@ -74,7 +82,15 @@ function actualizarResumen() {
             `;
         }
     }
-    if (badgeTotal) badgeTotal.innerText = totalArticulos;
+
+    // Actualizar indicadores numéricos
+    if (badgeTotalItems) badgeTotalItems.innerText = totalArticulos;
+    if (displayTotalMoney) {
+        displayTotalMoney.innerText = '$' + totalDinero.toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
 }
 
 /**
