@@ -23,8 +23,11 @@
                         <a href="#inventarios" class="nav-link rounded-3 mb-1">
                             <i class="fa-solid fa-boxes-stacked me-2"></i> 4. Inventarios y Almacén
                         </a>
-                        <a href="#produccion" class="nav-link rounded-3 mb-1">
-                            <i class="fa-solid fa-industry me-2"></i> 5. Producción Artisinal
+                        <a class="nav-link rounded-3 mb-2" href="#produccion">
+                            <i class="fa-solid fa-fire-burner me-2 text-danger"></i> 5. Producción Artesanal
+                        </a>
+                        <a class="nav-link rounded-3 mb-2" href="#logistica">
+                            <i class="fa-solid fa-truck-fast me-2 text-primary"></i> 6. Logística y Rutas
                         </a>
                     </nav>
                 </div>
@@ -253,6 +256,70 @@
                             <p class="small mb-0">El sistema calcula: (Existencia Física + Lo que viene en camino) - (Ventas Comprometidas). ¡Esa es tu verdadera brújula!</p>
                         </div>
                     </div>
+                </div>
+            <!-- 6. LOGISTICA Y RUTAS -->
+            <section id="logistica" class="doc-section shadow-sm border-0 mb-5" style="border-top: 8px solid var(--gelmex-primary) !important;">
+                <div class="d-flex align-items-center mb-4">
+                    <div class="help-icon-box bg-primary bg-opacity-10 text-primary me-3">
+                        <i class="fa-solid fa-truck-fast fa-2x"></i>
+                    </div>
+                    <div>
+                        <h2 class="fw-bold mb-0">6. Logística y Rutas de Reparto</h2>
+                        <p class="text-muted mb-0">Gestión de entregas, carga de unidades y cobranza en campo.</p>
+                    </div>
+                </div>
+
+                <div class="row g-4 mb-5">
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 h-100" style="background: rgba(13, 71, 161, 0.03); border: 1px solid rgba(13, 71, 161, 0.1);">
+                            <h5 class="fw-bold text-primary mb-3 text-uppercase small letter-spacing-1">¿QUÉ ES?</h5>
+                            <p class="mb-0">El **Motor de Distribución** de GelMex. Es el enlace final que conecta la producción con la puerta del cliente, asegurando que el producto llegue en condiciones óptimas y el flujo financiero se cierre correctamente.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 h-100" style="background: rgba(62, 39, 35, 0.03); border: 1px solid rgba(62, 39, 35, 0.1);">
+                            <h5 class="fw-bold text-secondary mb-3 text-uppercase small letter-spacing-1">¿POR QUÉ EXISTE?</h5>
+                            <p class="mb-0">Para eliminar la incertidumbre en las entregas. Garantiza que lo que sale del almacén sea lo que se cobra, protegiendo contra pérdidas por mermas no reportadas o errores en la cobranza manual.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="p-4 bg-white rounded-4 border shadow-sm">
+                            <h5 class="fw-bold text-success mb-3">¿PARA QUÉ SIRVE?</h5>
+                            <ul class="list-unstyled mb-0">
+                                <li class="mb-3 d-flex align-items-start">
+                                    <i class="fa-solid fa-check-circle text-success mt-1 me-2"></i>
+                                    <span>**Control de Carga**: Sincroniza el inventario del camión con los pedidos confirmados.</span>
+                                </li>
+                                <li class="mb-3 d-flex align-items-start">
+                                    <i class="fa-solid fa-check-circle text-success mt-1 me-2"></i>
+                                    <span>**Handover Dinámico**: Permite ajustar piezas entregadas vs pedidas al momento.</span>
+                                </li>
+                                <li class="mb-0 d-flex align-items-start">
+                                    <i class="fa-solid fa-check-circle text-success mt-1 me-2"></i>
+                                    <span>**Cobranza Viva**: Registra abonos y liquida deudas históricas desde la app móvil.</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-4 bg-white rounded-4 border shadow-sm">
+                            <h5 class="fw-bold text-warning mb-3">¿CÓMO SE USA?</h5>
+                            <ol class="mb-0">
+                                <li class="mb-2">**Dashboard de Reparto**: Al iniciar la jornada, marca las órdenes como "Cargar en Unidad".</li>
+                                <li class="mb-2">**Entrega**: Abre la orden del cliente y usa el "Liquidador" para confirmar piezas finales.</li>
+                                <li class="mb-2">**Pago**: Registra el monto recibido. El sistema generará un folio de auditoría único.</li>
+                                <li>**Cierre**: Genera el **Ticket de Ruta** para conciliar efectivo contra órdenes entregadas.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-5 p-4 rounded-4 bg-danger bg-opacity-10 border border-danger border-opacity-20">
+                    <h6 class="fw-bold text-danger mb-2"><i class="fa-solid fa-shield-halved me-2"></i>Regla de Oro del Repartidor</h6>
+                    <p class="small mb-0 text-danger text-opacity-75">Toda entrega debe ir acompañada de un registro de "Confirmación" en el sistema. Una orden entregada sin confirmación digital es una brecha en la auditoría de inventario.</p>
                 </div>
             </section>
         </div>
