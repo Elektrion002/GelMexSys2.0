@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Explorador de Infraestructura{% endblock %}
+
+{% block content %}
+<div class="container-fluid pb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold mb-1"><i class="fa-solid fa-sitemap me-2 text-primary"></i> Explorador de Infraestructura</h4>
+            <p class="text-muted small mb-0">Gestiona la jerarquía de Plantas, Almacenes y Ubicaciones</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('catalogs_admin.create', slug='plantas') }}" class="btn btn-outline-primary shadow-sm rounded-pill">
+                <i class="fa-solid fa-industry me-1"></i> Nueva Planta
+            </a>
+            <a href="{{ url_for('catalogs_admin.create', slug='areas') }}" class="btn btn-outline-secondary shadow-sm rounded-pill">
+                <i class="fa-solid fa-layer-group me-1"></i> Nueva Área
+            </a>
+            <a href="{{ url_for('catalogs_admin.index') }}" class="btn btn-light border rounded-circle"><i class="fa-solid fa-rotate-left"></i></a>
+        </div>
+    </div>
+
+    <!-- ÁREA DE FILTRADO RÁPIDO -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body py-2">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text bg-transparent border-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                <input type="text" id="treeSearch" class="form-control border-0 bg-transparent" placeholder="Buscar en el árbol (ej: Almacén Central)...">
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="tree-container p-4 bg-white rounded shadow-sm">
+                {% if plantas %}
+                    <ul class="tree-root list-unstyled">
+                        {% for planta in plantas %}
+                        <li class="tree-item plant-node" data-name="{{ planta.descripcion }}">
+                            <div class="tree-header d-flex align-items-center justify-content-between p-2 rounded mb-1">
+                                <div class="d-flex align-items-center flex-grow-1" data-bs-toggle="collapse" data-bs-target="#planta-{{ planta.id }}">
+                                    <i class="fa-solid fa-chevron-right me-3 arrow-icon"></i>
+                                    <i class="fa-solid fa-industry me-2 text-primary"></i>
+                                    <span class="fw-bold fs-5">{{ planta.descripcion }}</span>
+                                    <span class="badge bg-light text-muted ms-3 border">{{ planta.almacenes|length }} Almacenes</span>
+                                </div>
+                                <div class="tree-actions d-flex gap-1">
+                                    <a href="{{ url_for('catalogs_admin.create', slug='almacenes', planta_id=planta.id) }}" 
+                                       class="btn btn-sm btn-soft-primary" title="Agregar Almacén a esta Planta">
+                                        <i class="fa-solid fa-plus-circle"></i>
+                                    </a>
+                                    <a href="{{ url_for('catalogs_admin.edit', slug='plantas', id=planta.id) }}" 
+                                       class="btn btn-sm btn-soft-secondary" title="Editar Planta">
+                                        <i class="fa-solid fa-pen"></i>
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <ul class="collapse list-unstyled ps-4 ms-2 border-start" id="planta-{{ planta.id }}">
+                                {% if planta.almacenes %}
+                                    {% for almacen in planta.almacenes %}
+                                    <li class="tree-item almacen-node mt-1" data-name="{{ almacen.descripcion }}">
+                                        <div class="tree-header d-flex align-items-center justify-content-between p-2 rounded">
+                                            <div class="d-flex align-items-center flex-grow-1" data-bs-toggle="collapse" data-bs-target="#almacen-{{ almacen.id }}">
+                                                <i class="fa-solid fa-chevron-right me-3 arrow-icon"></i>
+                                                <i class="fa-solid fa-warehouse me-2 text-warning"></i>
+                                                <span class="fw-semibold">{{ almacen.descripcion }}</span>
+                                                <small class="text-muted ms-2">({{ almacen.area.descripcion if almacen.area else 'Sin Área' }})</small>
+                                                <span class="badge bg-light text-muted ms-3 border">{{ almacen.ubicaciones|length }} Ubic.</span>
+                                            </div>
+                                            <div class="tree-actions d-flex gap-1">
+                                                <a href="{{ url_for('catalogs_admin.create', slug='ubicaciones-almacen', almacen_id=almacen.id) }}" 
+                                                   class="btn btn-sm btn-soft-warning" title="Agregar Ubicación">
+                                                    <i class="fa-solid fa-plus-circle"></i>
+                                                </a>
+                                                <a href="{{ url_for('catalogs_admin.edit', slug='almacenes', id=almacen.id) }}" 
+                                                   class="btn btn-sm btn-soft-secondary">
+                                                    <i class="fa-solid fa-pen"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+
+                                        <ul class="collapse list-unstyled ps-4 ms-2 border-start" id="almacen-{{ almacen.id }}">
+                                            {% if almacen.ubicaciones %}
+                                                {% for ubic in almacen.ubicaciones %}
+                                                <li class="tree-item ubicacion-node mt-1" data-name="{{ ubic.codigo }}">
+                                                    <div class="tree-header d-flex align-items-center justify-content-between p-2 rounded">
+                                                        <div class="d-flex align-items-center">
+                                                            <i class="fa-solid fa-location-dot me-3 text-danger small"></i>
+                                                            <span class="text-secondary fw-bold">{{ ubic.codigo }}</span>
+                                                            <small class="text-muted ms-3">{{ ubic.notas if ubic.notas else '' }}</small>
+                                                        </div>
+                                                        <div class="tree-actions">
+                                                            <a href="{{ url_for('catalogs_admin.edit', slug='ubicaciones-almacen', id=ubic.id) }}" 
+                                                               class="btn btn-sm btn-soft-secondary">
+                                                                <i class="fa-solid fa-pen"></i>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                </li>
+                                                {% endfor %}
+                                            {% else %}
+                                                <li class="ps-4 py-2 text-muted small italic">No hay ubicaciones registradas en este almacén.</li>
+                                            {% endif %}
+                                        </ul>
+                                    </li>
+                                    {% endfor %}
+                                {% else %}
+                                    <li class="ps-4 py-2 text-muted small italic">No hay almacenes asociados a esta planta.</li>
+                                {% endif %}
+                            </ul>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fa-solid fa-industry fa-4x text-light mb-3"></i>
+                        <h5>No se han registrado plantas todavía</h5>
+                        <a href="{{ url_for('catalogs_admin.create', slug='plantas') }}" class="btn btn-primary mt-3">Comenzar configuración</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .tree-container { min-height: 500px; border: 1px solid #edf2f7; }
+    .tree-header { transition: all 0.2s; cursor: pointer; border: 1px solid transparent; }
+    .tree-header:hover { background-color: #f8fafc; border-color: #e2e8f0; }
+    .tree-actions { opacity: 0; transition: opacity 0.2s; }
+    .tree-header:hover .tree-actions { opacity: 1; }
+    
+    .arrow-icon { font-size: 0.8rem; transition: transform 0.2s; }
+    [aria-expanded="true"] .arrow-icon { transform: rotate(90deg); }
+    
+    .btn-soft-primary { background: #ebf4ff; color: #3182ce; }
+    .btn-soft-warning { background: #fffaf0; color: #b7791f; }
+    .btn-soft-secondary { background: #f7fafc; color: #4a5568; }
+    .btn-soft-primary:hover, .btn-soft-warning:hover, .btn-soft-secondary:hover { 
+        filter: brightness(0.95); transform: translateY(-1px);
+    }
+    
+    .border-start { border-left-width: 2px !important; border-left-style: dashed !important; border-color: #e2e8f0 !important; }
+    
+    /* Animación de filtrado */
+    .tree-item.hidden { display: none !important; }
+</style>
+
+<script>
+    document.getElementById('treeSearch').addEventListener('keyup', function() {
+        let val = this.value.toLowerCase();
+        let items = document.querySelectorAll('.tree-item');
+        
+        items.forEach(item => {
+            let name = item.dataset.name.toLowerCase();
+            if (name.includes(val)) {
+                item.classList.remove('hidden');
+                // Asegurar que los padres estén visibles y expandidos? 
+                // Por ahora solo filtro local
+            } else {
+                item.classList.add('hidden');
+            }
+        });
+        
+        // Si el valor está vacío, quitamos el hidden a todo
+        if(!val) items.forEach(i => i.classList.remove('hidden'));
+    });
+</script>
+{% endblock %}

@@ -12,8 +12,8 @@ class Almacen(db.Model):
     area_id = db.Column(db.Integer, db.ForeignKey('cat_areas.id'))
     
     tipo = db.relationship('CatTipoAlmacen')
-    planta = db.relationship('CatPlanta')
-    area = db.relationship('CatArea')
+    planta = db.relationship('CatPlanta', backref='almacenes')
+    area = db.relationship('CatArea', backref='almacenes')
 
 class UbicacionAlmacen(db.Model):
     __tablename__ = 'ubicaciones_almacen'

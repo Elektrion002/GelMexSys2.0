@@ -14,24 +14,35 @@
                     <div class="mb-3">
                         <label class="form-label fw-bold">{{ field.label }}</label>
                         
-                        {% if field.type == 'textarea' %}
+                        {% if field.type == 'select' %}
+                        <select name="{{ field.name }}" class="form-select" {{ 'required' if field.required }}>
+                            <option value="">-- Seleccionar --</option>
+                            {% for opt in field.options %}
+                                {% set current_val = getattr(item, field.name) if item else defaults.get(field.name)|int %}
+                                <option value="{{ opt.id }}" {{ 'selected' if current_val == opt.id }}>
+                                    {{ opt.label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+
+                        {% elif field.type == 'textarea' %}
                         <textarea name="{{ field.name }}" class="form-control" rows="3" 
                                   {{ 'required' if field.required }}>{{ getattr(item, field.name) if item else '' }}</textarea>
                         
                         {% elif field.type == 'number' %}
                         <input type="number" step="any" name="{{ field.name }}" class="form-control" 
-                               value="{{ getattr(item, field.name) if item else '' }}"
+                               value="{{ getattr(item, field.name) if item else defaults.get(field.name, '') }}"
                                {{ 'required' if field.required }}>
                         
                         {% elif field.type == 'checkbox' %}
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" name="{{ field.name }}" 
-                                   {{ 'checked' if item and getattr(item, field.name) }}>
+                                   {{ 'checked' if (item and getattr(item, field.name)) or (not item and defaults.get(field.name) == 'on') }}>
                         </div>
                         
                         {% else %}
                         <input type="text" name="{{ field.name }}" class="form-control" 
-                               value="{{ getattr(item, field.name) if item else '' }}" 
+                               value="{{ getattr(item, field.name) if item else defaults.get(field.name, '') }}" 
                                {{ 'required' if field.required }}>
                         {% endif %}
                     </div>
