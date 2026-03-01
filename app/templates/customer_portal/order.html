@@ -41,7 +41,7 @@
                                         <div class="d-flex align-items-center">
                                             <div class="rounded-3 bg-light overflow-hidden me-3" style="width: 45px; height: 45px;">
                                                 {% if prod.imagen_producto %}
-                                                    <img src="{{ url_for('static', filename=prod.imagen_producto) }}" class="w-100 h-100 object-fit-cover" alt="" onerror="this.src='{{ url_for('static', filename='img/placeholder_producto.png') }}';">
+                                                    <img src="{{ url_for('static', filename=prod.imagen_producto) }}" class="w-100 h-100 object-fit-cover" alt="" onerror="asignarImagenDefecto(this)">
                                                 {% else %}
                                                     <img src="{{ url_for('static', filename='img/placeholder_producto.png') }}" class="w-100 h-100 object-fit-cover opacity-25" alt="">
                                                 {% endif %}

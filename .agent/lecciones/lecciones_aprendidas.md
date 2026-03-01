@@ -1,31 +1,29 @@
-# Lecciones Aprendidas - Proyecto GelMex
+# Lecciones Aprendidas: GelMexSys 2.0
 
-Este documento registra los errores cometidos ("malos pasos") y la solución definitiva para que no vuelvan a ocurrir.
+## 1. Metodología 5S en Código
 
-## 1. El Error de la "Suposición de Arquitectura"
+- **Error**: Mezclar JavaScript (`onerror`, `onclick`) directamente en los atributos HTML.
+- **Consecuencia**: Errores de sintaxis detectados por el linter y código difícil de mantener.
+- **Lección**: **Nunca** usar JS inline. Toda lógica debe residir en archivos `.js` externos. Los eventos se manejan mediante funciones globales o escuchadores de eventos.
 
-- **Mal paso**: Intentar implementar el Portal de Clientes basándose solo en los modelos del código Python (`models/clients.py`), asumiendo que la base de datos física estaba sincronizada.
-- **Consecuencia**: Error 500 en la aplicación al buscar la columna `access_code` que no existía en PostgreSQL.
-- **Lección**: NUNCA suponer la estructura de la base de datos. Antes de cualquier cambio en modelos o lógica de datos, se debe ejecutar la **Habilidad: AuditoriaArquitectura**.
+## 2. Atestación de Base de Datos
 
-## 2. El Error del "Desorden en la Raíz" (5S - Seiri)
+- **Error**: Suponer que la base de datos física coincide con el modelo de Python.
+- **Consecuencia**: Error 500 (`ProgrammingError`) por falta de columnas como `access_code`.
+- **Lección**: Siempre realizar una auditoría de esquema (`ALTER TABLE`) antes de implementar nuevas funcionalidades que dependan del modelo.
 
-- **Mal paso**: Dejar scripts de prueba (`test_local.py`, `api_test.py`) en la raíz del proyecto.
-- **Consecuencia**: Confusión visual, riesgo de ejecución accidental y violación de la metodología 5S.
-- **Lección**: La raíz debe contener solo lo estrictamente necesario para el arranque (`run.py`, `.env`). Todo lo demás debe ir a sus respectivas carpetas en `.agent/`.
+## 3. Aislamiento de Entornos
 
-## 3. El Error del Idioma (Cero Inglés)
+- **Error**: Heredar de un template administrativo (`base.html`) para un portal público.
+- **Consecuencia**: Fuga de datos/funcionalidad y errores cuando el usuario no está autenticado como administrador.
+- **Lección**: Crear templates base dedicados (`base_portal.html`) para vistas de cliente para asegurar el aislamiento total (Aesthetic & Security).
 
-- **Mal paso**: Usar términos en inglés en rutas de archivos, comentarios o documentación.
-- **Consecuencia**: Conflictos de comunicación con el usuario y ruptura de la estandarización del proyecto.
-- **Lección**: El sistema es 100% en español. Si se detecta inglés, se debe traducir de inmediato.
+## 4. Gestión de Multimedia
 
-## 4. El Error de la "Modificación Directa" (Sin .bk)
-
-- **Mal paso**: Editar archivos críticos del sistema sin tener una vía de escape rápida.
-- **Consecuencia**: Riesgo de dejar el sistema inoperativo por un error de sintaxis o lógica.
-- **Lección**: Aplicar siempre la **Regla de Respaldos .bk** antes de usar cualquier herramienta de edición.
+- **Error**: Depender de que el usuario cargue imágenes perfectas o que las rutas sean infalibles.
+- **Consecuencia**: Iconos de imagen rota que dañan la imagen premium de la marca.
+- **Lección**: Implementar siempre un sistema de **Fallback** (imagen por defecto) centralizado en JS.
 
 ---
 
-**Objetivo Final**: Error Mínimo mediante Disciplina (Shitsuke).
+_Este documento es parte del estándar GelMex de mejora continua._

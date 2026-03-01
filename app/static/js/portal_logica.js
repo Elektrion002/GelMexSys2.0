@@ -7,31 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- BÚSQUEDA EN CATÁLOGO ---
     const buscador = document.getElementById('catalogSearch');
     if (buscador) {
-        buscador.addEventListener('keyup', function() {
-            const valor = this.value.toLowerCase().trim();
-            const tarjetas = document.querySelectorAll('.product-card');
-            const grilla = document.getElementById('catalogGrid');
-            const sinResultados = document.getElementById('noResults');
-            let contador = 0;
-
-            tarjetas.forEach(tarjeta => {
-                const data = tarjeta.dataset.search.toLowerCase();
-                if (data.includes(valor)) {
-                    tarjeta.classList.remove('d-none');
-                    contador++;
-                } else {
-                    tarjeta.classList.add('d-none');
-                }
-            });
-
-            if (contador === 0) {
-                if (sinResultados) sinResultados.classList.remove('d-none');
-                if (grilla) grilla.classList.add('d-none');
-            } else {
-                if (sinResultados) sinResultados.classList.add('d-none');
-                if (grilla) grilla.classList.remove('d-none');
-            }
-        });
+        buscador.addEventListener('keyup', filtrarCatalogo);
     }
 
     // --- LÓGICA DE PEDIDOS ---
@@ -99,6 +75,18 @@ function actualizarResumen() {
         }
     }
     if (badgeTotal) badgeTotal.innerText = totalArticulos;
+}
+
+/**
+ * Maneja errores de carga de imagen asignando el placeholder de GelMex
+ * @param {HTMLImageElement} imgElement 
+ */
+function asignarImagenDefecto(imgElement) {
+    const rutaPlaceholder = '/static/img/placeholder_producto.png';
+    // Evitamos bucle infinito si el placeholder también falla
+    if (!imgElement.src.endsWith(rutaPlaceholder)) {
+        imgElement.src = rutaPlaceholder;
+    }
 }
 
 /**

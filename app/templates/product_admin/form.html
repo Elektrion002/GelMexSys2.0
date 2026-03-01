@@ -47,7 +47,7 @@
                                 <div class="d-flex align-items-center">
                                     <div class="me-3">
                                         {% if producto and producto.imagen_producto %}
-                                        <img src="{{ url_for('static', filename=producto.imagen_producto) }}" class="img-thumbnail" style="height: 100px;" onerror="this.src='{{ url_for('static', filename='img/placeholder_producto.png') }}';">
+                                        <img src="{{ url_for('static', filename=producto.imagen_producto) }}" class="img-thumbnail" style="height: 100px;" onerror="asignarImagenDefecto(this)">
                                         {% else %}
                                         <img src="{{ url_for('static', filename='img/placeholder_producto.png') }}" class="img-thumbnail opacity-50" style="height: 100px;">
                                         {% endif %}
