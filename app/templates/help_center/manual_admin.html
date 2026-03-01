@@ -20,8 +20,8 @@
                         <a href="#catalogos" class="nav-link rounded-3 mb-1">
                             <i class="fa-solid fa-sitemap me-2"></i> 3. Infraestructura
                         </a>
-                        <a href="#inventarios" class="nav-link rounded-3 mb-1 opacity-50">
-                            <i class="fa-solid fa-boxes-stacked me-2"></i> 4. Inventarios
+                        <a href="#inventarios" class="nav-link rounded-3 mb-1">
+                            <i class="fa-solid fa-boxes-stacked me-2"></i> 4. Inventarios y Almacén
                         </a>
                     </nav>
                 </div>
@@ -145,10 +145,60 @@
                 </div>
             </section>
 
-            <section id="inventarios" class="text-center py-5 bg-light rounded-5 opacity-50">
-                <i class="fa-solid fa-pen-nib fa-2x text-muted mb-3"></i>
-                <h5 class="fw-bold text-muted">Próximos Capítulos</h5>
-                <p class="text-muted small">Fase 3: Documentación de Producción e Inventarios bajo estructura funcional (Qué/Por qué/Para qué/Cómo).</p>
+            <section id="inventarios" class="doc-section shadow-sm border-0">
+                <div class="d-flex align-items-center mb-4">
+                    <div class="help-icon-box bg-warning bg-opacity-10 mb-0 me-3">
+                        <i class="fa-solid fa-boxes-stacked text-warning fa-lg"></i>
+                    </div>
+                    <h2 class="fw-bold m-0" style="color: var(--gelmex-secondary);">4. Gestión de Inventarios y Almacenes</h2>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 bg-white border h-100">
+                            <h5 class="fw-bold text-warning mb-3">¿QUÉ ES?</h5>
+                            <p class="small mb-0">Es el **Kárdex Maestro** y sistema de control físico. Rastrear con precisión quirúrgica dónde está cada producto y cuánta cantidad real tenemos en cada pasillo o rack.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 bg-white border h-100">
+                            <h5 class="fw-bold text-primary mb-3">¿POR QUÉ EXISTE?</h5>
+                            <p class="small mb-0">Para evitar las "ventas fantasma" y el desabasto. El sistema bloquea automáticamente ventas si no hay stock disponible, protegiendo la promesa de entrega al cliente.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 bg-white border h-100">
+                            <h5 class="fw-bold text-success mb-3">¿PARA QUÉ SIRVE?</h5>
+                            <ul class="small mb-0 ps-3">
+                                <li><strong>Control de Ubicaciones:</strong> Divide el almacén por racks y niveles para una búsqueda ultra-rápida.</li>
+                                <li><strong>Historial de Movimientos:</strong> Auditoría total de quién, cuándo y por qué movió una pieza.</li>
+                                <li><strong>Stock Reservado:</strong> Aparta mercancía de pedidos confirmados para que no se re-venda.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 bg-white border h-100">
+                            <h5 class="fw-bold text-danger mb-3">¿CÓMO SE USA?</h5>
+                            <ol class="small mb-0 ps-3">
+                                <li>Accede a <strong>Inventario -> Movimientos</strong>.</li>
+                                <li>Busca el <strong>Producto</strong> y elige la <strong>Ubicación exacta</strong>.</li>
+                                <li>Selecciona el tipo: <strong>Entrada</strong> (Producción/Compra) o <strong>Salida</strong> (Merma/Ajuste).</li>
+                                <li>Ingresa la cantidad y guarda (El sistema validará si hay stock suficiente en salidas).</li>
+                                <li>Consulta el <strong>Kárdex</strong> para ver el saldo histórico.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 p-4 rounded-4 bg-danger bg-opacity-10 border-start border-4 border-danger">
+                    <h6 class="fw-bold text-danger mb-2"><i class="fa-solid fa-triangle-exclamation me-2"></i> Regla de Oro del Almacenista</h6>
+                    <p class="small mb-0">"Dato que no se registra, es pérdida que no se explica". Todo movimiento físico debe tener su espejo digital en el sistema.</p>
+                </div>
+            </section>
+            <section id="produccion" class="text-center py-5 bg-light rounded-5 opacity-50 mt-4">
+                <i class="fa-solid fa-industry fa-2x text-muted mb-3"></i>
+                <h5 class="fw-bold text-muted">Próximo Capítulo: Producción Artisinal</h5>
+                <p class="text-muted small">Documentación del flujo de transformación y control de calidad bajo estructura funcional.</p>
             </section>
         </div>
     </div>
