@@ -1,8 +1,11 @@
 /* GelMex Portal de Clientes - Estilos Dinámicos */
 
 :root {
-    --gelmex-primary: #007AFF;
-    --gelmex-bg: #F5F7FA;
+    --gelmex-primary: #D32F2F; /* Cereza GelMex */
+    --gelmex-secondary: #3E2723; /* Chocolate Profundo */
+    --gelmex-mint: #EBFAEB; /* Menta Refrescante */
+    --gelmex-cream: #FFF9E6; /* Crema Vainilla */
+    --gelmex-bg: var(--gelmex-mint);
     --gelmex-card-bg: rgba(255, 255, 255, 0.85);
     --gelmex-text: #1D1D1F;
     --gelmex-text-muted: #86868B;
@@ -195,64 +198,64 @@ body {
   transform: scale(1.1);
 }
 
-/* Estilos específicos para el Centro de Ayuda */
+/* --- DISEÑO VIBRANTE "SABOR GELMEX" (CENTRO DE AYUDA) --- */
+
 .help-hero {
-    height: 300px;
-    background: linear-gradient(135deg, #007AFF 0%, #00C6FF 100%);
-    border-radius: var(--gelmex-radius);
-    overflow: hidden;
+    background: linear-gradient(135deg, var(--gelmex-mint) 0%, var(--gelmex-cream) 100%);
+    border-radius: 40px;
+    padding: 100px 40px;
     position: relative;
+    overflow: hidden;
+    margin-bottom: 4rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
-    box-shadow: 0 20px 40px rgba(0, 122, 255, 0.2);
+    border: 8px solid white;
 }
 
 .help-hero-img {
     position: absolute;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    opacity: 0.6;
-    mix-blend-mode: overlay;
+    top: 50%;
+    right: 5%;
+    transform: translateY(-50%);
+    height: 120%;
+    z-index: 0;
+    opacity: 0.9;
+    filter: drop-shadow(0 20px 40px rgba(0,0,0,0.1));
 }
 
 .help-card {
-    background: var(--gelmex-card-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    border-radius: var(--gelmex-radius);
-    transition: var(--transition-smooth);
+    background: white;
+    border-radius: 35px;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border: 1px solid rgba(0,0,0,0.03);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.05);
 }
 
 .help-card:hover {
-    transform: translateY(-8px);
-    background: white;
-    box-shadow: 0 30px 60px -12px rgba(50, 50, 93, 0.1), 0 18px 36px -18px rgba(0, 0, 0, 0.15);
+    transform: translateY(-10px) scale(1.02);
+    box-shadow: 0 30px 60px rgba(62, 39, 35, 0.1);
 }
 
 .manual-nav .nav-link {
-    border-left: 3px solid transparent;
-    padding: 0.8rem 1.5rem;
-    color: var(--gelmex-text-muted);
-    transition: var(--transition-smooth);
-    font-weight: 500;
+    color: var(--gelmex-secondary);
+    padding: 12px 20px;
+    font-weight: 600;
+    transition: all 0.3s;
 }
 
 .manual-nav .nav-link:hover, .manual-nav .nav-link.active {
+    background: var(--gelmex-cream);
     color: var(--gelmex-primary);
-    background: var(--gelmex-accent-blue);
-    border-left: 3px solid var(--gelmex-primary);
+    transform: translateX(5px);
 }
 
 .doc-section {
     background: white;
+    border-radius: 40px;
     padding: 3rem;
-    border-radius: var(--gelmex-radius);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.02);
-    margin-bottom: 2rem;
+    margin-bottom: 3rem;
+    border: 1px solid rgba(0,0,0,0.02);
 }
 
 .help-icon-box {

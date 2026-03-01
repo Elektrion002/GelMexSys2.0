@@ -4,12 +4,13 @@
 
 {% block content %}
 <div class="container py-4">
-    <!-- Hero Help Section -->
-    <div class="help-hero mb-5 shadow-lg">
-        <img src="{{ url_for('static', filename='img/hero_ayuda.png') }}" class="help-hero-img" alt="Soporte GelMex">
-        <div class="text-center position-relative z-1 px-4">
-            <h1 class="display-3 fw-800 mb-2">Centro de Ayuda</h1>
-            <p class="lead opacity-90 fw-400">Guías interactivas para una operación GelMex de nivel mundial.</p>
+    <!-- Hero Help Section: Sabor GelMex -->
+    <div class="help-hero mb-5 shadow-lg border-white">
+        <img src="{{ url_for('static', filename='img/hero_gelmex_vibrante.png') }}" class="help-hero-img" alt="Frescura GelMex">
+        <div class="text-start position-relative z-1 px-5 w-75">
+            <span class="badge bg-danger px-3 py-2 rounded-pill mb-3 fw-bold">EL SABOR DE LA AYUDA</span>
+            <h1 class="display-1 fw-800 mb-2" style="color: var(--gelmex-secondary);">Centro de <span class="text-danger">Soporte</span></h1>
+            <p class="lead fw-600 opacity-75" style="color: var(--gelmex-secondary);">Guías interactivas con el toque maestro de GelMex.</p>
         </div>
     </div>
 
