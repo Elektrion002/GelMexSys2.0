@@ -1,4 +1,4 @@
-{% extends "customer_portal/base_portal.html" %}
+{% extends "base.html" %}
 
 {% block title %}Hacer Pedido - GelMex{% endblock %}
 
@@ -41,9 +41,11 @@
                                         <div class="d-flex align-items-center">
                                             <div class="rounded-3 bg-light overflow-hidden me-3" style="width: 45px; height: 45px;">
                                                 {% if prod.imagen_producto %}
-                                                    <img src="{{ url_for('static', filename=prod.imagen_producto) }}" class="w-100 h-100 object-fit-cover" alt="" onerror="this.src='{{ url_for('static', filename='img/placeholder_producto.png') }}';">
+                                                    <img src="{{ prod.imagen_producto }}" class="w-100 h-100 object-fit-cover" alt="">
                                                 {% else %}
-                                                    <img src="{{ url_for('static', filename='img/placeholder_producto.png') }}" class="w-100 h-100 object-fit-cover opacity-25" alt="">
+                                                    <div class="w-100 h-100 d-flex align-items-center justify-content-center opacity-25">
+                                                        <i class="fa-solid fa-ice-cream fa-lg"></i>
+                                                    </div>
                                                 {% endif %}
                                             </div>
                                             <div>
@@ -57,11 +59,11 @@
                                     </td>
                                     <td class="pe-4">
                                         <div class="input-group input-group-sm">
-                                            <button class="btn btn-outline-secondary" type="button" onclick="cambiarCantidad('{{ prod.id }}', -1)">-</button>
+                                            <button class="btn btn-outline-secondary" type="button" onclick="changeQty('{{ prod.id }}', -1)">-</button>
                                             <input type="number" name="qty_{{ prod.id }}" id="qty_{{ prod.id }}" 
                                                    class="form-control text-center py-1 qty-input" value="0" min="0" 
-                                                   onchange="actualizarResumen()">
-                                            <button class="btn btn-outline-secondary" type="button" onclick="cambiarCantidad('{{ prod.id }}', 1)">+</button>
+                                                   onchange="updateSummary()">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="changeQty('{{ prod.id }}', 1)">+</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -106,4 +108,66 @@
         </div>
     </form>
 </div>
+
+<script>
+    function changeQty(id, delta) {
+        const input = document.getElementById('qty_' + id);
+        let val = parseInt(input.value) + delta;
+        if (val < 0) val = 0;
+        input.value = val;
+        updateSummary();
+    }
+
+    function updateSummary() {
+        const inputs = document.querySelectorAll('.qty-input');
+        const summaryContainer = document.getElementById('selectedItems');
+        const totalBadge = document.getElementById('totalItems');
+        let totalCount = 0;
+        let html = '';
+
+        inputs.forEach(input => {
+            let val = parseInt(input.value);
+            if (val > 0) {
+                totalCount += val;
+                const row = input.closest('tr');
+                const name = row.dataset.name.split(' SKU')[0];
+                html += `
+                    <div class="d-flex justify-content-between align-items-center mb-2 small">
+                        <span class="text-truncate me-2" style="max-width: 150px;">${name}</span>
+                        <span class="fw-bold">x ${val}</span>
+                    </div>
+                `;
+            }
+        });
+
+        if (totalCount > 0) {
+            summaryContainer.innerHTML = html;
+        } else {
+            summaryContainer.innerHTML = `
+                <div class="text-muted text-center py-4 bg-light rounded-3 mb-3">
+                    <i class="fa-solid fa-basket-shopping fa-2x mb-2 opacity-25"></i>
+                    <p class="small mb-0">Selecciona cantidades para comenzar</p>
+                </div>
+            `;
+        }
+        totalBadge.innerText = totalCount;
+    }
+
+    // Filtro de productos
+    document.getElementById('productFilter').addEventListener('keyup', function() {
+        const val = this.value.toLowerCase().trim();
+        const rows = document.querySelectorAll('.item-row');
+        rows.forEach(row => {
+            const name = row.dataset.name.toLowerCase();
+            row.style.display = name.includes(val) ? '' : 'none';
+        });
+    });
+</script>
+
+<style>
+    .item-row { transition: background 0.2s; }
+    .item-row:hover { background: #f0f7ff; }
+    .qty-input::-webkit-outer-spin-button,
+    .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+</style>
 {% endblock %}

@@ -1,0 +1,56 @@
+/* GelMex Portal de Clientes - Estilos Dinámicos */
+
+:root {
+  --gelmex-azul-premium: #0d47a1;
+  --gelmex-celeste: #e3f2fd;
+  --gelmex-fondo: #f8fafc;
+}
+
+.hover-lift {
+  transition:
+    transform 0.2s ease-in-out,
+    box-shadow 0.2s ease-in-out;
+}
+
+.hover-lift:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1) !important;
+}
+
+.btn-soft-primary {
+  background: var(--gelmex-celeste);
+  color: var(--gelmex-azul-premium);
+  font-weight: bold;
+}
+
+.btn-soft-primary:hover {
+  background: var(--gelmex-azul-premium);
+  color: white;
+}
+
+/* Limitador de líneas para descripciones (Fix Lint) */
+.text-truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2; /* Propiedad estándar para compatibilidad */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  height: 2.8rem;
+}
+
+.aspect-ratio-box img {
+  transition: transform 0.5s ease;
+}
+
+.product-card:hover .aspect-ratio-box img {
+  transform: scale(1.1);
+}
+
+/* Estilos adicionales para el Login */
+.login-body {
+  background-color: #f0f7ff !important;
+}
+
+.min-vh-75 {
+  min-height: 75vh;
+}

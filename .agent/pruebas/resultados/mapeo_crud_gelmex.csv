@@ -1,0 +1,111 @@
+ARCHIVO,LINEA,TIPO_OPERACION,CONTENIDO_CODIGO
+__init__.py,23,READ (GET),return Usuario.query.get(int(user_id))
+blueprints\catalogs_admin.py,73,READ (ALL),items = model.query.all()
+blueprints\catalogs_admin.py,103,READ (ALL),raw_options = m_class.query.all()
+blueprints\catalogs_admin.py,149,CREATE (INSERT),db.session.add(item)
+blueprints\catalogs_admin.py,150,COMMIT,db.session.commit()
+blueprints\catalogs_admin.py,185,COMMIT,db.session.commit()
+blueprints\catalogs_admin.py,201,READ (ALL),plantas = cat_models.CatPlanta.query.all()
+blueprints\catalogs_admin.py,202,READ (ALL),areas = cat_models.CatArea.query.all()
+blueprints\catalogs_admin.py,204,READ (ALL),tipos_almacen = cat_models.CatTipoAlmacen.query.all()
+blueprints\catalogs_admin.py,205,READ (ALL),cat_ubicaciones = cat_models.CatUbicacion.query.all()
+blueprints\clients.py,76,CREATE (INSERT),db.session.add(nuevo_cliente)
+blueprints\clients.py,77,COMMIT,db.session.commit()
+blueprints\clients.py,131,COMMIT,db.session.commit()
+blueprints\clients.py,144,READ (ALL),tipos_descuento = CatTipoDescuento.query.all()
+blueprints\clients.py,164,COMMIT,db.session.commit()
+blueprints\clients.py,173,COMMIT,db.session.commit()
+blueprints\clients.py,188,CREATE (INSERT),db.session.add(nuevo)
+blueprints\clients.py,189,COMMIT,db.session.commit()
+blueprints\clients.py,200,DELETE,db.session.delete(precio)
+blueprints\clients.py,201,COMMIT,db.session.commit()
+blueprints\clients.py,207,READ (ALL),"form.ruta_id.choices = [(r.id, r.descripcion) for r in RutaReparto.query.all()]"
+blueprints\clients.py,209,READ (FILTER),puestos_vend = CatPuesto.query.filter(CatPuesto.nombre.ilike('%Vendedor%')).all()
+blueprints\clients.py,212,READ (FILTER),"vendedores = Usuario.query.filter(Usuario.puesto_id.in_(ids_vend), Usuario.activo==True).all()"
+blueprints\clients.py,217,READ (FILTER),puestos_rep = CatPuesto.query.filter(CatPuesto.nombre.ilike('%Repartidor%')).all()
+blueprints\clients.py,220,READ (FILTER),"repartidores = Usuario.query.filter(Usuario.puesto_id.in_(ids_rep), Usuario.activo==True).all()"
+blueprints\customer_portal.py,44,READ (GET),cliente = Cliente.query.get(session['customer_id'])
+blueprints\finance.py,28,READ (GET),caja = CajaEmpresa.query.get(1)
+blueprints\finance.py,31,CREATE (INSERT),db.session.add(caja)
+blueprints\finance.py,32,COMMIT,db.session.commit()
+blueprints\finance.py,80,READ (GET),cat_concepto = CatConceptoFinanzas.query.get(concepto_id)
+blueprints\finance.py,84,READ (GET),caja = CajaEmpresa.query.get(1)
+blueprints\finance.py,87,CREATE (INSERT),db.session.add(caja)
+blueprints\finance.py,101,CREATE (INSERT),db.session.add(transaccion)
+blueprints\finance.py,102,COMMIT,db.session.commit()
+blueprints\finance.py,122,READ (GET),caja = CajaEmpresa.query.get(1)
+blueprints\finance.py,142,CREATE (INSERT),db.session.add(transaccion)
+blueprints\finance.py,144,READ (GET),orden = OrdenVenta.query.get(pago.orden_id)
+blueprints\finance.py,155,COMMIT,db.session.commit()
+blueprints\finance.py,188,READ (GET),caja = CajaEmpresa.query.get(1)
+blueprints\finance.py,191,CREATE (INSERT),db.session.add(caja)
+blueprints\finance.py,212,CREATE (INSERT),db.session.add(nuevo_gasto)
+blueprints\finance.py,227,CREATE (INSERT),db.session.add(transaccion)
+blueprints\finance.py,229,COMMIT,db.session.commit()
+blueprints\inventory.py,22,READ (ALL),productos = Producto.query.all()
+blueprints\inventory.py,30,READ (ALL),"form.categoria_id.choices = [(c.id, c.nombre) for c in CatCategoriaProducto.query.all()]"
+blueprints\inventory.py,31,READ (ALL),"form.unidad_id.choices = [(u.id, u.nombre) for u in CatUnidadMedida.query.all()]"
+blueprints\inventory.py,58,CREATE (INSERT),db.session.add(nuevo_prod)
+blueprints\inventory.py,59,COMMIT,db.session.commit()
+blueprints\inventory.py,71,READ (ALL),almacenes = Almacen.query.all()
+blueprints\inventory.py,72,READ (ALL),ubicaciones = UbicacionAlmacen.query.all() # Necesario para el filtro de JS
+blueprints\inventory.py,73,READ (ALL),tipos_movimiento = CatTipoMovimientoAlmacen.query.all()
+blueprints\inventory.py,92,READ (GET),tipo_obj = CatTipoMovimientoAlmacen.query.get(tipo_mov_id)
+blueprints\inventory.py,111,CREATE (INSERT),db.session.add(stock_record)
+blueprints\inventory.py,142,CREATE (INSERT),db.session.add(kardex)
+blueprints\inventory.py,144,COMMIT,db.session.commit()
+blueprints\logistics.py,25,READ (FILTER),pendientes = OrdenVenta.query.filter(
+blueprints\logistics.py,29,READ (FILTER),terminadas = OrdenVenta.query.filter(
+blueprints\logistics.py,43,COMMIT,db.session.commit()
+blueprints\logistics.py,103,READ (GET),detalle = OrdenVentaDetalle.query.get(int(item_data['detalle_id']))
+blueprints\logistics.py,137,CREATE (INSERT),db.session.add(nuevo_pago)
+blueprints\logistics.py,159,COMMIT,db.session.commit()
+blueprints\logistics.py,191,READ (FILTER),deudores = Cliente.query.filter(
+blueprints\logistics.py,203,READ (FILTER),resultados = Cliente.query.filter(
+blueprints\logistics.py,234,READ (FILTER),candidatos = OrdenVenta.query.filter(
+blueprints\production.py,36,READ (FILTER),ordenes_activas = OrdenProduccion.query.filter(
+blueprints\production.py,97,READ (FILTER),total_ordenes_activas = OrdenProduccion.query.filter(
+blueprints\production.py,135,READ (FILTER),orden_existente = OrdenProduccion.query.filter(
+blueprints\production.py,161,CREATE (INSERT),db.session.add(nueva_orden)
+blueprints\production.py,162,COMMIT,db.session.commit()
+blueprints\production.py,178,READ (FILTER),ordenes = OrdenProduccion.query.filter(
+blueprints\production.py,194,COMMIT,db.session.commit()
+blueprints\production.py,220,COMMIT,db.session.commit()
+blueprints\product_admin.py,65,READ (ALL),"form.categoria_id.choices = [(c.id, c.nombre) for c in CatCategoriaProducto.query.all()]"
+blueprints\product_admin.py,66,READ (ALL),"form.unidad_id.choices = [(u.id, f""{u.nombre} ({u.abreviatura})"") for u in CatUnidadMedida.query.all()]"
+blueprints\product_admin.py,83,CREATE (INSERT),db.session.add(nuevo)
+blueprints\product_admin.py,84,COMMIT,db.session.commit()
+blueprints\product_admin.py,100,READ (ALL),"form.categoria_id.choices = [(c.id, c.nombre) for c in CatCategoriaProducto.query.all()]"
+blueprints\product_admin.py,101,READ (ALL),"form.unidad_id.choices = [(u.id, f""{u.nombre} ({u.abreviatura})"") for u in CatUnidadMedida.query.all()]"
+blueprints\product_admin.py,120,COMMIT,db.session.commit()
+blueprints\reception.py,18,READ (FILTER),lotes_activos = OrdenProduccion.query.filter(
+blueprints\reception.py,73,CREATE (INSERT),db.session.add(nuevo_inv)
+blueprints\reception.py,95,CREATE (INSERT),db.session.add(movimiento)
+blueprints\reception.py,129,COMMIT,db.session.commit()
+blueprints\sales.py,18,READ (ALL),clientes = Cliente.query.all()
+blueprints\sales.py,19,READ (ALL),productos_db = Producto.query.all()
+blueprints\sales.py,86,READ (GET),cliente = Cliente.query.get(int(data['cliente_id']))
+blueprints\sales.py,116,CREATE (INSERT),db.session.add(nueva_orden)
+blueprints\sales.py,132,CREATE (INSERT),db.session.add(detalle)
+blueprints\sales.py,138,COMMIT,db.session.commit()
+blueprints\shipping.py,20,READ (FILTER),pendientes = OrdenVenta.query.filter(
+blueprints\shipping.py,25,READ (FILTER),terminados = OrdenVenta.query.filter(
+blueprints\shipping.py,81,READ (GET),inv = InventarioProducto.query.get(inventario_id)
+blueprints\shipping.py,109,CREATE (INSERT),db.session.add(mov)
+blueprints\shipping.py,115,COMMIT,db.session.commit()
+blueprints\shipping.py,159,CREATE (INSERT),db.session.add(paq)
+blueprints\shipping.py,162,COMMIT,db.session.commit()
+blueprints\shipping.py,207,CREATE (INSERT),db.session.add(paq)
+blueprints\shipping.py,214,COMMIT,db.session.commit()
+blueprints\shipping.py,239,COMMIT,db.session.commit()
+blueprints\users.py,70,CREATE (INSERT),db.session.add(nuevo_user)
+blueprints\users.py,71,COMMIT,db.session.commit()
+blueprints\users.py,122,COMMIT,db.session.commit()
+blueprints\users.py,148,COMMIT,db.session.commit()
+blueprints\__pycache__\products.py,64,READ (ALL),"form.categoria_id.choices = [(c.id, c.nombre) for c in CatCategoriaProducto.query.all()]"
+blueprints\__pycache__\products.py,65,READ (ALL),"form.unidad_id.choices = [(u.id, f""{u.nombre} ({u.abreviatura})"") for u in CatUnidadMedida.query.all()]"
+blueprints\__pycache__\products.py,82,CREATE (INSERT),db.session.add(nuevo)
+blueprints\__pycache__\products.py,83,COMMIT,db.session.commit()
+blueprints\__pycache__\products.py,99,READ (ALL),"form.categoria_id.choices = [(c.id, c.nombre) for c in CatCategoriaProducto.query.all()]"
+blueprints\__pycache__\products.py,100,READ (ALL),"form.unidad_id.choices = [(u.id, f""{u.nombre} ({u.abreviatura})"") for u in CatUnidadMedida.query.all()]"
+blueprints\__pycache__\products.py,119,COMMIT,db.session.commit()

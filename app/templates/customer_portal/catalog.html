@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "customer_portal/base_portal.html" %}
 
 {% block title %}Catálogo de Helados GelMex{% endblock %}
 
@@ -52,12 +52,9 @@
                 <!-- Imagen -->
                 <div class="aspect-ratio-box" style="padding-bottom: 100%; position: relative; background: #f8fafc;">
                     {% if prod.imagen_producto %}
-                        <img src="{{ prod.imagen_producto }}" class="position-absolute w-100 h-100 object-fit-cover" alt="{{ prod.descripcion }}">
+                        <img src="{{ url_for('static', filename=prod.imagen_producto) }}" class="position-absolute w-100 h-100 object-fit-cover" alt="{{ prod.descripcion }}" onerror="this.src='{{ url_for('static', filename='img/placeholder_producto.png') }}'">
                     {% else %}
-                        <div class="position-absolute w-100 h-100 d-flex flex-column align-items-center justify-content-center text-light">
-                            <i class="fa-solid fa-ice-cream fa-4x mb-2 opacity-25"></i>
-                            <small class="text-muted opacity-50">Sin foto</small>
-                        </div>
+                        <img src="{{ url_for('static', filename='img/placeholder_producto.png') }}" class="position-absolute w-100 h-100 object-fit-cover opacity-50" alt="Sin imagen">
                     {% endif %}
                 </div>
                 
@@ -87,63 +84,7 @@
     <div id="noResults" class="text-center py-5 d-none">
         <i class="fa-solid fa-face-frown fa-3x text-light mb-3"></i>
         <h5 class="text-muted">No encontramos helados que coincidan con tu búsqueda.</h5>
-        <button class="btn btn-link" onclick="resetSearch()">Ver todo el catálogo</button>
+        <button class="btn btn-link" onclick="limpiarBusqueda()">Ver todo el catálogo</button>
     </div>
 </div>
-
-<style>
-    .hover-lift { transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
-    .hover-lift:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; }
-    
-    .btn-soft-primary { background: #e3f2fd; color: #1976d2; font-weight: bold; }
-    .btn-soft-primary:hover { background: #1976d2; color: white; }
-    
-    .text-truncate-2 {
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;  
-        overflow: hidden;
-        height: 2.8rem;
-    }
-
-    .aspect-ratio-box img { transition: transform 0.5s ease; }
-    .product-card:hover .aspect-ratio-box img { transform: scale(1.1); }
-</style>
-
-<script>
-    const searchInput = document.getElementById('catalogSearch');
-    const grid = document.getElementById('catalogGrid');
-    const cards = document.querySelectorAll('.product-card');
-    const noResults = document.getElementById('noResults');
-
-    searchInput.addEventListener('keyup', function() {
-        let val = this.value.toLowerCase().trim();
-        let count = 0;
-        
-        cards.forEach(card => {
-            let data = card.dataset.search.toLowerCase();
-            if (data.includes(val)) {
-                card.classList.remove('d-none');
-                count++;
-            } else {
-                card.classList.add('d-none');
-            }
-        });
-
-        if (count === 0) {
-            noResults.classList.remove('d-none');
-            grid.classList.add('d-none');
-        } else {
-            noResults.classList.add('d-none');
-            grid.classList.remove('d-none');
-        }
-    });
-
-    function resetSearch() {
-        searchInput.value = '';
-        cards.forEach(c => c.classList.remove('d-none'));
-        noResults.classList.add('d-none');
-        grid.classList.remove('d-none');
-    }
-</script>
 {% endblock %}
