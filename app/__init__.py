@@ -75,4 +75,7 @@ def create_app(config_name='default'):
     from app.blueprints.catalogs_admin import catalogs_admin_bp
     app.register_blueprint(catalogs_admin_bp)
 
+    from app.blueprints.help_center import help_center_bp
+    app.register_blueprint(help_center_bp)
+
     return app

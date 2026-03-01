@@ -55,6 +55,9 @@
             
             <div class="d-flex align-items-center gap-3">
                 {% if session.customer_id %}
+                    <a href="{{ url_for('help_center.index') }}" class="btn btn-link text-muted text-decoration-none small me-2">
+                        <i class="fa-solid fa-circle-question"></i> Ayuda
+                    </a>
                     <span class="d-none d-md-inline text-muted small me-2">
                         <i class="fa-solid fa-shop me-1"></i> {{ session.customer_name }}
                     </span>
@@ -62,6 +65,9 @@
                         <i class="fa-solid fa-power-off"></i>
                     </a>
                 {% else %}
+                    <a href="{{ url_for('help_center.index') }}" class="btn btn-link text-muted text-decoration-none small me-2">
+                        <i class="fa-solid fa-circle-question"></i> Ayuda
+                    </a>
                     <a href="{{ url_for('customer_portal.login') }}" class="btn btn-primary btn-sm rounded-pill px-4 fw-bold">
                         <i class="fa-solid fa-user me-1"></i> Acceso
                     </a>
