@@ -1,17 +1,17 @@
 /* GelMex Portal de Clientes - Estilos Dinámicos */
 
 :root {
-    --gelmex-primary: #D32F2F; /* Cereza GelMex */
-    --gelmex-secondary: #3E2723; /* Chocolate Profundo */
-    --gelmex-mint: #EBFAEB; /* Menta Refrescante */
-    --gelmex-cream: #FFF9E6; /* Crema Vainilla */
+    --gelmex-primary: #E63946; /* Rojo Vibrante Moderno */
+    --gelmex-secondary: #1C1C1E; /* Slate Apple */
+    --gelmex-mint: #F5F5F7; /* Apple Gray */
+    --gelmex-cream: #FCFCFC; /* Off-White Puro */
     --gelmex-bg: var(--gelmex-mint);
-    --gelmex-card-bg: rgba(255, 255, 255, 0.85);
+    --gelmex-card-bg: rgba(255, 255, 255, 0.70);
     --gelmex-text: #1D1D1F;
     --gelmex-text-muted: #86868B;
     --gelmex-accent-blue: #E8F2FF;
-    --gelmex-radius: 24px;
-    --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    --gelmex-radius: 20px;
+    --transition-smooth: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 body {
@@ -54,28 +54,38 @@ body {
 
 /* Navbar Premium */
 .portal-navbar {
-    background: rgba(245, 247, 250, 0.8);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-    padding: 1rem 0;
+    background: rgba(252, 252, 252, 0.85);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    padding: 1.2rem 0;
 }
 
-/* Hero Section */
+/* Hero Section Premium */
 .hero-section {
     position: relative;
     border-radius: var(--gelmex-radius);
     overflow: hidden;
-    margin-bottom: 3rem;
-    height: 450px;
+    margin-bottom: 3.5rem;
+    height: 480px;
     background: #000;
 }
 
-.hero-image {
+@keyframes kenBurnsEffect {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.1); }
+}
+
+.hero-image-animate {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    opacity: 0.85;
+    opacity: 0.8;
+    animation: kenBurnsEffect 20s ease-in-out infinite alternate;
+}
+
+.carousel-fade .carousel-item {
+    transition: opacity 1.5s ease-in-out;
 }
 
 .hero-content {
@@ -103,19 +113,19 @@ body {
     animation: fadeInUp 1s ease-out forwards;
 }
 
-/* Tarjetas de Producto */
+/* Tarjetas de Producto VIP */
 .product-card {
     background: white;
     border-radius: var(--gelmex-radius);
-    border: none;
+    border: 1px solid rgba(0,0,0,0.03);
     transition: var(--transition-smooth);
     overflow: hidden;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
 }
 
 .product-card:hover {
-    transform: translateY(-10px);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
 }
 
 .product-image-container {

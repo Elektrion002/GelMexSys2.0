@@ -3,13 +3,35 @@
 {% block title %}Catálogo Premium{% endblock %}
 
 {% block content %}
-<!-- Sección Hero Premium -->
+<!-- Sección Hero Premium (Carrusel Animado) -->
 <div class="container mt-4">
-    <div class="hero-section shadow-lg">
-        <img src="{{ url_for('static', filename='img/hero_catalogo.png') }}" class="hero-image" alt="GelMex Experience">
-        <div class="hero-content">
+    <div id="heroCarouselPremium" class="carousel slide carousel-fade hero-section shadow-lg border-0" data-bs-ride="carousel" data-bs-interval="4000" data-bs-pause="false">
+        <div class="carousel-inner h-100">
+            <!-- Slide 1: Día Frescura -->
+            <div class="carousel-item active h-100">
+                <img src="{{ url_for('static', filename='img/hero_gelmex_premium_claro.png') }}" class="hero-image-animate" alt="Helado Fresco GelMex">
+            </div>
+            <!-- Slide 2: Noche Elegancia -->
+            <div class="carousel-item h-100">
+                <img src="{{ url_for('static', filename='img/hero_gelmex_premium_oscuro.png') }}" class="hero-image-animate" alt="Paletas Chocolate Gourmet">
+            </div>
+            <!-- Slide 3: Gelato Frutos Rojos -->
+            <div class="carousel-item h-100">
+                <img src="{{ url_for('static', filename='img/hero_gelmex_premium_frutosrojos.png') }}" class="hero-image-animate" alt="Gelato Frutos Rojos Artesanal">
+            </div>
+            <!-- Slide 4: Affogato Lujo -->
+            <div class="carousel-item h-100">
+                <img src="{{ url_for('static', filename='img/hero_gelmex_premium_affogato.png') }}" class="hero-image-animate" alt="Vainilla Affogato Premium">
+            </div>
+            <!-- Slide 5: Pistacho Matcha -->
+            <div class="carousel-item h-100">
+                <img src="{{ url_for('static', filename='img/hero_gelmex_premium_pistacho.png') }}" class="hero-image-animate" alt="Helado Pistacho Lujo">
+            </div>
+        </div>
+        
+        <div class="hero-content position-absolute bottom-0 start-0 w-100" style="z-index: 10;">
             <h1 class="hero-title">Felicidad en cada bocado</h1>
-            <p class="hero-subtitle">Descubre la frescura artesanal de GelMex, directo a tu paladar.</p>
+            <p class="hero-subtitle mb-0">Descubre la frescura artesanal de GelMex, directo a tu paladar.</p>
         </div>
     </div>
     
