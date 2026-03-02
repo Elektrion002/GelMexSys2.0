@@ -35,6 +35,9 @@
                         <a class="nav-link rounded-3 mb-2" href="#clientes">
                             <i class="fa-solid fa-address-book me-2 text-dark"></i> 8. Cartera de Clientes
                         </a>
+                        <a class="nav-link rounded-3 mb-2" href="#finanzas">
+                            <i class="fa-solid fa-coins me-2 text-success" style="color: #2E7D32;"></i> 9. Módulo de Finanzas
+                        </a>
                     </nav>
                 </div>
             </div>
@@ -166,35 +169,73 @@
                 </div>
             </section>
 
-            <section id="catalogos" class="doc-section shadow-sm border-0">
+            <section id="catalogos" class="doc-section shadow-sm border-0 mb-5">
                 <div class="d-flex align-items-center mb-4">
-                    <div class="help-icon-box bg-primary bg-opacity-10 mb-0 me-3">
-                        <i class="fa-solid fa-sitemap text-primary fa-lg"></i>
+                    <div class="help-icon-box bg-primary bg-opacity-10 text-primary me-3">
+                        <i class="fa-solid fa-sitemap fa-2x"></i>
                     </div>
-                    <h2 class="fw-bold m-0" style="color: var(--gelmex-secondary);">3. Infraestructura y Catálogos</h2>
-                </div>
-                <p>GelMexSys utiliza un sistema de **Catálogos Dinámicos** para gestionar la base del negocio.</p>
-
-                <div class="card border-0 rounded-4 overflow-hidden mb-4 shadow-sm">
-                    <div class="card-header bg-dark text-white p-3 border-0">
-                        <h6 class="m-0 fw-bold"><i class="fa-solid fa-tree me-2 text-warning"></i> El Explorador de Infraestructura</h6>
-                    </div>
-                    <div class="card-body bg-white">
-                        <p class="small text-muted mb-3">Usa esta herramienta visual para navegar en cascada:</p>
-                        <ul class="small mb-0">
-                            <li><strong>Plantas:</strong> Unidades de negocio principales.</li>
-                            <li><strong>Áreas:</strong> Departamentos dentro de la planta (Producción, Ventas, etc).</li>
-                            <li><strong>Almacenes:</strong> Puntos físicos de resguardo.</li>
-                            <li><strong>Ubicaciones:</strong> El estante o rack exacto donde vive el producto.</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="alert alert-warning rounded-4 border-0 d-flex align-items-center p-4">
-                    <i class="fa-solid fa-triangle-exclamation fa-2x me-3 opacity-50"></i>
                     <div>
-                        <h6 class="fw-bold mb-1">Nota de Seguridad</h6>
-                        <p class="small mb-0 text-dark">La edición de catálogos requiere **Nivel 4 (Gerencia)**. Cambios en unidades de medida o SKUs pueden afectar registros históricos de ventas.</p>
+                        <h2 class="fw-bold mb-0">3. Infraestructura y Catálogos</h2>
+                        <p class="text-muted mb-0">El esqueleto operativo de GelMexSys: Plantas, Rutas, Puestos y Modelos Abstractos.</p>
+                    </div>
+                </div>
+
+                <div class="row g-4 mb-5">
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 h-100" style="background: rgba(13, 71, 161, 0.03); border: 1px solid rgba(13, 71, 161, 0.1);">
+                            <h5 class="fw-bold text-primary mb-3 text-uppercase small letter-spacing-1">¿QUÉ ES?</h5>
+                            <p class="mb-0">Es el **Motor de Adaptabilidad** del sistema. Un conjunto de tablas pre-configurables que permiten a la empresa crear su propia geografía sin depender de programadores (ej. Agregar una nueva Planta, una Ruta de Reparto, o un Tipo de Almacén).</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 h-100" style="background: rgba(62, 39, 35, 0.03); border: 1px solid rgba(62, 39, 35, 0.1);">
+                            <h5 class="fw-bold text-secondary mb-3 text-uppercase small letter-spacing-1">¿POR QUÉ EXISTE?</h5>
+                            <p class="mb-0">Porque las empresas mutan. Si GelMex abre una nueva sucursal mañana, necesita un lugar digital donde darla de alta para que Ventas, Producción y Logística sepan que existe. Evita la obsolescencia programada.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="p-4 bg-white rounded-4 border shadow-sm">
+                            <h5 class="fw-bold text-success mb-3">¿PARA QUÉ SIRVE?</h5>
+                            <ul class="list-unstyled mb-0">
+                                <li class="mb-3 d-flex align-items-start">
+                                    <i class="fa-solid fa-check-circle text-success mt-1 me-2"></i>
+                                    <span>**Exploración de Jerarquías**: Permite visualizar en cascada las Plantas > Áreas > Almacenes > Ubicaciones desde el "Explorador de Infraestructura".</span>
+                                </li>
+                                <li class="mb-3 d-flex align-items-start">
+                                    <i class="fa-solid fa-check-circle text-success mt-1 me-2"></i>
+                                    <span>**Renderizado Inteligente**: La plataforma detecta automáticamente qué tipo de dato es cada campo (Texto, Número, Referencia) y genera los formularios al vuelo.</span>
+                                </li>
+                                <li class="mb-0 d-flex align-items-start">
+                                    <i class="fa-solid fa-check-circle text-success mt-1 me-2"></i>
+                                    <span>**Sustento Estructural**: Nutre los menús desplegables de otros módulos (ej. Catálogo de Bancos para el módulo de Finanzas).</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-4 bg-white rounded-4 border shadow-sm">
+                            <h5 class="fw-bold text-warning mb-3">¿CÓMO SE USA?</h5>
+                            <ol class="mb-0">
+                                <li class="mb-2"><strong>Acceso Global</strong>: Ve a **Infraestructura -> Catálogos**. Selecciona en el tablero el modelo a editar.</li>
+                                <li class="mb-2"><strong>Edición</strong>: Añade nuevos estados vehiculares, áreas o rutas. Estos alimentarán las opciones de los formularios operativos en toda la app.</li>
+                                <li><strong>Navegación Visual</strong>: Usa el **Explorador** para agregar sub-niveles (ej. un estante nuevo dentro de un almacén existente) sin perderte en tablas densas.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-5 p-4 rounded-4" style="background: rgba(13, 71, 161, 0.1); border-left: 4px solid #0D47A1;">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <i class="fa-solid fa-triangle-exclamation fa-2x" style="color: #0D47A1;"></i>
+                        </div>
+                        <div class="col">
+                            <h6 class="fw-bold mb-1" style="color: #0D47A1;">Nota Crítica de Sistema</h6>
+                            <p class="small mb-0 text-dark">La alteración profunda de catálogos requiere **Nivel 4 (Gerencia)**. Modificar o eliminar unidades de medida base o vehículos activos altera los registros de históricos indexados a esos identificadores.</p>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -512,6 +553,79 @@
                         <div class="col">
                             <h6 class="fw-bold mb-1 text-warning">Dato Inteligente: Riesgo vs Deuda</h6>
                             <p class="small mb-0 text-white-50">La <em>Deuda</em> es lo que el cliente te debe hoy. El <em>Riesgo Total</em> es su deuda más los pedidos que están en la cocina batiéndose para él. El sistema de preventa siempre evalúa contra el Riesgo Total.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 9. MÓDULO DE FINANZAS -->
+            <section id="finanzas" class="doc-section shadow-sm border-0 mb-5" style="border-top: 8px solid #2E7D32 !important;">
+                <div class="d-flex align-items-center mb-4">
+                    <div class="help-icon-box bg-success bg-opacity-10 text-success me-3" style="color: #2E7D32 !important;">
+                        <i class="fa-solid fa-coins fa-2x"></i>
+                    </div>
+                    <div>
+                        <h2 class="fw-bold mb-0">9. Tesorería y Flujo de Efectivo</h2>
+                        <p class="text-muted mb-0">Auditoría del dinero líquido, gastos operativos y cruce de cajas.</p>
+                    </div>
+                </div>
+
+                <div class="row g-4 mb-5">
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 h-100" style="background: rgba(46, 125, 50, 0.03); border: 1px solid rgba(46, 125, 50, 0.1);">
+                            <h5 class="fw-bold text-success mb-3 text-uppercase small letter-spacing-1" style="color: #2E7D32 !important;">¿QUÉ ES?</h5>
+                            <p class="mb-0">El **Corazón Financiero** de GelMex. Es la bóveda central digital que registra de dónde entra el efectivo (pagos de clientes por entregas) y hacia dónde se diluye (gastos operativos, luz, gasolina).</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 h-100" style="background: rgba(62, 39, 35, 0.03); border: 1px solid rgba(62, 39, 35, 0.1);">
+                            <h5 class="fw-bold text-secondary mb-3 text-uppercase small letter-spacing-1">¿POR QUÉ EXISTE?</h5>
+                            <p class="mb-0">La venta no está cerrada hasta que el dinero está en la bóveda o el banco. Un chofer puede marcar una orden como pagada (Generando "Dinero en Calle"), pero solo Finanzas puede aceptarlo para hacerlo "Efectivo Real".</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="p-4 bg-white rounded-4 border shadow-sm">
+                            <h5 class="fw-bold text-success mb-3">¿PARA QUÉ SIRVE?</h5>
+                            <ul class="list-unstyled mb-0">
+                                <li class="mb-3 d-flex align-items-start">
+                                    <i class="fa-solid fa-check-circle text-success mt-1 me-2"></i>
+                                    <span>**Auditoría de Pagos (Filtro Anti-Merma)**: Valida y audita el efectivo recolectado por repartidores cobrándolo desde sus recibos hacia la caja madre.</span>
+                                </li>
+                                <li class="mb-3 d-flex align-items-start">
+                                    <i class="fa-solid fa-check-circle text-success mt-1 me-2"></i>
+                                    <span>**Líquidez Ciega**: Impide registrar egresos (Gastos) que superen los fondos vivos existentes en la caja en tiempo real.</span>
+                                </li>
+                                <li class="mb-0 d-flex align-items-start">
+                                    <i class="fa-solid fa-check-circle text-success mt-1 me-2"></i>
+                                    <span>**Trazabilidad Unívoca**: Emite Folios de Tesorería (`TES-ING-XXXX` o `TES-EGR-XXXX`) para cada movimiento, encriptado con un hash aleatorio que impide su falsificación física.</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-4 bg-white rounded-4 border shadow-sm">
+                            <h5 class="fw-bold text-warning mb-3">¿CÓMO SE USA?</h5>
+                            <ol class="mb-0">
+                                <li class="mb-2"><strong>Auditoría</strong>: Entra a **Finanzas -> Auditoría de Caja**. Revisa el listado de "Pagos por Auditar" (dinero de repartidores) y acéptalo. Esto lo sumará a la caja.</li>
+                                <li class="mb-2"><strong>Gastos Operativos</strong>: En **Gastos**, registra tu pago de nómina o luz. Si no tienes fondos, el sistema te botará un error. Generará un folio `TES-EGR`.</li>
+                                <li class="mb-2"><strong>Ingresos Extra</strong>: En **Ingresos**, inyecta capital inicial o pagos misceláneos bajo el folio `TES-ING`.</li>
+                                <li><strong>Tickets Trazables</strong>: Al dar clic sobre cualquier folio emitido, se abrirá el Recibo oficial listo para imprimir y firmar.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-5 p-4 rounded-4" style="background: rgba(46, 125, 50, 0.1); border-left: 4px solid #2E7D32;">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <i class="fa-solid fa-sack-dollar fa-2x" style="color: #2E7D32;"></i>
+                        </div>
+                        <div class="col">
+                            <h6 class="fw-bold mb-1" style="color: #2E7D32;">Dinero en Calle vs. Saldo Vivo</h6>
+                            <p class="small mb-0 text-dark">El Dashboard Financiero separa tu "Saldo Real" en caja de tu "Dinero en Calle". El dinero en calle ya pertenece a tu contabilidad, pero físicamente sigue en los bolsillos o cajas de las rutas de MoliShop sin haber vuelto a base.</p>
                         </div>
                     </div>
                 </div>
