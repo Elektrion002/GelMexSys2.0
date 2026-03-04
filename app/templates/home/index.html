@@ -2,36 +2,144 @@
 
 {% block title %}Inicio{% endblock %}
 
-{% block page_header %}Resumen General{% endblock %}
+{% block page_header %}Panel de Módulos GelMex{% endblock %}
 
 {% block content %}
-<div class="row g-4">
-    <div class="col-md-3">
-        <div class="card card-erp p-3">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h6 class="text-muted mb-1">Ventas del Día</h6>
-                    <h3>$0.00</h3>
+<div class="container-fluid">
+    <div class="row g-4 mb-4">
+        <!-- 1. MÓDULO VENTAS -->
+        {% if current_user.nivel_usuario >= 2 %}
+        <div class="col-6 col-md-4 col-lg-3 text-center">
+            <a href="{{ url_for('sales.preventa') }}" class="text-decoration-none">
+                <div class="card card-erp shadow-sm border-0 h-100 p-3 hover-lift transition-all">
+                    <div class="rounded-circle bg-primary bg-opacity-10 mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 70px; height: 70px;">
+                        <i class="fa-solid fa-cash-register fs-2 text-primary"></i>
+                    </div>
+                    <h6 class="fw-bold text-dark">Ventas y Pedidos</h6>
+                    <small class="text-muted d-none d-sm-block">Terminal de preventa y pedidos.</small>
                 </div>
-                <div class="fs-1 text-primary opacity-25">
-                    <i class="fa-solid fa-money-bill-wave"></i>
-                </div>
-            </div>
+            </a>
         </div>
+        {% endif %}
+
+        <!-- 2. MÓDULO INVENTARIO -->
+        {% if current_user.nivel_usuario >= 3 %}
+        <div class="col-6 col-md-4 col-lg-3 text-center">
+            <a href="{{ url_for('inventory.index') }}" class="text-decoration-none">
+                <div class="card card-erp shadow-sm border-0 h-100 p-3 hover-lift transition-all">
+                    <div class="rounded-circle bg-info bg-opacity-10 mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 70px; height: 70px;">
+                        <i class="fa-solid fa-boxes-stacked fs-2 text-info"></i>
+                    </div>
+                    <h6 class="fw-bold text-dark">Inventarios</h6>
+                    <small class="text-muted d-none d-sm-block">Stock y almacenes.</small>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-6 col-md-4 col-lg-3 text-center">
+            <a href="{{ url_for('production.tablero_necesidades') }}" class="text-decoration-none">
+                <div class="card card-erp shadow-sm border-0 h-100 p-3 hover-lift transition-all">
+                    <div class="rounded-circle bg-danger bg-opacity-10 mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 70px; height: 70px;">
+                        <i class="fa-solid fa-industry fs-2 text-danger"></i>
+                    </div>
+                    <h6 class="fw-bold text-dark">Producción</h6>
+                    <small class="text-muted d-none d-sm-block">Tablero MRP y órdenes.</small>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+
+        <!-- 3. MÓDULO LOGÍSTICA -->
+        <div class="col-6 col-md-4 col-lg-3 text-center">
+            <a href="{{ url_for('logistics.index') }}" class="text-decoration-none">
+                <div class="card card-erp shadow-sm border-0 h-100 p-3 hover-lift transition-all">
+                    <div class="rounded-circle bg-success bg-opacity-10 mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 70px; height: 70px;">
+                        <i class="fa-solid fa-truck-fast fs-2 text-success"></i>
+                    </div>
+                    <h6 class="fw-bold text-dark">Logística</h6>
+                    <small class="text-muted d-none d-sm-block">Rutas y entregas.</small>
+                </div>
+            </a>
+        </div>
+
+        <!-- 4. MÓDULOS ADMINISTRATIVOS -->
+        {% if current_user.nivel_usuario >= 4 %}
+        <div class="col-6 col-md-4 col-lg-3 text-center">
+            <a href="{{ url_for('finance.dashboard') }}" class="text-decoration-none">
+                <div class="card card-erp shadow-sm border-0 h-100 p-3 hover-lift transition-all">
+                    <div class="rounded-circle bg-warning bg-opacity-10 mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 70px; height: 70px;">
+                        <i class="fa-solid fa-sack-dollar fs-2 text-warning"></i>
+                    </div>
+                    <h6 class="fw-bold text-dark">Finanzas</h6>
+                    <small class="text-muted d-none d-sm-block">Cuentas y auditoría.</small>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-6 col-md-4 col-lg-3 text-center">
+            <a href="{{ url_for('users.index') }}" class="text-decoration-none">
+                <div class="card card-erp shadow-sm border-0 h-100 p-3 hover-lift transition-all">
+                    <div class="rounded-circle bg-dark bg-opacity-10 mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 70px; height: 70px;">
+                        <i class="fa-solid fa-users-gear fs-2 text-dark"></i>
+                    </div>
+                    <h6 class="fw-bold text-dark">Personal (RH)</h6>
+                    <small class="text-muted d-none d-sm-block">Equipos y nómina.</small>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-6 col-md-4 col-lg-3 text-center">
+            <a href="{{ url_for('product_admin.index') }}" class="text-decoration-none">
+                <div class="card card-erp shadow-sm border-0 h-100 p-3 hover-lift transition-all">
+                    <div class="rounded-circle bg-primary bg-opacity-10 mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 70px; height: 70px;">
+                        <i class="fa-solid fa-compass-drafting fs-2 text-primary"></i>
+                    </div>
+                    <h6 class="fw-bold text-dark">Ingeniería</h6>
+                    <small class="text-muted d-none d-sm-block">Diseño de productos.</small>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-6 col-md-4 col-lg-3 text-center">
+            <a href="{{ url_for('catalogs_admin.index') }}" class="text-decoration-none">
+                <div class="card card-erp shadow-sm border-0 h-100 p-3 hover-lift transition-all">
+                    <div class="rounded-circle bg-secondary bg-opacity-10 mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 70px; height: 70px;">
+                        <i class="fa-solid fa-list-check fs-2 text-secondary"></i>
+                    </div>
+                    <h6 class="fw-bold text-dark">Catálogos</h6>
+                    <small class="text-muted d-none d-sm-block">Configuración Global.</small>
+                </div>
+            </a>
+        </div>
+        {% endif %}
     </div>
 
-    <div class="col-md-3">
-        <div class="card card-erp p-3">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h6 class="text-muted mb-1">Pedidos Activos</h6>
-                    <h3>5</h3>
-                </div>
-                <div class="fs-1 text-warning opacity-25">
-                    <i class="fa-solid fa-list-check"></i>
-                </div>
-            </div>
+    <div class="row">
+        <div class="col-md-6 mb-4">
+             <div class="card shadow-sm border-0 p-4">
+                <h5 class="fw-bold mb-3">Resumen del Perfil</h5>
+                <p class="mb-1"><strong>Usuario:</strong> {{ current_user.nombres }} {{ current_user.apellido_paterno }}</p>
+                <p class="mb-1"><strong>Nivel de Acceso:</strong> 
+                    <span class="badge bg-primary">Nivel {{ current_user.nivel_usuario }}</span>
+                </p>
+                <p class="text-muted mt-2">Bienvenido al sistema GelMex. Los módulos sugeridos arriba están basados en tus permisos actuales.</p>
+             </div>
         </div>
     </div>
 </div>
+
+<style>
+    .hover-lift {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .hover-lift:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+        cursor: pointer;
+    }
+    .card-erp {
+        background: #fff;
+        border-radius: 12px;
+    }
+</style>
 {% endblock %}

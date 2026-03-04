@@ -68,10 +68,13 @@
 
             <div class="nav-group-label mt-2">OPERACIÓN</div>
             
+            {% if current_user.nivel_usuario >= 2 %}
             <a href="{{ url_for('sales.preventa') }}" class="nav-link py-3">
                 <i class="fa-solid fa-cash-register me-2"></i> Ventas y Pedidos
             </a>
+            {% endif %}
             
+            {% if current_user.nivel_usuario >= 3 %}
             <a class="nav-link py-3 d-flex justify-content-between align-items-center" 
                data-bs-toggle="collapse" href="#collapseInventario" role="button" aria-expanded="false">
                 <span><i class="fa-solid fa-boxes-stacked me-2"></i> Inventario y Almacén</span>
@@ -109,6 +112,7 @@
                     </a>
                 </div>
             </div>
+            {% endif %}
 
             <a href="{{ url_for('logistics.index') }}" class="nav-link py-3">
                 <i class="fa-solid fa-truck-fast me-2"></i> Logística y Rutas
@@ -116,7 +120,7 @@
 
             <div class="nav-group-label mt-2">ADMINISTRACIÓN</div>
             
-            {% if current_user.is_authenticated and current_user.nivel_usuario >= 4 %}
+            {% if current_user.nivel_usuario >= 4 %}
                 <a href="{{ url_for('users.index') }}" class="nav-link py-3">
                     <i class="fa-solid fa-users-gear me-2"></i> Recursos Humanos
                 </a>
@@ -124,40 +128,38 @@
                 <a href="{{ url_for('product_admin.index') }}" class="nav-link py-3 text-warning">
                     <i class="fa-solid fa-compass-drafting me-2"></i> Ingeniería Producto
                 </a>
-            {% endif %}
-            
-            <a href="{{ url_for('clients.index') }}" class="nav-link py-3">
-                <i class="fa-solid fa-users me-2"></i> Cartera de Clientes
-            </a>
-            
-            <a class="nav-link py-3 d-flex justify-content-between align-items-center" 
-               data-bs-toggle="collapse" href="#collapseFinanzas" role="button" aria-expanded="false">
-                <span><i class="fa-solid fa-sack-dollar me-2"></i> Finanzas</span>
-                <i class="fa-solid fa-chevron-down small"></i>
-            </a>
-            <div class="collapse" id="collapseFinanzas">
-                <div class="submenu-dark shadow-inner">
-                    <a class="nav-link py-2" href="{{ url_for('finance.dashboard') }}">
-                        <i class="fa-solid fa-chart-pie me-2"></i> Tablero Financiero
-                    </a>
-                    
-                    <a class="nav-link py-2 text-info" href="{{ url_for('finance.ingresos') }}">
-                        <i class="fa-solid fa-wallet me-2"></i> Ingresos Extra / Capital
-                    </a>
-                    
-                    <a class="nav-link py-2 text-success" href="{{ url_for('finance.auditoria') }}">
-                        <i class="fa-solid fa-check-double me-2"></i> Auditoría de Pagos
-                    </a>
-                    <a class="nav-link py-2 text-danger" href="{{ url_for('finance.gastos') }}">
-                        <i class="fa-solid fa-money-bill-transfer me-2"></i> Gastos y Salidas
-                    </a>
-                </div>
-            </div>
 
-            {% if current_user.is_authenticated and current_user.nivel_usuario >= 4 %}
-            <a href="{{ url_for('catalogs_admin.index') }}" class="nav-link py-3">
-                <i class="fa-solid fa-list-check me-2"></i> Gestión de Catálogos
-            </a>
+                <a href="{{ url_for('clients.index') }}" class="nav-link py-3">
+                    <i class="fa-solid fa-users me-2"></i> Cartera de Clientes
+                </a>
+                
+                <a class="nav-link py-3 d-flex justify-content-between align-items-center" 
+                   data-bs-toggle="collapse" href="#collapseFinanzas" role="button" aria-expanded="false">
+                    <span><i class="fa-solid fa-sack-dollar me-2"></i> Finanzas</span>
+                    <i class="fa-solid fa-chevron-down small"></i>
+                </a>
+                <div class="collapse" id="collapseFinanzas">
+                    <div class="submenu-dark shadow-inner">
+                        <a class="nav-link py-2" href="{{ url_for('finance.dashboard') }}">
+                            <i class="fa-solid fa-chart-pie me-2"></i> Tablero Financiero
+                        </a>
+                        
+                        <a class="nav-link py-2 text-info" href="{{ url_for('finance.ingresos') }}">
+                            <i class="fa-solid fa-wallet me-2"></i> Ingresos Extra / Capital
+                        </a>
+                        
+                        <a class="nav-link py-2 text-success" href="{{ url_for('finance.auditoria') }}">
+                            <i class="fa-solid fa-check-double me-2"></i> Auditoría de Pagos
+                        </a>
+                        <a class="nav-link py-2 text-danger" href="{{ url_for('finance.gastos') }}">
+                            <i class="fa-solid fa-money-bill-transfer me-2"></i> Gastos y Salidas
+                        </a>
+                    </div>
+                </div>
+
+                <a href="{{ url_for('catalogs_admin.index') }}" class="nav-link py-3">
+                    <i class="fa-solid fa-list-check me-2"></i> Gestión de Catálogos
+                </a>
             {% endif %}
 
             <div class="nav-group-label mt-2">SOPORTE</div>
