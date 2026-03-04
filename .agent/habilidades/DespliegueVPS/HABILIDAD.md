@@ -82,3 +82,16 @@ Para que el VPS no se quede con código viejo y para que la base de datos y la i
 
 > [!IMPORTANT]
 > **SEGURIDAD:** Nunca compartas estas contraseñas por texto plano. Si las olvidas, el benchmark de despliegue fallará por falta de acceso.
+
+---
+
+## 🛡️ 4. Prevención y Recuperación (Estabilidad)
+
+### ¿Cómo evitar caídas o corrupciones?
+
+Para prevenir errores como el **502 Bad Gateway** por archivos corruptos:
+
+1. **Validación de Integridad:** Antes de reiniciar el servicio, verifica que el archivo no esté vacío o mal formado con `cat /etc/systemd/system/gelmex.service`.
+2. **Prueba de "Arranque en Frío":** Si el sistema falla tras actualizar, corre la app manualmente: `cd /var/www/GelMexSys2.0 && ./venv/bin/python3 run.py`.
+3. **Respaldo de Infraestructura:** Guarda una copia local de `gelmex.service`. Si se corrompe en el servidor, solo tienes que pegarlo de nuevo.
+4. **Logs en Tiempo Real:** Si el servidor no arranca, usa `journalctl -u gelmex -f` para ver el error exacto.
