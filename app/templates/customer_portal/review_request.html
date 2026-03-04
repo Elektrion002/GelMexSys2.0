@@ -1,0 +1,112 @@
+{% extends "customer_portal/base_portal.html" %}
+
+{% block title %}Revisar Pedido - GelMex{% endblock %}
+
+{% block content %}
+<div class="container pb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="d-flex align-items-center mb-4">
+                <a href="{{ url_for('customer_portal.catalog') }}" class="btn btn-light rounded-circle me-3 shadow-sm">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </a>
+                <h4 class="fw-bold mb-0">Confirmación de Pedido</h4>
+            </div>
+
+            <div class="card border-0 shadow-lg rounded-4 overflow-hidden mb-4">
+                <div class="card-header bg-primary py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-white fw-bold">SOLICITUD: {{ solicitud.folio }}</span>
+                        <span class="badge bg-white text-primary rounded-pill">{{ solicitud.fecha_registro.strftime('%d/%m/%Y') }}</span>
+                    </div>
+                </div>
+                <div class="card-body p-4">
+                    <p class="text-muted small mb-4">
+                        Hola <strong>{{ solicitud.cliente.nombre_negocio }}</strong>, por favor revisa los artículos de tu pedido antes de confirmar.
+                    </p>
+
+                    <div class="table-responsive mb-4">
+                        <table class="table align-middle">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>Producto</th>
+                                    <th class="text-center">Cant.</th>
+                                    <th class="text-center">Precio</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in solicitud.items %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold small text-dark">{{ item.producto.descripcion }}</div>
+                                        <code class="text-muted" style="font-size: 0.7rem;">{{ item.producto.sku }}</code>
+                                    </td>
+                                    <td class="text-center fw-bold">{{ item.cantidad }}</td>
+                                    <td class="text-center text-muted small">${{ "{:,.2f}".format(item.precio_unitario) }}</td>
+                                    <td class="text-end fw-bold">${{ "{:,.2f}".format(item.subtotal) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="border-top">
+                                    <td colspan="3" class="text-end fw-bold pt-3 fs-5">Total Estimado:</td>
+                                    <td class="text-end fw-bold pt-3 fs-5 text-primary">${{ "{:,.2f}".format(solicitud.total_estimado) }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    {% if solicitud.notas_cliente %}
+                    <div class="bg-light p-3 rounded-3 mb-4">
+                        <label class="form-label small fw-bold text-muted">Mis Notas:</label>
+                        <p class="mb-0 small italic">"{{ solicitud.notas_cliente }}"</p>
+                    </div>
+                    {% endif %}
+
+                    {% if solicitud.estado == 'CONFIRMADO_CLIENTE' %}
+                        <div class="alert alert-success text-center rounded-4 border-0 shadow-sm py-4">
+                            <i class="fa-solid fa-circle-check fa-3x mb-3"></i>
+                            <h5 class="fw-bold">¡Pedido Confirmado!</h5>
+                            <p class="mb-0 small">Ya hemos recibido tu confirmación. Un ejecutivo de GelMex lo procesará en breve.</p>
+                        </div>
+                    {% elif solicitud.estado == 'CONVERTIDO' %}
+                         <div class="alert alert-info text-center rounded-4 border-0 shadow-sm py-4">
+                            <i class="fa-solid fa-truck-fast fa-3x mb-3"></i>
+                            <h5 class="fw-bold">En Proceso</h5>
+                            <p class="mb-0 small">Este pedido ya ha sido convertido en una orden oficial y está siendo atendido.</p>
+                        </div>
+                    {% else %}
+                        <div class="card border-warning bg-warning bg-opacity-10 rounded-4 mb-4">
+                            <div class="card-body">
+                                <p class="small mb-0 text-dark">
+                                    <i class="fa-solid fa-circle-info me-2"></i>
+                                    Al confirmar, autorizas a nuestro equipo de ventas a generar la orden de compra oficial y programar la entrega.
+                                </p>
+                            </div>
+                        </div>
+
+                        <form action="{{ url_for('customer_portal.confirmar_pedido_cliente', solicitud_id=solicitud.id) }}" method="POST">
+                            <button type="submit" class="btn btn-success w-100 py-3 rounded-pill fw-bold shadow-lg hover-lift">
+                                <i class="fa-solid fa-check-double me-2"></i> Confirmar Mi Pedido Ahora
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <p class="text-center text-muted small">
+                ¿Deseas corregir algo? Contacta a tu vendedor asignado antes de confirmar.
+            </p>
+        </div>
+    </div>
+</div>
+
+<style>
+.hover-lift:hover {
+    transform: translateY(-3px);
+    transition: all 0.2s cubic-bezier(.25,.8,.25,1);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
+</style>
+{% endblock %}

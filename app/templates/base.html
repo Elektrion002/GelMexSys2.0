@@ -73,8 +73,12 @@
             <div class="nav-group-label mt-2">OPERACIÓN</div>
             
             {% if current_user.nivel_usuario >= 2 %}
-            <a href="{{ url_for('sales.preventa') }}" class="nav-link py-3">
-                <i class="fa-solid fa-cash-register me-2"></i> Ventas y Pedidos
+            <a href="{{ url_for('sales.preventa') }}" class="nav-link py-2">
+                <i class="fa-solid fa-cart-shopping me-2"></i> Nueva Venta
+            </a>
+            <a href="{{ url_for('sales.portal_pedidos') }}" class="nav-link py-2 d-flex justify-content-between align-items-center">
+                <span><i class="fa-solid fa-inbox me-2"></i> Pedidos Portal</span>
+                <span class="badge bg-warning text-dark rounded-pill" style="font-size: 0.6rem;">NUEVO</span>
             </a>
             {% endif %}
             

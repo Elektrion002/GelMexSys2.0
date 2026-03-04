@@ -25,7 +25,7 @@ def create_app(config_name='default'):
 
     with app.app_context():
         # IMPORTANTE: Agregamos 'finance' para que detecte los modelos financieros
-        from app.models import catalogs, users, infrastructure, products, clients, stock, orders, payments, finance
+        from app.models import catalogs, users, infrastructure, products, clients, stock, orders, payments, finance, portal
         db.create_all()
 
     # --- REGISTRO DE BLUEPRINTS ---

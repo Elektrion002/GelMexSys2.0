@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Bandeja de Pedidos Portal - GelMex{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Buzón de Pedidos Portal</h2>
+            <p class="text-muted">Gestiona las solicitudes entrantes desde el portal de clientes.</p>
+        </div>
+        <div class="badge bg-primary px-3 py-2 rounded-pill">
+            <i class="fa-solid fa-inbox me-2"></i> {{ solicitudes|length }} Solicitudes
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4">Folio</th>
+                        <th>Cliente</th>
+                        <th>Fecha</th>
+                        <th>Total Est.</th>
+                        <th>Estado</th>
+                        <th class="text-end pe-4">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sol in solicitudes %}
+                    <tr>
+                        <td class="ps-4">
+                            <span class="fw-bold">{{ sol.folio }}</span>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-2" style="width: 35px; height: 35px;">
+                                    <i class="fa-solid fa-user text-primary"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold">{{ sol.cliente.nombre_negocio }}</div>
+                                    <small class="text-muted">{{ sol.cliente.nombre_propietario }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ sol.fecha_registro.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td><span class="fw-bold text-dark">${{ "{:,.2f}".format(sol.total_estimado) }}</span></td>
+                        <td>
+                            {% if sol.estado == 'ESPERANDO_VENDEDOR' %}
+                                <span class="badge bg-info text-dark">NUEVO - ESPERANDO VENDEDOR</span>
+                            {% elif sol.estado == 'PENDIENTE_CLIENTE' %}
+                                <span class="badge bg-warning text-dark">ENVIADO A WHATSAPP</span>
+                            {% elif sol.estado == 'CONFIRMADO_CLIENTE' %}
+                                <span class="badge bg-success text-white pulse">CONFIRMADO POR CLIENTE</span>
+                            {% elif sol.estado == 'CONVERTIDO' %}
+                                <span class="badge bg-secondary">CONVERTIDO A VENTA</span>
+                            {% elif sol.estado == 'RECHAZADO' %}
+                                <span class="badge bg-danger">RECHAZADO</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-outline-secondary" title="Ver Detalle" onclick="verDetalle('{{ sol.id }}')">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                                
+                                {% if sol.estado in ['ESPERANDO_VENDEDOR', 'PENDIENTE_CLIENTE'] %}
+                                <a href="{{ url_for('sales.enviar_whatsapp', solicitud_id=sol.id) }}" class="btn btn-sm btn-success" title="Enviar WhatsApp al Cliente" target="_blank">
+                                    <i class="fa-brands fa-whatsapp"></i>
+                                </a>
+                                {% endif %}
+
+                                {% if sol.estado == 'CONFIRMADO_CLIENTE' %}
+                                <form action="{{ url_for('sales.convertir_pedido', solicitud_id=sol.id) }}" method="POST" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-primary" title="Convertir a Orden Real">
+                                        <i class="fa-solid fa-check-double me-1"></i> Convertir
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5">
+                            <i class="fa-solid fa-ghost fa-3x text-light mb-3"></i>
+                            <p class="text-muted mb-0">No hay solicitudes pendientes en este momento.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Detalle (Placeholder JS para rapidez) -->
+<div class="modal fade" id="modalDetalle" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="fw-bold">Detalle de la Solicitud</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="detalleBody">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.pulse {
+    animation: shadow-pulse 2s infinite;
+}
+@keyframes shadow-pulse {
+    0% { box-shadow: 0 0 0 0px rgba(40, 167, 69, 0.4); }
+    100% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+}
+.hover-lift:hover {
+    transform: translateY(-2px);
+    transition: all 0.2s;
+}
+</style>
+
+<script>
+function verDetalle(id) {
+    const modal = new bootstrap.Modal(document.getElementById('modalDetalle'));
+    modal.show();
+    
+    // Aquí podrías hacer un fetch si quieres los items precisos. Por ahora mostramos cargando.
+    document.getElementById('detalleBody').innerHTML = `
+        <div class="alert alert-info">
+            <i class="fa-solid fa-info-circle me-2"></i> Esta función de vista previa detallada se está terminando de procesar. 
+            El resumen total es visible en la tabla principal.
+        </div>
+    `;
+}
+</script>
+{% endblock %}
