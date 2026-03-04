@@ -19,7 +19,7 @@ production_bp = Blueprint('production', __name__, url_prefix='/produccion')
 @production_bp.route('/tablero-necesidades')
 @login_required
 def tablero_necesidades():
-    productos = Producto.query.order_by(Producto.descripcion).all()
+    productos = Producto.query.filter_by(activo=True).order_by(Producto.descripcion).all()
     data_tablero = []
     
     # Contadores para el estado general del sistema

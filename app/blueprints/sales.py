@@ -16,7 +16,7 @@ sales_bp = Blueprint('sales', __name__, url_prefix='/ventas')
 @login_required
 def preventa():
     clientes = Cliente.query.all()
-    productos_db = Producto.query.all()
+    productos_db = Producto.query.filter_by(activo=True).all()
     
     catalogo_js = []
     for p in productos_db:

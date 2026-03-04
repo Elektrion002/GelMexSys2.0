@@ -19,7 +19,7 @@ inventory_bp = Blueprint('inventory', __name__, url_prefix='/inventario')
 @inventory_bp.route('/lista')
 @login_required
 def index():
-    productos = Producto.query.all()
+    productos = Producto.query.filter_by(activo=True).all()
     # CAMBIO AQUÍ: De 'list.html' a 'catalog_list.html'
     return render_template('inventory/catalog_list.html', productos=productos)
 
@@ -67,7 +67,7 @@ def create():
 @login_required
 def movimientos():
     # Cargas para los selectores
-    productos = Producto.query.order_by(Producto.descripcion).all()
+    productos = Producto.query.filter_by(activo=True).order_by(Producto.descripcion).all()
     almacenes = Almacen.query.all()
     ubicaciones = UbicacionAlmacen.query.all() # Necesario para el filtro de JS
     tipos_movimiento = CatTipoMovimientoAlmacen.query.all()
