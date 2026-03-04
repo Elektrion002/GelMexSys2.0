@@ -66,6 +66,10 @@
                 <i class="fa-solid fa-gauge-high me-2"></i> Dashboard
             </a>
 
+            <a href="{{ url_for('customer_portal.catalog') }}" class="nav-link py-3 text-warning" target="_blank">
+                <i class="fa-solid fa-store me-2"></i> Catálogo Público
+            </a>
+
             <div class="nav-group-label mt-2">OPERACIÓN</div>
             
             {% if current_user.nivel_usuario >= 2 %}
