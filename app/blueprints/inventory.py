@@ -11,6 +11,7 @@ from app.models.catalogs import CatCategoriaProducto, CatUnidadMedida, CatTipoMo
 from app.models.stock import InventarioProducto, HistorialMovimiento
 from app.models.infrastructure import Almacen, UbicacionAlmacen
 from app.forms import ProductoForm 
+from app.decorators import role_required
 
 inventory_bp = Blueprint('inventory', __name__, url_prefix='/inventario')
 
@@ -62,9 +63,10 @@ def create():
 
     return render_template('inventory/form.html', form=form, title="Nuevo Producto")
 
-# --- CONSOLA DE MOVIMIENTOS (ALMACENISTA) ---
+# --- CONSOLA DE MOVIMIENTOS (ADMIN Y DUEÑOS) ---
 @inventory_bp.route('/movimientos', methods=['GET', 'POST'])
 @login_required
+@role_required(['Admin', 'Super Administrador', 'Gerente de Planta'])
 def movimientos():
     # Cargas para los selectores
     productos = Producto.query.filter_by(activo=True).order_by(Producto.descripcion).all()

@@ -12,6 +12,7 @@ from app.models.orders import OrdenVenta, OrdenVentaDetalle
 from app.models.payments import Pago
 from app.models.clients import Cliente
 from app.models.catalogs import CatTipoMovimientoFinanzas 
+from app.decorators import role_required
 
 logistics_bp = Blueprint('logistics', __name__, url_prefix='/logistica')
 
@@ -187,6 +188,7 @@ def ver_ticket(orden_id):
 
 @logistics_bp.route('/cobranza')
 @login_required
+@role_required(['Repartidor', 'Vendedor', 'Finanzas', 'Admin', 'Super Administrador'])
 def cobranza_buscar():
     deudores = Cliente.query.filter(
         Cliente.saldo_actual > 1.0
@@ -196,6 +198,7 @@ def cobranza_buscar():
 
 @logistics_bp.route('/api/buscar-deudores')
 @login_required
+@role_required(['Repartidor', 'Vendedor', 'Finanzas', 'Admin', 'Super Administrador'])
 def api_buscar_deudores():
     q = request.args.get('q', '').strip()
     if not q or len(q) < 3: return jsonify([])
@@ -228,6 +231,7 @@ def api_buscar_deudores():
 
 @logistics_bp.route('/cobranza/cliente/<int:cliente_id>')
 @login_required
+@role_required(['Repartidor', 'Vendedor', 'Finanzas', 'Admin', 'Super Administrador'])
 def cobranza_cliente(cliente_id):
     cliente = Cliente.query.get_or_404(cliente_id)
     

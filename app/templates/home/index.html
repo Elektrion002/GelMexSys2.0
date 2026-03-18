@@ -35,8 +35,7 @@
         </div>
         {% endif %}
 
-        <!-- 2. MÓDULO INVENTARIO -->
-        {% if current_user.nivel_usuario >= 3 %}
+        {% if current_user.nivel_usuario >= 3 and current_user.puesto.nombre != 'Almacenista' %}
         <div class="col-6 col-md-4 col-lg-3 text-center">
             <a href="{{ url_for('inventory.index') }}" class="text-decoration-none">
                 <div class="card card-erp shadow-sm border-0 h-100 p-3 hover-lift transition-all">
@@ -48,7 +47,9 @@
                 </div>
             </a>
         </div>
+        {% endif %}
 
+        {% if current_user.nivel_usuario >= 3 %}
         <div class="col-6 col-md-4 col-lg-3 text-center">
             <a href="{{ url_for('production.tablero_necesidades') }}" class="text-decoration-none">
                 <div class="card card-erp shadow-sm border-0 h-100 p-3 hover-lift transition-all">
