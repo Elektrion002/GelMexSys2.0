@@ -1,0 +1,91 @@
+{% extends "missamachines/base_missa.html" %}
+
+{% block title %}Directorio de Clientes{% endblock %}
+{% block page_title %}Directorio de Clientes{% endblock %}
+
+{% block extra_css %}
+<style>
+    .client-card {
+        background: var(--mm-card-bg);
+        border: 1px solid var(--mm-border);
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        transition: all 0.3s;
+    }
+
+    .client-card:hover {
+        border-color: var(--mm-primary);
+        background: rgba(255,255,255,0.05);
+    }
+
+    .client-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: rgba(30, 58, 138, 0.4);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 1.5rem;
+        color: var(--mm-accent);
+    }
+
+    .client-details flex {
+        flex-grow: 1;
+    }
+    
+    .client-name {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--mm-light);
+    }
+
+    .client-info {
+        font-size: 0.9rem;
+        color: rgba(255,255,255,0.6);
+        display: flex;
+        gap: 15px;
+        margin-top: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div>
+    {% for cliente in clientes %}
+    <div class="client-card">
+        <div class="client-icon">
+            <i class="fa-solid fa-user-tie"></i>
+        </div>
+        <div class="client-details" style="flex-grow: 1;">
+            <div class="client-name">{{ cliente.nombre_completo }}</div>
+            <div class="client-info">
+                <span><i class="fa-solid fa-phone me-1"></i> {{ cliente.telefono or 'N/D' }}</span>
+                <span><i class="fa-solid fa-location-dot me-1"></i> {{ cliente.direccion or 'N/D' }}</span>
+                <span><i class="fa-solid fa-industry me-1"></i> {{ cliente.sector or 'N/D' }}</span>
+            </div>
+        </div>
+        <div>
+            <span style="background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; margin-right: 15px;">
+                {{ cliente.ventas|length }} Compra(s)
+            </span>
+            <a href="{{ url_for('missamachines.editar_cliente', cliente_id=cliente.id) }}" class="btn-mm" style="padding: 5px 15px; font-size: 0.8rem; background: transparent; border: 1px solid var(--mm-primary);">
+                <i class="fa-solid fa-pen"></i> Editar
+            </a>
+        </div>
+    </div>
+    {% else %}
+    <div class="mm-card text-center" style="padding: 50px;">
+        <i class="fa-solid fa-users-slash mb-3" style="font-size: 4rem; color: rgba(255,255,255,0.2);"></i>
+        <h3>No hay clientes registrados</h3>
+        <p style="color: rgba(255,255,255,0.5);">Cuando crees una nueva Cotización/Nota de Venta se guardará el nuevo cliente aquí automáticamente.</p>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}

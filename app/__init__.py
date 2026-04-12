@@ -25,7 +25,7 @@ def create_app(config_name='default'):
 
     with app.app_context():
         # IMPORTANTE: Agregamos 'finance' para que detecte los modelos financieros
-        from app.models import catalogs, users, infrastructure, products, clients, stock, orders, payments, finance, portal
+        from app.models import catalogs, users, infrastructure, products, clients, stock, orders, payments, finance, portal, missamachines
         db.create_all()
 
     # --- REGISTRO DE BLUEPRINTS ---
@@ -77,5 +77,8 @@ def create_app(config_name='default'):
 
     from app.blueprints.help_center import help_center_bp
     app.register_blueprint(help_center_bp)
+
+    from app.blueprints.missamachines import missamachines_bp
+    app.register_blueprint(missamachines_bp)
 
     return app

@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nota de Venta - {{ venta.id }}</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: #f4f6f9;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            padding: 40px 0;
+        }
+
+        .printer-actions {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+        }
+
+        .btn-print {
+            background: #e65c00;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(230,92,0,0.3);
+            text-transform: uppercase;
+        }
+        
+        .btn-back {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            text-decoration: none;
+            margin-right: 10px;
+        }
+
+        /* Página A4 Simulada */
+        .page {
+            background: white;
+            width: 210mm;
+            min-height: 297mm;
+            padding: 20mm;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 3px solid #e65c00;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        .logo-area {
+            width: 200px;
+            text-align: center;
+        }
+        
+        .logo-area div {
+            font-weight: 800;
+            font-size: 2rem;
+            color: #e65c00;
+            line-height: 1;
+        }
+        
+        .logo-area span {
+            font-weight: 800;
+            font-size: 1.5rem;
+            color: #1e3a8a;
+            letter-spacing: 2px;
+        }
+
+        .invoice-details {
+            text-align: right;
+        }
+
+        .title {
+            color: #e65c00;
+            font-size: 1.8rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            color: #1e3a8a;
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+
+        .date-box {
+            display: inline-block;
+            border: 2px solid #333;
+            margin-bottom: 20px;
+        }
+
+        .date-box th { padding: 5px 15px; border-bottom: 2px solid #333; font-size: 0.9rem; }
+        .date-box td { padding: 10px 15px; text-align: center; font-weight: bold; font-size: 1.1rem; }
+
+        .company-info {
+            font-size: 0.85rem;
+            margin-top: 20px;
+            color: #555;
+            text-align: justify;
+        }
+
+        .section-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            border: 1px solid #7cb3f2;
+        }
+
+        .section-table th {
+            background-color: rgba(124, 179, 242, 0.4);
+            color: #1e3a8a;
+            padding: 8px 15px;
+            text-align: left;
+            border: 1px solid #7cb3f2;
+            font-size: 0.9rem;
+        }
+        
+        .section-table td {
+            padding: 8px 15px;
+            border: 1px solid #7cb3f2;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #333;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 30px;
+            border: 2px solid black;
+        }
+
+        .items-table th {
+            border: 2px solid black;
+            padding: 10px;
+            font-size: 1rem;
+        }
+
+        .items-table td {
+            border: 2px solid black;
+            padding: 15px 10px;
+            vertical-align: top;
+        }
+
+        .totals-column {
+            width: 150px;
+            text-align: right;
+            font-weight: bold;
+        }
+
+        .terms {
+            margin-top: 50px;
+            font-size: 0.8rem;
+            text-align: justify;
+            color: #555;
+            line-height: 1.4;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .page {
+                box-shadow: none;
+                width: 100%;
+                min-height: 100%;
+                padding: 0;
+            }
+            .printer-actions {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="printer-actions">
+        <a href="{{ url_for('missamachines.dashboard') }}" class="btn-back">Volver</a>
+        <button class="btn-print" onclick="window.print()">
+            Imprimir o Guardar PDF
+        </button>
+    </div>
+
+    <div class="page" id="printable-area">
+        <header class="header">
+            <div class="logo-area">
+                <div>MISSA</div>
+                <span>MACHINE</span>
+                <p style="font-size: 0.6rem; color:#555; margin-top: 5px;">FABRICACIÓN DE MAQUINARIA AUTOMÁTICA</p>
+            </div>
+            
+            <div class="invoice-details">
+                <table class="date-box" cellspacing="0">
+                    <tr>
+                        <th colspan="3" style="color: #1e3a8a;">FECHA</th>
+                    </tr>
+                    <tr>
+                        <td>{{ venta.fecha.strftime('%d') }}</td>
+                        <td style="border-left: 2px solid #333; border-right: 2px solid #333;">{{ venta.fecha.strftime('%m') }}</td>
+                        <td>{{ venta.fecha.strftime('%y') }}</td>
+                    </tr>
+                </table>
+                <div class="title">{{ 'COTIZACIÓN' if venta.tipo_documento == 'cotizacion' else 'NOTA DE VENTA' }}</div>
+                <div class="subtitle">MISSA MACHINE</div>
+            </div>
+        </header>
+
+        <div class="company-info" style="text-align: center; margin-bottom: 30px;">
+            Empresa dedicada a la automatización de procesos en el sector alimentario, doméstico e industrial, fabricamos máquinas desde 2015. Nos ubicamos en Cd. Hidalgo Michoacán.<br><br>
+            <strong>Dirección:</strong> Andres Gomez #3 col la joya 61190. Cd Hidalgo Michoacán, Cel 7861397651 <br>
+            <strong>correo electrónico:</strong> misael.martinez1234@outloo.es
+        </div>
+
+        <table class="section-table">
+            <tr>
+                <th style="width: 15%;">Cliente:</th>
+                <td colspan="3">{{ venta.cliente.nombre_completo.upper() }}</td>
+                <th style="width: 15%;">Teléfono:</th>
+                <td style="width: 25%;">{{ venta.cliente.telefono or 'N/A' }}</td>
+            </tr>
+            <tr>
+                <th>Dirección:</th>
+                <td colspan="3">{{ (venta.cliente.direccion or 'N/A').upper() }}</td>
+                <th>Sector:</th>
+                <td>{{ (venta.cliente.sector or 'N/A').upper() }}</td>
+            </tr>
+            <tr>
+                <th>Vendedor:</th>
+                <td colspan="3">{{ (venta.vendedor or 'N/A').upper() }}</td>
+                <th>Tel Vendedor:</th>
+                <td>{{ venta.telefono_vendedor or '7861397651' }}</td>
+            </tr>
+        </table>
+
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="width: 80px;">Cantidad</th>
+                    <th>Descripción</th>
+                    <th style="width: 120px;">Subtotal</th>
+                    <th style="width: 120px;">Anticipo</th>
+                    <th style="width: 120px;">Resta</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in venta.detalles %}
+                <tr>
+                    <td style="text-align: center; font-weight: bold; font-size: 1.2rem;">{{ item.cantidad }}</td>
+                    <td style="white-space: pre-wrap;">{{ item.descripcion.upper() }}</td>
+                    <td class="totals-column">${{ "{:,.2f}".format(item.subtotal) }}</td>
+                    <td class="totals-column">${{ "{:,.2f}".format(item.anticipo) }}</td>
+                    <td class="totals-column">${{ "{:,.2f}".format(item.resta) }}</td>
+                </tr>
+                {% endfor %}
+                {% if venta.impuestos > 0 %}
+                <tr>
+                    <td colspan="2" style="border: none;"></td>
+                    <td style="border: none; text-align: right; font-weight: bold; padding-right: 20px;">SUBTOTAL NETO</td>
+                    <td colspan="2" style="background-color: #f4f6f9; font-size: 1.1rem; text-align: right;">${{ "{:,.2f}".format(venta.subtotal) }}</td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="border: none;"></td>
+                    <td style="border: none; text-align: right; font-weight: bold; padding-right: 20px;">I.V.A.</td>
+                    <td colspan="2" style="background-color: #f4f6f9; font-size: 1.1rem; color: #e65c00; text-align: right;">${{ "{:,.2f}".format(venta.impuestos) }}</td>
+                </tr>
+                {% endif %}
+                <tr>
+                    <td colspan="2" style="border-left: none; border-bottom: none;"></td>
+                    <td style="border: none; text-align: right; font-weight: bold; padding-right: 20px;">TOTAL GENERAL</td>
+                    <td colspan="2" style="background-color: #e6f7df; font-size: 1.2rem; font-weight: bold; text-align: right;">
+                        ${{ "{:,.2f}".format(venta.total) }}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Cantidad en letra dummy, since calculating it requires external library or strict logic, keeping placeholder -->
+        <div style="text-align: right; font-size: 1.2rem; font-weight: bold; margin-top: 10px; margin-bottom: 30px;">
+            -- PESOS M/N --
+        </div>
+
+        <div class="terms">
+            ESTE DOCUMENTO ES VALIDO COMO <strong>GARANTIA</strong> DEL EQUIPO HASTA POR <strong>5 AÑOS</strong>, CORRIENDO DESDE LA EXPEDICION DE ESTE DOCUMENTO. QUEDANDO FUERA DE GARANTIA LOS CONSUMIBLES, TOMANDO COMO CONSUMIBLES, VALEROS, CHUMACERAS, SILICONES, EMPAQUES, SELLOS MECANICOS Y COMPONENTES ELECTRICOS, TODOS LOS CONSUMIBLES VAN POR CUENTA DEL CLIENTE ASOCIADO AL MANTENIMIENTO CORRECTIVO QUE REQUIERA LA MAQUINA.
+        </div>
+    </div>
+</body>
+</html>

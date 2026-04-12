@@ -1,0 +1,123 @@
+{% extends "missamachines/base_missa.html" %}
+
+{% block title %}Documentación del Módulo{% endblock %}
+{% block page_title %}Documentación Técnica y Operativa{% endblock %}
+
+{% block extra_css %}
+<style>
+    .doc-section {
+        background: var(--mm-card-bg);
+        border: 1px solid var(--mm-border);
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+        backdrop-filter: blur(10px);
+    }
+    
+    .doc-title {
+        color: var(--mm-primary);
+        font-weight: 600;
+        margin-bottom: 20px;
+        text-transform: uppercase;
+        font-size: 1.2rem;
+        border-bottom: 1px solid var(--mm-border);
+        padding-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .doc-content p {
+        color: rgba(255,255,255,0.8);
+        line-height: 1.6;
+        margin-bottom: 15px;
+    }
+
+    .doc-content ul {
+        color: rgba(255,255,255,0.8);
+        margin-left: 20px;
+        margin-bottom: 20px;
+        line-height: 1.6;
+    }
+
+    .doc-content li {
+        margin-bottom: 8px;
+    }
+
+    .doc-content h5 {
+        color: var(--mm-light);
+        margin-top: 25px;
+        margin-bottom: 15px;
+        font-weight: 600;
+    }
+
+    .tech-pill {
+        background: rgba(30, 58, 138, 0.3);
+        color: var(--mm-accent);
+        padding: 5px 12px;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-family: monospace;
+        margin-right: 5px;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Manual Operativo -->
+<div class="doc-section">
+    <div class="doc-title">
+        <i class="fa-solid fa-book-open"></i> Manual Operativo (Usuario)
+    </div>
+    <div class="doc-content">
+        <h5>1. Proposito del Módulo</h5>
+        <p>Este sistema está diseñado específicamente para automatizar y archivar el proceso de ventas de **Missa Machines**, reemplazando las plantillas de Word. Sirve para capturar datos exactos de cotizaciones de maquinaria (ej. Despulpadoras), estandarizar los cobros y brindar notas profesionales a los clientes.</p>
+        
+        <h5>2. ¿Quién lo usa?</h5>
+        <p>Está destinado para los asesores de venta (ej. Ing. Sergio Misael) y administradores que necesiten realizar o consultar cotizaciones históricas sin interferir en la operación regular de GelMexSys.</p>
+
+        <h5>3. Directorio de Clientes (Gestión CRM Básica)</h5>
+        <p>No tienes que ingresar los clientes a mano de forma independiente. El sistema está automatizado de la siguiente manera:</p>
+        <ul>
+            <li>Al crear una <strong>Nueva Venta</strong>, el sistema toma los datos de la sección superior y genera automáticamente el registro en la cartera.</li>
+            <li>En la pestaña <strong>Clientes</strong> del panel lateral, verás la agenda completa con el número de compras históricas asociadas a cada persona/negocio.</li>
+            <li>Diseñé una función de <strong>Modificación:</strong> Desde ahí existe la opción de *"Editar"*, para corregir errores de dedo en direcciones o teléfonos sin afectar sus recibos previos.</li>
+        </ul>
+
+        <h5>4. Flujo de Trabajo y Documentos Físicos (PDF)</h5>
+        <ul>
+            <li>**Nueva Venta:** Al presionar "Nueva Venta" el usuario visualizará un formulario... Al teclear el Subtotal y el Anticipo, la aplicación calculará el *Saldo Restante* automáticamente.</li>
+            <li>**Impresión (Nota Física):** Posterior al guardado, serás dirigido a una hoja formato A4 virtual. Da clic en **"Imprimir"**. Si seleccionas "Microsoft Print to PDF" podrás guardar el archivo comercial.</li>
+        </ul>
+    </div>
+</div>
+
+<!-- Documentación Técnica -->
+<div class="doc-section">
+    <div class="doc-title">
+        <i class="fa-solid fa-code"></i> Arquitectura Técnica
+    </div>
+    <div class="doc-content">
+        <h5>1. Estructura Independiente (Arquitectura Modular)</h5>
+        <p>A nivel de servidor, el submódulo fue programado manteniendo el principio de "Single Responsibility". Opera bajo su propio Blueprint de Flask, lo que significa que un error grave en este módulo no impactaría al resto de la aplicación GelMexSys.</p>
+        <ul>
+            <li><span class="tech-pill">app/blueprints/missamachines.py</span> Contiene los endpoints y la lógica CRUD (Crear, Leer) principal.</li>
+            <li><span class="tech-pill">app/templates/missamachines</span> Carpeta exclusiva donde reside toda la interfaz aislada (Base Layout, Índice, Venta, Directorio y Docs).</li>
+        </ul>
+
+        <h5>2. Patrón de Base de Datos (ORM SQLAlchemy)</h5>
+        <p>Las tablas necesarias no utilizan ni corrompen las tablas de Clientes de GelMex. Se crearon dos modelos encapsulados:</p>
+        <ul>
+            <li><span class="tech-pill">MissaCliente</span>: Tabla dedicada a recolectar nombre de empresa/comprador, teléfono o sector para el negocio de maquinaria.</li>
+            <li><span class="tech-pill">MissaVenta</span>: Relacionada por Foreign Key `cliente_id`, contiene todos los esquemas técnicos configurables de la maquinaria (modelo, voltaje, caballos de fuerza, cilindros y totales).</li>
+        </ul>
+
+        <h5>3. Motor PDF Engine</h5>
+        <p>En lugar de utilizar complejas librerías de Python como *ReportLab* o *pdfkit* que saturan los recursos del servidor (VPS), se desarrolló una solución **Client-Side Rendering**:</p>
+        <p>Se crearon Media-Queries de formato de estilo <span class="tech-pill">@media print</span>. Esto delega la responsabilidad visual al navegador (Chrome/Edge), dictando medidas exactas, ignorando elementos de interfaz extra y generando notas en PDF nativos de altísima resolución en una fracción de milisegundo.</p>
+    </div>
+</div>
+
+{% endblock %}

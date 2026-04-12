@@ -1,0 +1,81 @@
+{% extends "missamachines/base_missa.html" %}
+
+{% block title %}Editar Cliente{% endblock %}
+{% block page_title %}Editar Información de Cliente{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section {
+        background: var(--mm-card-bg);
+        border: 1px solid var(--mm-border);
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+        backdrop-filter: blur(10px);
+    }
+    
+    .mm-input {
+        width: 100%;
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: white;
+        padding: 12px 15px;
+        border-radius: 8px;
+        font-family: 'Outfit', sans-serif;
+        transition: border-color 0.3s;
+    }
+
+    .mm-input:focus {
+        outline: none;
+        border-color: var(--mm-primary);
+        box-shadow: 0 0 10px rgba(230, 92, 0, 0.2);
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-label {
+        display: block;
+        color: rgba(255,255,255,0.7);
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+    }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<form action="{{ url_for('missamachines.editar_cliente', cliente_id=cliente.id) }}" method="POST">
+    
+    <div class="form-section">
+        <div class="grid-2">
+            <div class="form-group">
+                <label class="form-label">Nombre Completo / Empresa *</label>
+                <input type="text" name="nombre_completo" class="mm-input" value="{{ cliente.nombre_completo }}" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Sector / Giro</label>
+                <input type="text" name="sector" class="mm-input" value="{{ cliente.sector or '' }}">
+            </div>
+        </div>
+        <div class="grid-2">
+            <div class="form-group">
+                <label class="form-label">Teléfono</label>
+                <input type="text" name="telefono" class="mm-input" value="{{ cliente.telefono or '' }}">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Dirección Completa</label>
+                <input type="text" name="direccion" class="mm-input" value="{{ cliente.direccion or '' }}">
+            </div>
+        </div>
+    </div>
+
+    <div style="text-align: right; margin-bottom: 50px;">
+        <a href="{{ url_for('missamachines.clients') }}" class="btn-mm" style="background: transparent; border: 1px solid var(--mm-border); margin-right: 15px;">Cancelar</a>
+        <button type="submit" class="btn-mm"><i class="fa-solid fa-save pe-2"></i> Guardar Cambios</button>
+    </div>
+</form>
+
+{% endblock %}

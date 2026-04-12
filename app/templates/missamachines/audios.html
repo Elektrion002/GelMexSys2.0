@@ -1,0 +1,108 @@
+{% extends "missamachines/base_missa.html" %}
+
+{% block title %}Analizador de Audios{% endblock %}
+{% block page_title %}Biblioteca de Audios{% endblock %}
+
+{% block extra_css %}
+<style>
+    .audio-list {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .audio-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px 30px;
+        background: var(--mm-card-bg);
+        border: 1px solid var(--mm-border);
+        border-radius: 15px;
+        transition: all 0.3s ease;
+    }
+
+    .audio-card:hover {
+        background: rgba(255,255,255,0.05);
+        border-color: var(--mm-primary);
+    }
+
+    .audio-info {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .audio-icon {
+        font-size: 2.5rem;
+        color: var(--mm-accent);
+    }
+    
+    .audio-name {
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: var(--mm-light);
+    }
+
+    audio {
+        outline: none;
+        border-radius: 30px;
+        filter: invert(0.9) hue-rotate(180deg);
+        height: 40px;
+    }
+
+    .process-btn {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .process-btn:hover {
+        background: var(--mm-blue);
+        border-color: var(--mm-blue);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 30px;">
+    <p style="color: rgba(255,255,255,0.6); font-size: 1.1rem;">
+        Aquí se listan los audios crudos recibidos. Debido a su tamaño, el procesamiento de texto e IA debe realizarse mediante tareas asíncronas.
+    </p>
+</div>
+
+<div class="audio-list">
+    {% for audio in audios %}
+    <div class="audio-card">
+        <div class="audio-info">
+            <i class="fa-solid fa-file-audio audio-icon"></i>
+            <div>
+                <div class="audio-name">{{ audio }}</div>
+                <div style="font-size: 0.85rem; color: rgba(255,255,255,0.4);">Formato detectado / Archivo local</div>
+            </div>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <audio controls>
+                <source src="{{ url_for('missamachines.play_audio', filename=audio) }}">
+                Tu navegador no soporta el elemento de audio.
+            </audio>
+            
+            <button class="process-btn">
+                <i class="fa-solid fa-microchip pe-2"></i> Procesar
+            </button>
+        </div>
+    </div>
+    {% else %}
+    <div class="mm-card text-center" style="padding: 50px;">
+        <i class="fa-solid fa-inbox mb-3" style="font-size: 4rem; color: rgba(255,255,255,0.2);"></i>
+        <h3>No se encontraron audios</h3>
+        <p style="color: rgba(255,255,255,0.5);">La carpeta MisaMachines está vacía o no tiene formatos compatibles.</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

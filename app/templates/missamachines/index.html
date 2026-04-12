@@ -1,0 +1,209 @@
+{% extends "missamachines/base_missa.html" %}
+
+{% block title %}Panel de Ventas{% endblock %}
+{% block page_title %}Ventas y Cotizaciones{% endblock %}
+
+{% block extra_css %}
+<style>
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 30px;
+        margin-bottom: 40px;
+    }
+    
+    .kpi-card {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .kpi-card .icon {
+        position: absolute;
+        right: 20px;
+        top: 20px;
+        font-size: 3rem;
+        color: rgba(255, 255, 255, 0.05);
+        transition: all 0.5s ease;
+    }
+
+    .kpi-card:hover .icon {
+        color: rgba(230, 92, 0, 0.2);
+        transform: scale(1.2) rotate(10deg);
+    }
+
+    .kpi-title {
+        font-size: 1rem;
+        color: rgba(255, 255, 255, 0.6);
+        margin-bottom: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .kpi-value {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: var(--mm-light);
+    }
+
+    /* Table Styles */
+    .mm-table-wrapper {
+        background: var(--mm-card-bg);
+        border: 1px solid var(--mm-border);
+        border-radius: 20px;
+        overflow: hidden;
+        backdrop-filter: blur(20px);
+    }
+
+    .mm-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .mm-table th {
+        background: rgba(0, 0, 0, 0.4);
+        padding: 20px;
+        text-align: left;
+        font-weight: 600;
+        color: rgba(255,255,255,0.7);
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 1px;
+    }
+
+    .mm-table td {
+        padding: 20px;
+        border-top: 1px solid var(--mm-border);
+        color: var(--mm-light);
+        vertical-align: middle;
+    }
+
+    .mm-table tr {
+        transition: background 0.2s ease;
+    }
+
+    .mm-table tr:hover {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .status-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: rgba(40, 167, 69, 0.2);
+        color: #28a745;
+        border: 1px solid #28a745;
+    }
+    
+    .status-badge.pending {
+        background: rgba(255, 193, 7, 0.2);
+        color: #ffc107;
+        border: 1px solid #ffc107;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="kpi-grid">
+    <div class="mm-card kpi-card">
+        <i class="fa-solid fa-money-bill-wave icon"></i>
+        <div class="kpi-title">Ingresos Brutos (Anticipos)</div>
+        <div class="kpi-value">${{ "{:,.2f}".format(ingresos) }}</div>
+    </div>
+    <div class="mm-card kpi-card">
+        <i class="fa-solid fa-gears icon"></i>
+        <div class="kpi-title">Equipos Vendidos</div>
+        <div class="kpi-value">{{ equipos }}</div>
+    </div>
+    <div class="mm-card kpi-card">
+        <i class="fa-solid fa-users icon"></i>
+        <div class="kpi-title">Cartera Clientes</div>
+        <div class="kpi-value">{{ total_clientes }}</div>
+    </div>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+    <h2 style="font-weight: 300;">Últimas <strong class="text-primary">Notas de Venta</strong></h2>
+    <a href="{{ url_for('missamachines.nueva_venta') }}" class="btn-mm" style="text-decoration: none;">
+        <i class="fa-solid fa-plus"></i> Nueva Venta
+    </a>
+</div>
+
+<div class="mm-table-wrapper shadow-lg">
+    <table class="mm-table">
+        <thead>
+            <tr>
+                <th>Tipo</th>
+                <th>Fecha</th>
+                <th>Cliente</th>
+                <th>Equipo</th>
+                <th>Total</th>
+                <th>Resta</th>
+                <th>Estado</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for venta in ventas %}
+            <tr>
+                <td>
+                    {% if venta.tipo_documento == 'cotizacion' %}
+                    <span style="background: rgba(13, 110, 253, 0.2); color: #0d6efd; padding: 5px 10px; border-radius: 8px; font-size: 0.7rem; font-weight: bold; border: 1px solid #0d6efd;">COTIZACIÓN</span>
+                    {% else %}
+                    <span style="background: rgba(230, 92, 0, 0.2); color: var(--mm-primary); padding: 5px 10px; border-radius: 8px; font-size: 0.7rem; font-weight: bold; border: 1px solid var(--mm-primary);">VENTA</span>
+                    {% endif %}
+                </td>
+                <td>{{ venta.fecha.strftime('%d/%m/%Y') }}</td>
+                <td>
+                    <div style="font-weight: 600;">{{ venta.cliente.nombre_completo }}</div>
+                    <div style="font-size: 0.85rem; color: rgba(255,255,255,0.5);">CEL: {{ venta.cliente.telefono or 'N/D' }}</div>
+                </td>
+                <td>
+                    {% if venta.detalles|length > 0 %}
+                    <div style="font-weight: 600;">{{ venta.detalles[0].descripcion[:35] }}...</div>
+                    <div style="font-size: 0.85rem; color: var(--mm-accent);">
+                        {% if venta.detalles|length > 1 %}
+                        + {{ venta.detalles|length - 1 }} artículo(s) más
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div style="color: rgba(255,255,255,0.4);">Sin partidas</div>
+                    {% endif %}
+                </td>
+                <td style="font-weight: 800;">${{ "{:,.2f}".format(venta.total) }}</td>
+                <td style="color: #ffc107; font-weight: 600;">${{ "{:,.2f}".format(venta.resta) }}</td>
+                <td>
+                    {% if venta.resta > 0 %}
+                    <span class="status-badge pending">Pendiente</span>
+                    {% else %}
+                    <span class="status-badge">Pagado</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <a href="{{ url_for('missamachines.ver_venta', venta_id=venta.id) }}" class="btn-mm" style="padding: 8px 15px; font-size: 0.75rem; background: transparent; border: 1px solid var(--mm-light);">
+                            <i class="fa-solid fa-file-pdf"></i> Imprimir
+                        </a>
+                        {% if venta.tipo_documento == 'cotizacion' %}
+                        <form action="{{ url_for('missamachines.convertir_venta', venta_id=venta.id) }}" method="POST" style="margin: 0;" onsubmit="return confirm('¿Seguro transformar esta cotización a venta oficial?');">
+                            <button type="submit" class="btn-mm" style="padding: 8px 15px; font-size: 0.75rem; width: 100%;">
+                                <i class="fa-solid fa-check"></i> Vender
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" style="text-align: center; color: rgba(255,255,255,0.5); padding: 40px;">
+                    <i class="fa-solid fa-folder-open mb-3" style="font-size: 2rem;"></i><br>
+                    No hay ventas registradas aún. Haz clic en "Nueva Venta" para comenzar.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

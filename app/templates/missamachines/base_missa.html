@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Missa Machines | {% block title %}{% endblock %}</title>
+    <!-- Google Fonts: Outfit -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --mm-dark: #0b1120;
+            --mm-darker: #040914;
+            --mm-primary: #e65c00;
+            --mm-accent: #ff8c42;
+            --mm-blue: #1e3a8a;
+            --mm-light: #f8fafc;
+            --mm-card-bg: rgba(30, 58, 138, 0.1);
+            --mm-border: rgba(255, 255, 255, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--mm-dark);
+            color: var(--mm-light);
+            min-height: 100vh;
+            display: flex;
+        }
+
+        /* Sidebar Navigation */
+        .mm-sidebar {
+            width: 280px;
+            background: linear-gradient(180deg, var(--mm-darker) 0%, var(--mm-dark) 100%);
+            border-right: 1px solid var(--mm-border);
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+        }
+
+        .mm-brand {
+            padding: 30px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--mm-light);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 1px solid var(--mm-border);
+        }
+        
+        .mm-brand i {
+            color: var(--mm-primary);
+            font-size: 2rem;
+            filter: drop-shadow(0 0 10px rgba(230, 92, 0, 0.5));
+        }
+
+        .mm-nav {
+            padding: 20px 0;
+            flex-grow: 1;
+        }
+
+        .mm-nav-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 30px;
+            color: rgba(255, 255, 255, 0.6);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.05rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-left: 4px solid transparent;
+            gap: 15px;
+        }
+
+        .mm-nav-item i {
+            font-size: 1.2rem;
+        }
+
+        .mm-nav-item:hover, .mm-nav-item.active {
+            color: var(--mm-light);
+            background: rgba(255, 255, 255, 0.02);
+            border-left-color: var(--mm-primary);
+        }
+
+        .mm-nav-item:hover i, .mm-nav-item.active i {
+            color: var(--mm-primary);
+            transform: scale(1.1);
+        }
+
+        /* Main Content */
+        .mm-main {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .mm-header {
+            height: 80px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 40px;
+            background: rgba(4, 9, 20, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--mm-border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .mm-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            background: linear-gradient(90deg, var(--mm-light), var(--mm-accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .mm-user {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: rgba(255,255,255,0.05);
+            padding: 8px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .mm-user:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .mm-content {
+            padding: 40px;
+            flex-grow: 1;
+        }
+
+        /* Reusable UI Components */
+        .mm-card {
+            background: var(--mm-card-bg);
+            border: 1px solid var(--mm-border);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .mm-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+            border-color: rgba(230, 92, 0, 0.3);
+        }
+
+        .btn-mm {
+            background: linear-gradient(135deg, var(--mm-primary), var(--mm-accent));
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.9rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 15px rgba(230, 92, 0, 0.4);
+        }
+
+        .btn-mm:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(230, 92, 0, 0.6);
+            filter: brightness(1.1);
+        }
+
+        /* Utilities */
+        .text-primary { color: var(--mm-primary) !important; }
+        .text-accent { color: var(--mm-accent) !important; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    <aside class="mm-sidebar">
+        <div class="mm-brand">
+            <i class="fa-solid fa-cogs"></i>
+            MISSA
+        </div>
+        <nav class="mm-nav">
+            <a href="{{ url_for('missamachines.dashboard') }}" class="mm-nav-item active">
+                <i class="fa-solid fa-chart-pie"></i> Ventas y Notas
+            </a>
+            <a href="{{ url_for('missamachines.clients') }}" class="mm-nav-item">
+                <i class="fa-solid fa-users"></i> Clientes
+            </a>
+            <hr style="border-color: rgba(255,255,255,0.05); margin: 15px 30px;">
+            <a href="{{ url_for('missamachines.docs') }}" class="mm-nav-item text-primary">
+                <i class="fa-solid fa-book"></i> Documentación
+            </a>
+        </nav>
+        <div style="padding: 20px;">
+            <a href="{{ url_for('home.dashboard') }}" class="mm-nav-item" style="border-radius: 15px; background: rgba(255,255,255,0.05);">
+                <i class="fa-solid fa-arrow-left"></i> Volver a GelMex
+            </a>
+        </div>
+    </aside>
+
+    <main class="mm-main">
+        <header class="mm-header">
+            <div class="mm-title">{% block page_title %}Dashboard{% endblock %}</div>
+            
+            <div class="mm-user">
+                <i class="fa-solid fa-user-tie text-accent"></i>
+                {% if current_user.is_authenticated %}
+                    <span>{{ current_user.nombres }}</span>
+                {% else %}
+                    <span>Admin</span>
+                {% endif %}
+            </div>
+        </header>
+
+        <section class="mm-content">
+            {% block content %}{% endblock %}
+        </section>
+    </main>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

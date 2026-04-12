@@ -1,0 +1,264 @@
+{% extends "missamachines/base_missa.html" %}
+
+{% block title %}Nueva Nota de Venta{% endblock %}
+{% block page_title %}Crear Cotización / Nota (POS){% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section {
+        background: var(--mm-card-bg);
+        border: 1px solid var(--mm-border);
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+        backdrop-filter: blur(10px);
+    }
+    
+    .form-title {
+        color: var(--mm-primary);
+        font-weight: 600;
+        margin-bottom: 20px;
+        text-transform: uppercase;
+        font-size: 1.1rem;
+        border-bottom: 1px solid var(--mm-border);
+        padding-bottom: 10px;
+    }
+
+    .mm-input {
+        width: 100%;
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: white;
+        padding: 12px 15px;
+        border-radius: 8px;
+        font-family: 'Outfit', sans-serif;
+        transition: border-color 0.3s;
+    }
+
+    .mm-input:focus {
+        outline: none;
+        border-color: var(--mm-primary);
+        box-shadow: 0 0 10px rgba(230, 92, 0, 0.2);
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-label {
+        display: block;
+        color: rgba(255,255,255,0.7);
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+    }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    
+    /* POS Table */
+    .pos-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+    
+    .pos-table th {
+        text-align: left;
+        color: rgba(255,255,255,0.6);
+        font-size: 0.85rem;
+        padding-bottom: 10px;
+    }
+    
+    .pos-table td {
+        padding: 5px;
+    }
+    
+    .pos-row {
+        transition: transform 0.2s;
+    }
+
+    .btn-remove {
+        background: rgba(255,0,0,0.2);
+        color: #ff4d4d;
+        border: 1px solid #ff4d4d;
+        padding: 10px;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<form action="{{ url_for('missamachines.nueva_venta') }}" method="POST" id="ventaForm">
+    
+    <!-- Datos del Cliente -->
+    <div class="form-section">
+        <div class="form-title">1. Datos del Cliente</div>
+        <div class="grid-2">
+            <div class="form-group">
+                <label class="form-label">Nombre Completo / Empresa *</label>
+                <input type="text" name="cliente_nombre" class="mm-input" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Sector / Giro</label>
+                <input type="text" name="cliente_sector" class="mm-input" placeholder="Ej. Heladería, Campo, Jugos...">
+            </div>
+        </div>
+        <div class="grid-2">
+            <div class="form-group">
+                <label class="form-label">Teléfono</label>
+                <input type="text" name="cliente_telefono" class="mm-input">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Dirección Completa</label>
+                <input type="text" name="cliente_direccion" class="mm-input">
+            </div>
+        </div>
+    </div>
+
+    <!-- Tipo de Documento y Partidas / POS -->
+    <div class="form-section">
+        <div class="form-title">2. Tipo de Formato</div>
+        <div class="grid-2" style="margin-bottom: 25px;">
+            <label style="cursor: pointer; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: 1px solid var(--mm-primary); display: flex; align-items: center; gap: 10px;">
+                <input type="radio" name="tipo_documento" value="venta" checked required style="width: 20px; height: 20px; accent-color: var(--mm-primary);">
+                <div style="font-weight: bold; color: var(--mm-primary);"><i class="fa-solid fa-file-invoice-dollar"></i> Generar Nota de Venta Oficial</div>
+            </label>
+            <label style="cursor: pointer; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; gap: 10px;">
+                <input type="radio" name="tipo_documento" value="cotizacion" required style="width: 20px; height: 20px;">
+                <div style="font-weight: bold; color: rgba(255,255,255,0.7);"><i class="fa-solid fa-file-signature"></i> Guardar como Cotización (Preliminar)</div>
+            </label>
+        </div>
+
+        <div class="form-title" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>3. Partidas / Servicios</span>
+            <button type="button" class="btn-mm" onclick="addPosRow()" style="padding: 8px 15px; font-size: 0.8rem;">
+                <i class="fa-solid fa-plus"></i> Agregar Fila
+            </button>
+        </div>
+        
+        <table class="pos-table" id="posTable">
+            <thead>
+                <tr>
+                    <th style="width: 10%;">Cant.</th>
+                    <th style="width: 40%;">Descripción (Incluir modelo y detalles si aplica)</th>
+                    <th style="width: 15%;">Subtotal ($)</th>
+                    <th style="width: 15%;">Anticipo ($)</th>
+                    <th style="width: 15%;">Resta ($)</th>
+                    <th style="width: 5%;"></th>
+                </tr>
+            </thead>
+            <tbody id="posBody">
+                <tr class="pos-row">
+                    <td><input type="number" name="item_cantidad[]" class="mm-input pos-cant" value="1" required oninput="calcTotals()"></td>
+                    <td><textarea name="item_descripcion[]" class="mm-input" rows="2" placeholder="Ej. DESPULPADORA MODELO X, 220V..." required></textarea></td>
+                    <td><input type="number" step="0.01" name="item_subtotal[]" class="mm-input pos-sub" value="0" required oninput="calcTotals()"></td>
+                    <td><input type="number" step="0.01" name="item_anticipo[]" class="mm-input pos-ant" value="0" required oninput="calcTotals()"></td>
+                    <td><input type="text" class="mm-input pos-res" value="$0.00" readonly style="background: rgba(255,193,7,0.1); color: #ffc107; font-weight: bold;"></td>
+                    <td><button type="button" class="btn-remove" onclick="removePosRow(this)" disabled><i class="fa-solid fa-trash"></i></button></td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
+        <div style="text-align: right;">
+            <div style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; display: inline-block;">
+                <label style="color: rgba(255,255,255,0.7); margin-right: 15px; font-weight: bold;">Configuración de Impuestos:</label>
+                <select name="tipo_impuesto" id="tipoImpuesto" class="mm-input" style="width: auto; display: inline-block; padding: 8px;" onchange="calcTotals()">
+                    <option value="0">0% (Sin IVA o Exento)</option>
+                    <option value="0.16">16% (IVA estándar)</option>
+                </select>
+            </div>
+            
+            <div style="font-size: 1.1rem; color: rgba(255,255,255,0.6);">Subtotal Neto: <strong id="grandSub" style="color: white;">$0.00</strong></div>
+            <div style="font-size: 1.1rem; color: rgba(255,255,255,0.6); margin-top: 5px;">Impuestos (IVA): <strong id="grandImp" style="color: white;">$0.00</strong></div>
+            <div style="font-size: 1.2rem; margin-top: 5px;">Total Anticipos: <strong id="grandAnt" style="color: #4CAF50;">$0.00</strong></div>
+            <div style="font-size: 1.5rem; margin-top: 10px; font-weight: 800;">TOTAL A RESTAR: <strong id="grandRes" style="color: #ffc107;">$0.00</strong></div>
+            
+            <!-- Hidden var for backend -->
+            <input type="hidden" name="impuestos_val" id="impuestos_val" value="0">
+        </div>
+    </div>
+
+    <!-- Asesor -->
+    <div class="form-section">
+        <div class="grid-2">
+            <div class="form-group mb-0">
+                <label class="form-label">Vendedor / Asesor</label>
+                <input type="text" name="vendedor" class="mm-input" value="ING SERGIO MISAEL MARTINEZ MORENO">
+            </div>
+        </div>
+    </div>
+
+    <div style="text-align: right; margin-bottom: 50px;">
+        <a href="{{ url_for('missamachines.dashboard') }}" class="btn-mm" style="background: transparent; border: 1px solid var(--mm-border); margin-right: 15px;">Cancelar</a>
+        <button type="submit" class="btn-mm"><i class="fa-solid fa-save pe-2"></i> Guardar e Imprimir Nota</button>
+    </div>
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function calcTotals() {
+        let rows = document.querySelectorAll('.pos-row');
+        let grandSub = 0;
+        let grandAnt = 0;
+        let grandRes = 0;
+        
+        rows.forEach(row => {
+            let s = parseFloat(row.querySelector('.pos-sub').value) || 0;
+            let a = parseFloat(row.querySelector('.pos-ant').value) || 0;
+            let r = s - a;
+            
+            row.querySelector('.pos-res').value = "$" + r.toFixed(2);
+            
+            grandSub += s;
+            grandAnt += a;
+            grandRes += r; // We won't use this directly anymore
+        });
+        
+        let impuestosRate = parseFloat(document.getElementById('tipoImpuesto').value) || 0;
+        let impuestos = grandSub * impuestosRate;
+        let totalOperacion = grandSub + impuestos;
+        let grandResTotal = totalOperacion - grandAnt;
+        
+        document.getElementById('grandImp').innerText = "$" + impuestos.toFixed(2);
+        document.getElementById('grandSub').innerText = "$" + grandSub.toFixed(2);
+        document.getElementById('grandAnt').innerText = "$" + grandAnt.toFixed(2);
+        document.getElementById('grandRes').innerText = "$" + grandResTotal.toFixed(2);
+        document.getElementById('impuestos_val').value = impuestos.toFixed(2);
+    }
+    
+    function addPosRow() {
+        let tbody = document.getElementById('posBody');
+        let rowCount = tbody.children.length;
+        let tr = document.createElement('tr');
+        tr.className = "pos-row";
+        tr.innerHTML = `
+            <td><input type="number" name="item_cantidad[]" class="mm-input pos-cant" value="1" required oninput="calcTotals()"></td>
+            <td><textarea name="item_descripcion[]" class="mm-input" rows="2" placeholder="Ej. Transporte, Servicio, etc..." required></textarea></td>
+            <td><input type="number" step="0.01" name="item_subtotal[]" class="mm-input pos-sub" value="0" required oninput="calcTotals()"></td>
+            <td><input type="number" step="0.01" name="item_anticipo[]" class="mm-input pos-ant" value="0" required oninput="calcTotals()"></td>
+            <td><input type="text" class="mm-input pos-res" value="$0.00" readonly style="background: rgba(255,193,7,0.1); color: #ffc107; font-weight: bold;"></td>
+            <td><button type="button" class="btn-remove" onclick="removePosRow(this)"><i class="fa-solid fa-trash"></i></button></td>
+        `;
+        tbody.appendChild(tr);
+        document.querySelector('.btn-remove').disabled = false; // enable original if exists
+        calcTotals();
+    }
+    
+    function removePosRow(btn) {
+        let tbody = document.getElementById('posBody');
+        if (tbody.children.length > 1) {
+            btn.closest('tr').remove();
+            if (tbody.children.length === 1) {
+                tbody.querySelector('.btn-remove').disabled = true;
+            }
+            calcTotals();
+        }
+    }
+    
+    // Init total
+    calcTotals();
+</script>
+{% endblock %}
